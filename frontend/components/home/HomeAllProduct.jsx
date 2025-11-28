@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import ProductCard from "./ProductCard";
 import ProductCardSkeleton from "../skeletons/ProductCardSkeleton";
 import { apiFetch } from "../../utils/api";
@@ -10,37 +10,77 @@ export default function CategoryTabsSection() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    let retryTimer = null;
+
     const fetchData = async () => {
       try {
+        setLoading(true);
+        setError(false);
+
         const [pRes, cRes] = await Promise.all([
           apiFetch("/api/products"),
           apiFetch("/api/categories"),
         ]);
-        setProducts(pRes);
-        setCategories(cRes);
+
+        if (cancelled) return;
+
+        setProducts(Array.isArray(pRes) ? pRes : []);
+        setCategories(Array.isArray(cRes) ? cRes : []);
         setLoading(false);
       } catch (err) {
         console.log("Error fetching data:", err);
+        if (cancelled) return;
+
+        setError(true);
         setLoading(false);
+
+        // ✅ Auto retry (optional): 3s পর আবার চেষ্টা করবে
+        retryTimer = setTimeout(fetchData, 3000);
       }
     };
+
     fetchData();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, []);
 
-  const filtered = activeCat
-    ? products.filter((p) => String(p.category?._id) === String(activeCat))
-    : products;
+  const filtered = useMemo(() => {
+    if (!activeCat) return products;
+    return products.filter(
+      (p) => String(p.category?._id) === String(activeCat)
+    );
+  }, [activeCat, products]);
 
-  if (loading)
+  // ✅ Skeleton will show:
+  // 1) loading=true
+  // 2) error=true (api fail)
+  // 3) data empty (products/categories 0)
+  const shouldShowSkeleton =
+    loading || error || products.length === 0 || categories.length === 0;
+
+  if (shouldShowSkeleton) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 px-4 py-10">
         {Array.from({ length: 8 }).map((_, i) => (
           <ProductCardSkeleton key={i} />
         ))}
+
+        {/* ছোট্ট status text */}
+        <p className="col-span-full text-center text-sm text-gray-500 mt-4">
+          {error
+            ? "ডেটা লোড হচ্ছে না—আবার চেষ্টা করা হচ্ছে..."
+            : "ডেটা লোড হচ্ছে..."}
+        </p>
       </div>
     );
+  }
 
   return (
     <motion.section
@@ -59,10 +99,10 @@ export default function CategoryTabsSection() {
           animate={{ width: "60px" }}
           transition={{ duration: 0.6 }}
           className="block mx-auto mt-2 h-[2px] bg-gradient-to-r from-blue-600 to-pink-500 rounded-full"
-        ></motion.span>
+        />
       </h2>
 
-      {/* ✅ Category Buttons with Hover Zoom */}
+      {/* ✅ Category Buttons */}
       <div className="flex flex-wrap gap-3 justify-center mb-8">
         {categories.map((cat) => (
           <button
@@ -100,7 +140,7 @@ export default function CategoryTabsSection() {
           animate={{ width: "60px" }}
           transition={{ duration: 0.6, delay: 0.1 }}
           className="block mx-auto mt-2 h-[2px] bg-gradient-to-r from-pink-500 to-blue-600 rounded-full"
-        ></motion.span>
+        />
       </h2>
 
       {/* ✅ Product Grid */}
@@ -111,8 +151,9 @@ export default function CategoryTabsSection() {
           ))}
         </div>
       ) : (
+        // Note: filtered empty but products exist => actual empty category
         <p className="text-center text-gray-500 py-10">
-          এই ক্যাটাগরিতে কোনো প্রোডাক্ট পাওয়া যায়নি।
+          কোনো প্রোডাক্ট পাওয়া যায়নি।
         </p>
       )}
     </motion.section>

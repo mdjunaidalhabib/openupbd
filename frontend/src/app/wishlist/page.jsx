@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCart } from "../../../context/CartContext";
 import { apiFetch } from "../../../utils/api";
 import ProductCard from "../../../components/home/ProductCard";
-import CategorySkeleton from "../../../components/skeletons/CategorySkeleton";
+import CartSkeleton from "../../../components/skeletons/CartSkeleton"; // ✅ CartSkeleton import
 
 export default function WishlistPage() {
   const { wishlist } = useCart();
@@ -29,8 +29,18 @@ export default function WishlistPage() {
     return allProducts.filter((p) => wishlist.includes(String(p._id)));
   }, [allProducts, wishlist]);
 
-  // 🌀 Skeleton loader
-  if (loading) return <CategorySkeleton />;
+  // 🌀 Skeleton loader (✅ container-এর মধ্যে)
+  if (loading) {
+    return (
+      <div className="bg-pink-50">
+        <div className="container mx-auto p-3 sm:p-6 space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <CartSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // 🔹 Empty state
   if (wishlistProducts.length === 0) {
@@ -49,7 +59,7 @@ export default function WishlistPage() {
     );
   }
 
-  // ✅ Wishlist view (same style as CategoryPage)
+  // ✅ Wishlist view
   return (
     <div className="bg-pink-50">
       <div className="container mx-auto p-3 md:p-6">
@@ -58,6 +68,7 @@ export default function WishlistPage() {
             ❤️ আপনার উইশলিস্ট
           </span>
         </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {wishlistProducts.map((p) => (
             <ProductCard key={p._id} product={p} />

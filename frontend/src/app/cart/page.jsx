@@ -6,17 +6,7 @@ import { useCart } from "../../../context/CartContext";
 import { FaPlus, FaMinus, FaTrash, FaHeart } from "react-icons/fa";
 import { apiFetch } from "../../../utils/api";
 import CheckoutButton from "../../../components/home/CheckoutButton";
-
-// ✅ Skeleton Loader
-const CartSkeleton = () => (
-  <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4 animate-pulse">
-    <div className="w-20 h-20 bg-gray-200 rounded"></div>
-    <div className="flex-1 space-y-2">
-      <div className="h-4 w-32 bg-gray-200 rounded"></div>
-      <div className="h-4 w-20 bg-gray-200 rounded"></div>
-    </div>
-  </div>
-);
+import CartSkeleton from "../../../components/skeletons/CartSkeleton";
 
 // ✅ Memoized single Cart Item component
 const CartItem = memo(
@@ -170,7 +160,6 @@ export default function CartPage() {
     <main className="bg-pink-50 ">
       <div className="container mx-auto px-3 sm:px-6 py-6">
         {/* ✅ Header */}
-
         <div className="mb-2">
           {/* টাইটেল — সবসময় প্রথম লাইনে */}
           <h2 className="text-center text-xl sm:text-2xl font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text mb-3">
@@ -183,12 +172,12 @@ export default function CartPage() {
               <button
                 onClick={handleClearCart}
                 className="
-          bg-red-500 text-white 
-          px-3 py-1.5 sm:px-4 sm:py-2
-          text-xs sm:text-sm font-medium
-          rounded-md sm:rounded-lg
-          hover:bg-red-600 transition
-        "
+                  bg-red-500 text-white 
+                  px-3 py-1.5 sm:px-4 sm:py-2
+                  text-xs sm:text-sm font-medium
+                  rounded-md sm:rounded-lg
+                  hover:bg-red-600 transition
+                "
               >
                 সব মুছে ফেলুন
               </button>
