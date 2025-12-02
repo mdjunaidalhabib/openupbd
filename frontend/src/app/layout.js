@@ -6,8 +6,8 @@ import { UserProvider } from "../../context/UserContext";
 import PWARegister from "../../components/pwa-register";
 
 export const metadata = {
-  title: "Open Up BD",
-  description: "Open Up BD Store",
+  title: "openupbd",
+  description: "openupbd Store",
   icons: {
     icon: "/ico.ico",
     shortcut: "/ico.ico",
