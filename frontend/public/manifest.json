@@ -1,7 +1,7 @@
 {
-  "name": "Open Up BD",
-  "short_name": "openupbd",
-  "description": "Open Up BD store",
+  "name": "openupbd",
+  "short_name": "openup",
+  "description": "openupbd store",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -1,7 +1,7 @@
 {
-  "name": "Open Up BD Admin",
+  "name": "openupbd Admin",
   "short_name": "Admin panel",
-  "description": "Admin Panel for Open Up BD",
+  "description": "Admin Panel for openupbd",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
