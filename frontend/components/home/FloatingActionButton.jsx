@@ -23,7 +23,7 @@ const FloatingActionButton = () => {
       >
         {/* ফোন আইকন */}
         <a
-          href="tel:+8801317145962"
+          href="tel:+8801975579365"
           className={`bg-green-500 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform ${
             open ? "animate-bounce delay-100" : ""
           }`}
@@ -33,7 +33,7 @@ const FloatingActionButton = () => {
 
         {/* WhatsApp আইকন */}
         <a
-          href="https://wa.me/8801317145962"
+          href="https://wa.me/8801975579365"
           target="_blank"
           rel="noopener noreferrer"
           className={`bg-[#25D366] text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform ${
