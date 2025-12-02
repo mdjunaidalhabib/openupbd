@@ -125,7 +125,7 @@ export default function Navbar() {
             )}
 
             <span className="text-xl font-bold text-pink-600 block min-w-[100px] truncate">
-              {navbar?.brand?.name?.trim() || "Your fashion name"}
+              {navbar?.brand?.name?.trim() || "Your business name"}
             </span>
           </Link>
 

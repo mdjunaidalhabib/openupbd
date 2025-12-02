@@ -6,12 +6,12 @@ import { UserProvider } from "../../context/UserContext";
 import PWARegister from "../../components/pwa-register";
 
 export const metadata = {
-  title: "Habib's Fashion",
-  description: "Habib's Fashion store",
+  title: "Open Up BD",
+  description: "Open Up BD Store",
   icons: {
-    icon: "/Logo-Rounted.ico",
-    shortcut: "/Logo-Rounted.ico",
-    apple: "/Logo-Rounted.ico",
+    icon: "/ico.ico",
+    shortcut: "/ico.ico",
+    apple: "/ico.ico",
   },
 };
 

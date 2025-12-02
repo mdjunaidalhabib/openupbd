@@ -1,7 +1,7 @@
 {
-  "name": "Habib's Fashion",
-  "short_name": "Habib",
-  "description": "Habib's Fashion store",
+  "name": "Open Up BD",
+  "short_name": "openupbd",
+  "description": "Open Up BD store",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

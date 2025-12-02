@@ -1,7 +1,7 @@
 {
-  "name": "Habib's Fashion Admin",
-  "short_name": "Admin",
-  "description": "Admin Panel for Habib's Fashion",
+  "name": "Open Up BD Admin",
+  "short_name": "Admin panel",
+  "description": "Admin Panel for Open Up BD",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

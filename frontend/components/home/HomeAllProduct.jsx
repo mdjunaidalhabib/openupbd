@@ -38,7 +38,7 @@ export default function CategoryTabsSection() {
         setError(true);
         setLoading(false);
 
-        // ✅ Auto retry (optional): 3s পর আবার চেষ্টা করবে
+        // ✅ Auto retry (optional)
         retryTimer = setTimeout(fetchData, 3000);
       }
     };
@@ -58,10 +58,6 @@ export default function CategoryTabsSection() {
     );
   }, [activeCat, products]);
 
-  // ✅ Skeleton will show:
-  // 1) loading=true
-  // 2) error=true (api fail)
-  // 3) data empty (products/categories 0)
   const shouldShowSkeleton =
     loading || error || products.length === 0 || categories.length === 0;
 
@@ -72,7 +68,6 @@ export default function CategoryTabsSection() {
           <ProductCardSkeleton key={i} />
         ))}
 
-        {/* ছোট্ট status text */}
         <p className="col-span-full text-center text-sm text-gray-500 mt-4">
           {error
             ? "ডেটা লোড হচ্ছে না—আবার চেষ্টা করা হচ্ছে..."
@@ -102,32 +97,50 @@ export default function CategoryTabsSection() {
         />
       </h2>
 
-      {/* ✅ Category Buttons */}
-      <div className="flex flex-wrap gap-3 justify-center mb-8">
-        {categories.map((cat) => (
-          <button
-            key={cat._id}
-            onClick={() =>
-              setActiveCat((prev) => (prev === cat._id ? null : cat._id))
-            }
-            className={`flex flex-col items-center justify-center w-20 sm:w-24 md:w-28 p-2 rounded-xl transition-all duration-300 border shadow-sm hover:shadow-md ${
-              activeCat === cat._id
-                ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
-                : "bg-pink-100 hover:bg-pink-200 border-pink-300"
-            }`}
-          >
-            <div className="overflow-hidden rounded-full border border-gray-300 mb-1">
-              <img
-                src={cat.image || "/no-image.png"}
-                alt={cat.name}
-                className="w-10 h-10 sm:w-12 sm:h-12 object-cover transition-transform duration-300 hover:scale-110"
-              />
-            </div>
-            <span className="text-xs sm:text-sm font-medium text-center">
-              {cat.name}
-            </span>
-          </button>
-        ))}
+      {/* CATEGORY BUTTONS → mobile: 2 rows + horizontal scroll */}
+      <div
+        className="
+    overflow-x-auto overflow-y-hidden
+    px-1 mb-8
+    [&::-webkit-scrollbar]:hidden scrollbar-none
+    sm:overflow-visible
+  "
+      >
+        <div
+          className="
+      grid grid-rows-2 grid-flow-col gap-3 
+      auto-cols-[6rem]
+      sm:grid-rows-1 sm:grid-cols-4 sm:justify-center
+    "
+        >
+          {categories.map((cat) => (
+            <button
+              key={cat._id}
+              onClick={() =>
+                setActiveCat((prev) => (prev === cat._id ? null : cat._id))
+              }
+              className={`flex flex-col items-center justify-center 
+          w-24 p-2 rounded-xl 
+          transition-all duration-300 border shadow-sm hover:shadow-md
+          ${
+            activeCat === cat._id
+              ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
+              : "bg-pink-100 hover:bg-pink-200 border-pink-300"
+          }`}
+            >
+              <div className="overflow-hidden rounded-full border border-gray-300 mb-1">
+                <img
+                  src={cat.image || "/no-image.png"}
+                  alt={cat.name}
+                  className="w-10 h-10 object-cover transition-transform duration-300 hover:scale-110"
+                />
+              </div>
+              <span className="text-xs font-medium text-center">
+                {cat.name}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ✅ Product Heading */}
@@ -151,7 +164,6 @@ export default function CategoryTabsSection() {
           ))}
         </div>
       ) : (
-        // Note: filtered empty but products exist => actual empty category
         <p className="text-center text-gray-500 py-10">
           কোনো প্রোডাক্ট পাওয়া যায়নি।
         </p>
