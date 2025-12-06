@@ -21,6 +21,7 @@ function authenticateJWT(req, res, next) {
 // 🔹 Google Login (redirect → state এ carry করা হচ্ছে)
 router.get("/google", (req, res, next) => {
   const redirect = req.query.redirect;
+
   passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account",
@@ -38,13 +39,19 @@ router.get(
   (req, res) => {
     const { token, user } = req.user;
 
+    // ✅ CLIENT_URLS থেকে প্রথম client url নিবে
+    const clientUrls = process.env.CLIENT_URLS;
+    if (!clientUrls) {
+      return res.status(500).json({
+        error: "CLIENT_URLS is not set in environment variables",
+      });
+    }
+    const clientUrl = clientUrls.split(",")[0].trim();
+
     // state param থেকে redirect (optional)
     const redirect = req.query.state
       ? decodeURIComponent(req.query.state)
       : "/";
-
-    const clientUrl =
-      process.env.CLIENT_URLS?.split(",")[0] || "http://localhost:3000";
 
     // সবসময় /auth/callback এ পাঠানো হবে
     res.redirect(

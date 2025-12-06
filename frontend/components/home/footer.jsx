@@ -33,7 +33,6 @@ const quickLinksData = [
 
 export default function Footer() {
   const [data, setData] = useState(null);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
 
@@ -42,27 +41,18 @@ export default function Footer() {
 
     const apiBase = process.env.NEXT_PUBLIC_API_URL;
     const apiUrl = `${apiBase}/footer`;
-    const categoriesUrl = `${apiBase}/categories`;
 
     const fetchData = async () => {
       try {
-        const [footerRes, categoriesRes] = await Promise.all([
-          fetch(apiUrl, { signal: controller.signal }),
-          fetch(categoriesUrl, { signal: controller.signal }),
-        ]);
+        const footerRes = await fetch(apiUrl, {
+          signal: controller.signal,
+        });
 
         const footerJson = await footerRes.json();
-        const categoriesJson = await categoriesRes.json();
-
         setData(footerJson);
-
-        const cats = Array.isArray(categoriesJson)
-          ? categoriesJson
-          : categoriesJson?.data || [];
-        setCategories(cats);
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error("❌ Failed to load footer or categories", err);
+          console.error("❌ Failed to load footer", err);
         }
       } finally {
         setLoading(false);
@@ -80,7 +70,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-pink-100 text-gray-900 pt-10 pb-2 px-6 md:px-12 mb-14 md:mb-0">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
         {/* 1. Brand + About */}
         <div>
           <div className="flex items-center gap-3 mb-3">
@@ -141,28 +131,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* 3. Categories */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Categories</h2>
-          <ul className="space-y-2 text-sm">
-            {categories.length > 0 ? (
-              categories.map((cat) => (
-                <li key={cat.name}>
-                  <Link
-                    href={`/categories`}
-                    className="hover:text-pink-600 block min-w-[100px] truncate"
-                  >
-                    {cat.name}
-                  </Link>
-                </li>
-              ))
-            ) : (
-              <li className="text-gray-600">No categories yet.</li>
-            )}
-          </ul>
-        </div>
-
-        {/* 4. Contact */}
+        {/* 3. Contact */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Contact Us</h2>
           <ul className="space-y-2 text-sm">
@@ -170,8 +139,7 @@ export default function Footer() {
               <li className="flex items-center gap-2">
                 <FaMapMarkerAlt />
                 <a
-                  href={`https://maps.app.goo.gl/Qvc2AX1ELx5JCaWY9?g_st=ipc
-                  )}`}
+                  href={`https://maps.app.goo.gl/Qvc2AX1ELx5JCaWY9?g_st=ipc`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-pink-600"
