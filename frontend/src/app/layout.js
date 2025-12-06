@@ -10,9 +10,9 @@ export const metadata = {
   title: "openupbd",
   description: "openupbd Store",
   icons: {
-    icon: "/ico.ico",
-    shortcut: "/ico.ico",
-    apple: "/ico.ico",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 

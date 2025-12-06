@@ -1,4 +1,3 @@
-"use client";
 import ImageSlider from "../../components/home/ImageSlider";
 import HomeAllProduct from "../../components/home/HomeAllProduct";
 export default function HomePage() {
