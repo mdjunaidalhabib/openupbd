@@ -28,7 +28,7 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
-    apiFetch("/api/products")
+    apiFetch("/products")
       .then((data) => setAllProducts(data))
       .catch((err) => console.error("❌ Failed to load products", err))
       .finally(() => setProductsLoading(false));
@@ -104,7 +104,7 @@ export default function CheckoutPage() {
     };
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderData),
@@ -136,7 +136,7 @@ export default function CheckoutPage() {
       {productsLoading ? (
         <p className="text-center text-gray-600">⏳ প্রোডাক্ট লোড হচ্ছে...</p>
       ) : !cartItems.length ? (
-        <p className="text-center text-gray-600">🛒 আপনার কার্ট খালি</p>
+        <p className="text-center text-gray-600">🛒 আপনার প্রোডাক্ট খালি</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Billing Info */}
