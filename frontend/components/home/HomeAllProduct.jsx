@@ -100,27 +100,19 @@ export default function CategoryTabsSection() {
       {/* CATEGORY BUTTONS → mobile: 2 rows + horizontal scroll */}
       <div
         className="
-    overflow-x-auto overflow-y-hidden
     px-1 mb-8
-    [&::-webkit-scrollbar]:hidden scrollbar-none
-    sm:overflow-visible
-  "
+    overflow-x-auto overflow-y-hidden
+    [&::-webkit-scrollbar]:hidden scrollbar-none"
       >
-        <div
-          className="
-      grid grid-rows-2 grid-flow-col gap-3 
-      auto-cols-[6rem]
-      sm:grid-rows-1 sm:grid-cols-4 sm:justify-center
-    "
-        >
+        <div className=" grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem] sm:flex sm:flex-wrap sm:justify-center sm:gap-3 sm:items-start">
           {categories.map((cat) => (
             <button
               key={cat._id}
               onClick={() =>
                 setActiveCat((prev) => (prev === cat._id ? null : cat._id))
               }
-              className={`flex flex-col items-center justify-center 
-          w-24 p-2 rounded-xl 
+              className={`flex-none flex flex-col items-center justify-center
+          w-24 h-24 p-2 rounded-xl
           transition-all duration-300 border shadow-sm hover:shadow-md
           ${
             activeCat === cat._id
@@ -135,7 +127,9 @@ export default function CategoryTabsSection() {
                   className="w-10 h-10 object-cover transition-transform duration-300 hover:scale-110"
                 />
               </div>
-              <span className="text-xs font-medium text-center">
+
+              {/* fixed text area so height doesn't change */}
+              <span className="text-xs font-medium text-center leading-tight line-clamp-2">
                 {cat.name}
               </span>
             </button>
