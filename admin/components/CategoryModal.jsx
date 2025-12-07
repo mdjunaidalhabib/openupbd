@@ -1,68 +1,45 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useEffect } from "react";
 
-export default function AddSlideModal({
-  showModal,
-  closeModal,
-  onSubmit,
+export default function CategoryModal({
+  show,
+  editId,
+  categoriesLength = 0,
+
+  name,
+  setName,
+
+  order,
+  setOrder,
+
+  isActive,
+  setIsActive,
+
+  file,
+  setFile,
+
+  preview,
+  setPreview,
+
   loading,
-  editId = null,
-  initialData = null,
-  slidesLength = 0,
+  onClose,
+  onSubmit,
 }) {
   const dropRef = useRef(null);
 
-  const [title, setTitle] = useState("");
-  const [href, setHref] = useState("");
-  const [order, setOrder] = useState(1);
-  const [isActive, setIsActive] = useState(true);
+  // ✅ dropdown limit like slider
+  const maxSerial = editId ? categoriesLength : categoriesLength + 1;
 
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState("");
-
-  // ✅ dropdown limit
-  const maxSerial = editId ? slidesLength : slidesLength + 1;
-
-  // ✅ Edit mode / initialData load
+  // ✅ New modal open => last serial + active default
   useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.title || "");
-      setHref(initialData.href || "");
-      setOrder(
-        initialData.order && initialData.order <= slidesLength
-          ? initialData.order
-          : 1
-      );
-      setIsActive(initialData.isActive ?? true);
-      setPreview(initialData.src || "");
-      setFile(null);
-    }
-  }, [initialData, slidesLength]);
-
-  // ✅ NEW: New slide open হলে ফর্ম ক্লিয়ার হবে
-  useEffect(() => {
-    if (showModal && !initialData && !editId) {
-      setTitle("");
-      setHref("");
-      setOrder(slidesLength + 1);
+    if (show && !editId) {
+      setOrder(categoriesLength + 1);
       setIsActive(true);
-      setFile(null);
-      setPreview("");
     }
-  }, [showModal, initialData, editId, slidesLength]);
+  }, [show, editId, categoriesLength, setOrder, setIsActive]);
 
-  if (!showModal) return null;
-
-  const handleClose = () => {
-    setTitle("");
-    setHref("");
-    setOrder(1);
-    setIsActive(true);
-    setFile(null);
-    setPreview("");
-    closeModal?.();
-  };
+  if (!show) return null;
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -73,22 +50,6 @@ export default function AddSlideModal({
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const slideObj = {
-      ...(initialData || {}),
-      _id: editId || undefined,
-      title,
-      href,
-      order,
-      isActive,
-      imageFile: file,
-    };
-
-    await onSubmit?.(slideObj);
-  };
-
   return (
     <>
       <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40" />
@@ -96,37 +57,26 @@ export default function AddSlideModal({
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl">
           <h2 className="text-xl font-bold mb-4 text-center">
-            {editId ? "✏️ Edit Slide" : "➕ Add New Slide"}
+            {editId ? "✏️ Edit Category" : "➕ Add Category"}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={onSubmit} className="space-y-3">
+            {/* Name */}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Slide Title
+                Category Name
               </label>
               <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Slide title"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Category name"
                 className="border w-full p-2 rounded"
                 required
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Slide Link (Href)
-              </label>
-              <input
-                value={href}
-                onChange={(e) => setHref(e.target.value)}
-                placeholder="Href (optional)"
-                className="border w-full p-2 rounded"
-              />
-            </div>
-
+            {/* ✅ Serial + Status */}
             <div className="grid grid-cols-2 gap-3">
-              {/* ✅ Serial dropdown fixed */}
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Serial No
@@ -159,9 +109,10 @@ export default function AddSlideModal({
               </div>
             </div>
 
+            {/* Image uploader */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Slide Image
+                Category Image
               </label>
 
               <div
@@ -200,10 +151,11 @@ export default function AddSlideModal({
               </div>
             </div>
 
+            {/* Buttons */}
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={handleClose}
+                onClick={onClose}
                 className="px-4 py-2 border rounded"
                 disabled={loading}
               >

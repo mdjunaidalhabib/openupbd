@@ -2,7 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import Toast from "../components/Toast";
 
-export default function ProductForm({ product, onClose, onSaved }) {
+export default function ProductForm({
+  product,
+  productsLength = 0, // ✅ dropdown limit
+  onClose,
+  onSaved,
+}) {
   const [categories, setCategories] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState(null);
@@ -19,13 +24,17 @@ export default function ProductForm({ product, onClose, onSaved }) {
     image: null, // main image (File)
     images: [], // gallery (File|string)
     reviews: [],
+
+    // ✅ NEW: product serial + status
+    order: 1,
+    isActive: true,
   });
 
   const [previewImage, setPreviewImage] = useState("");
   const mainDropRef = useRef(null);
   const galleryDropRef = useRef(null);
 
-  // Load Categories
+  // Load Categories (serial + hidden data allow)
   const loadCategories = async () => {
     try {
       const res = await fetch(
@@ -33,7 +42,11 @@ export default function ProductForm({ product, onClose, onSaved }) {
       );
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setCategories(Array.isArray(data) ? data : []);
+
+      let arr = Array.isArray(data) ? data : [];
+      arr.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      setCategories(arr);
     } catch (err) {
       console.error("Category load error:", err);
       setCategories([]);
@@ -59,6 +72,10 @@ export default function ProductForm({ product, onClose, onSaved }) {
           image: null,
           images: product.images || [],
           reviews: product.reviews || [],
+
+          // ✅ NEW
+          order: product.order || 1,
+          isActive: product.isActive ?? true,
         });
         setPreviewImage(product.image || "");
       } else {
@@ -74,13 +91,17 @@ export default function ProductForm({ product, onClose, onSaved }) {
           image: null,
           images: [],
           reviews: [],
+
+          // ✅ NEW defaults
+          order: productsLength + 1,
+          isActive: true,
         });
         setPreviewImage("");
       }
     };
 
     init();
-  }, [product]);
+  }, [product, productsLength]);
 
   // Main Image select + preview
   const setMainImage = (file) => {
@@ -168,13 +189,10 @@ export default function ProductForm({ product, onClose, onSaved }) {
   };
 
   // Submit
-  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ main image required check (new + edit both)
     const hasMainImage = !!form.image || !!previewImage;
-
     if (!form.name || !form.price || !form.category || !hasMainImage) {
       setToast({
         message: "⚠️ নাম, দাম, ক্যাটাগরি ও প্রধান ছবি দেওয়া জরুরি!",
@@ -226,6 +244,11 @@ export default function ProductForm({ product, onClose, onSaved }) {
     }
   };
 
+  const selectedCatObj = categories.find((c) => c._id === form.category);
+
+  // ✅ dropdown limit like slider
+  const maxSerial = product ? productsLength : productsLength + 1;
+
   return (
     <>
       <form
@@ -239,6 +262,59 @@ export default function ProductForm({ product, onClose, onSaved }) {
           </h1>
           <p className="text-sm text-gray-500">শপের জন্য প্রোডাক্ট তথ্য দিন</p>
         </div>
+
+        {/* ✅ Product Serial + Status */}
+        <section className="bg-gray-50 rounded-xl p-4 space-y-2">
+          <h2 className="font-bold text-gray-700">
+            📌 Product Serial & Status
+          </h2>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold mb-1">
+                Serial No
+              </label>
+              <select
+                value={form.order}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, order: Number(e.target.value) }))
+                }
+                className="border w-full p-2 rounded bg-white"
+              >
+                {Array.from({ length: maxSerial }, (_, i) => i + 1).map(
+                  (num) => (
+                    <option key={num} value={num}>
+                      {num}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1">Status</label>
+              <select
+                value={form.isActive ? "active" : "hidden"}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    isActive: e.target.value === "active",
+                  }))
+                }
+                className="border w-full p-2 rounded bg-white"
+              >
+                <option value="active">Active</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </div>
+          </div>
+
+          {form.isActive === false && (
+            <p className="text-xs text-red-600 mt-1">
+              ⚠ এই প্রোডাক্ট Hidden আছে — Public site-এ দেখাবে না।
+            </p>
+          )}
+        </section>
 
         {/* Basic Info */}
         <section className="bg-gray-50 rounded-xl p-4 space-y-3">
@@ -337,12 +413,21 @@ export default function ProductForm({ product, onClose, onSaved }) {
             }
           >
             <option value="">-- ক্যাটাগরি বেছে নিন --</option>
+
             {categories.map((c) => (
               <option key={c._id} value={c._id}>
-                {c.name}
+                {`${c.order || 0}. ${c.name}${
+                  c.isActive === false ? " (Hidden)" : ""
+                }`}
               </option>
             ))}
           </select>
+
+          {selectedCatObj?.isActive === false && (
+            <p className="text-xs text-red-600 mt-1">
+              ⚠ এই ক্যাটাগরি Hidden — Public site-এ এই প্রোডাক্ট দেখাবে না।
+            </p>
+          )}
         </section>
 
         {/* ✅ Premium Main Image */}

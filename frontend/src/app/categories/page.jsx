@@ -19,7 +19,7 @@ export default function CategoryPage() {
   const [catError, setCatError] = useState(false);
   const [prodError, setProdError] = useState(false);
 
-  // 🔹 প্রোডাক্ট লোড (memoized)
+  // 🔹 Products fetch (memoized)
   const fetchProducts = useCallback((categoryId) => {
     if (!categoryId) return;
 
@@ -34,13 +34,20 @@ export default function CategoryPage() {
       })
       .catch((err) => {
         console.error(err);
-        setProdError(true);
-        setProducts([]); // clear to avoid stale data
+
+        // ✅ hidden category / forbidden (403) হলে graceful fallback
+        if (err?.response?.status === 403) {
+          setProducts([]);
+          setProdError(false); // error message না দেখিয়ে empty দেখাবে
+        } else {
+          setProdError(true);
+          setProducts([]); // clear stale data
+        }
       })
       .finally(() => setProductLoading(false));
   }, []);
 
-  // 🔹 ক্যাটাগরি লোড
+  // 🔹 Categories fetch (only active + serial sorted)
   useEffect(() => {
     let cancelled = false;
     let retryTimer = null;
@@ -53,7 +60,14 @@ export default function CategoryPage() {
         const res = await axios.get(`${API_URL}/categories`);
         if (cancelled) return;
 
-        const data = Array.isArray(res.data) ? res.data : [];
+        let data = Array.isArray(res.data) ? res.data : [];
+
+        // ✅ extra safe: only active categories
+        data = data.filter((c) => c.isActive !== false);
+
+        // ✅ serial sort
+        data.sort((a, b) => (a.order || 0) - (b.order || 0));
+
         setCategories(data);
 
         if (data.length > 0) {
@@ -73,7 +87,7 @@ export default function CategoryPage() {
         setCatError(true);
         setLoading(false);
 
-        // ✅ Auto retry (optional): 3s পর আবার চেষ্টা করবে
+        // ✅ Auto retry after 3s
         retryTimer = setTimeout(loadCategories, 3000);
       }
     };
@@ -87,19 +101,17 @@ export default function CategoryPage() {
   }, [fetchProducts]);
 
   // ✅ category skeleton should show if:
-  // loading OR error OR no categories
   const shouldShowCategorySkeleton = useMemo(() => {
     return loading || catError || categories.length === 0;
   }, [loading, catError, categories.length]);
 
   // ✅ product skeleton should show if:
-  // products loading OR product error OR selected category but no products yet
   const shouldShowProductSkeleton = useMemo(() => {
     if (!selectedCategory) return false;
-    return productLoading || prodError || products.length === 0;
-  }, [selectedCategory, productLoading, prodError, products.length]);
+    return productLoading || prodError;
+  }, [selectedCategory, productLoading, prodError]);
 
-  // 🌀 প্রথমবার / category fail হলে পুরো Skeleton always
+  // 🌀 First load / category fail skeleton
   if (shouldShowCategorySkeleton) {
     return (
       <div>
@@ -157,7 +169,7 @@ export default function CategoryPage() {
               : "👉 প্রথমে কোনো Category সিলেক্ট করুন"}
           </h3>
 
-          {/* ✅ Products skeleton always when fail/empty/loading */}
+          {/* ✅ Products skeleton when loading or error */}
           {shouldShowProductSkeleton ? (
             <div>
               <ProductDetailsSkeleton />
@@ -167,12 +179,16 @@ export default function CategoryPage() {
                   : "প্রোডাক্ট লোড হচ্ছে..."}
               </p>
             </div>
-          ) : (
+          ) : products.length ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {products.map((p) => (
                 <ProductCard key={p._id} product={p} />
               ))}
             </div>
+          ) : (
+            <p className="text-center text-gray-500 py-10">
+              কোনো প্রোডাক্ট পাওয়া যায়নি।
+            </p>
           )}
         </div>
       </div>

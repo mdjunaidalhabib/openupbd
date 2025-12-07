@@ -1,15 +1,15 @@
 import express from "express";
 import {
-  getCategories,
-  getCategoryById,
+  getCategoriesPublic,
+  getCategoryByIdPublic,
 } from "../../../controllers/categoryController.js";
 
 const router = express.Router();
 
-// 📂 সব ক্যাটাগরি
-router.get("/", getCategories);
+// ✅ Public: only active + serial sorted
+router.get("/", getCategoriesPublic);
 
-// 🔍 নির্দিষ্ট ক্যাটাগরি
-router.get("/:id", getCategoryById);
+// ✅ Public: single (hidden হলে block)
+router.get("/:id", getCategoryByIdPublic);
 
 export default router;

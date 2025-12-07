@@ -23,13 +23,31 @@ export default function CategoryTabsSection() {
 
         const [pRes, cRes] = await Promise.all([
           apiFetch("/products"),
-          apiFetch("/categories"),
+          apiFetch("/categories"), // public categories route
         ]);
 
         if (cancelled) return;
 
-        setProducts(Array.isArray(pRes) ? pRes : []);
-        setCategories(Array.isArray(cRes) ? cRes : []);
+        const pArr = Array.isArray(pRes) ? pRes : [];
+        let cArr = Array.isArray(cRes) ? cRes : [];
+
+        // ✅ only active categories
+        cArr = cArr.filter((c) => c.isActive !== false);
+
+        // ✅ sort by serial/order
+        cArr.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        setProducts(pArr);
+        setCategories(cArr);
+
+        // ✅ activeCat যদি hidden or deleted হয়ে যায় → reset
+        if (
+          activeCat &&
+          !cArr.find((c) => String(c._id) === String(activeCat))
+        ) {
+          setActiveCat(null);
+        }
+
         setLoading(false);
       } catch (err) {
         console.log("Error fetching data:", err);
@@ -49,6 +67,7 @@ export default function CategoryTabsSection() {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -100,11 +119,12 @@ export default function CategoryTabsSection() {
       {/* CATEGORY BUTTONS → mobile: 2 rows + horizontal scroll */}
       <div
         className="
-    px-1 mb-8
-    overflow-x-auto overflow-y-hidden
-    [&::-webkit-scrollbar]:hidden scrollbar-none"
+          px-1 mb-8
+          overflow-x-auto overflow-y-hidden
+          [&::-webkit-scrollbar]:hidden scrollbar-none
+        "
       >
-        <div className=" grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem] sm:flex sm:flex-wrap sm:justify-center sm:gap-3 sm:items-start">
+        <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem] sm:flex sm:flex-wrap sm:justify-center sm:gap-3 sm:items-start">
           {categories.map((cat) => (
             <button
               key={cat._id}
@@ -112,13 +132,13 @@ export default function CategoryTabsSection() {
                 setActiveCat((prev) => (prev === cat._id ? null : cat._id))
               }
               className={`flex-none flex flex-col items-center justify-center
-          w-24 h-24 p-2 rounded-xl
-          transition-all duration-300 border shadow-sm hover:shadow-md
-          ${
-            activeCat === cat._id
-              ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
-              : "bg-pink-100 hover:bg-pink-200 border-pink-300"
-          }`}
+                w-24 h-24 p-2 rounded-xl
+                transition-all duration-300 border shadow-sm hover:shadow-md
+                ${
+                  activeCat === cat._id
+                    ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
+                    : "bg-pink-100 hover:bg-pink-200 border-pink-300"
+                }`}
             >
               <div className="overflow-hidden rounded-full border border-gray-300 mb-1">
                 <img

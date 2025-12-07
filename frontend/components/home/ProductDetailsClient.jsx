@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FaStar, FaHeart } from "react-icons/fa";
@@ -24,7 +24,7 @@ export default function ProductDetailsClient({
   const [activeIdx, setActiveIdx] = useState(0);
   const [tab, setTab] = useState("desc");
 
-  // ✅ ছবি হ্যান্ডলিং
+  // ✅ Image Gallery Handling
   const images = useMemo(() => {
     const gallery = Array.isArray(product.images) ? product.images : [];
     const main =
@@ -34,6 +34,17 @@ export default function ProductDetailsClient({
     if (gallery.length > 0) return gallery;
     return ["/no-image.png"];
   }, [product]);
+
+  // ✅ Auto Image Slider (no mouse/touch needed)
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % images.length);
+    }, 2500); // 2.5 sec por por auto change
+
+    return () => clearInterval(interval);
+  }, [images]);
 
   const quantity = cart[product._id] || 0;
   const totalPrice = product.price * quantity;
@@ -55,7 +66,7 @@ export default function ProductDetailsClient({
     </button>
   );
 
-  // ✅ Checkout লজিক
+  // ✅ Checkout Logic
   const handleCheckout = async () => {
     if (product.stock <= 0) return;
 
@@ -74,6 +85,7 @@ export default function ProductDetailsClient({
           Home
         </Link>
         <span className="mx-2">/</span>
+
         {category && (
           <>
             <Link
@@ -85,50 +97,45 @@ export default function ProductDetailsClient({
             <span className="mx-2">/</span>
           </>
         )}
+
         <span className="text-gray-700">{product.name}</span>
       </nav>
 
-      {/* 🖼️ Gallery + Summary এক কার্ডে */}
+      {/* 🖼️ Gallery + Summary */}
       <section className="bg-pink-100 rounded-2xl shadow p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Product Image */}
         <div className="bg-pink-50 rounded-xl">
-          <div className="relative w-full h-[320px] sm:h-[420px] md:h-[480px] rounded-lg overflow-hidden bg-gray-100 group">
+          {/* ✅ Perfect Aspect Ratio + Hover Zoom */}
+          {/* ✅ Perfect Aspect Ratio + Smaller Height + Hover Zoom */}
+          <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] max-h-[380px] sm:max-h-[420px] md:max-h-[600px] rounded-lg overflow-hidden bg-gray-100 group mx-auto">
             <Image
               src={images[activeIdx] || "/no-image.png"}
               alt={product?.name || "Product"}
               fill
-              className="object-cover rounded-lg transition-transform duration-500 ease-in-out group-hover:scale-110"
+              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
               priority
-              onError={(e) => (e.currentTarget.src = "/no-image.png")}
             />
           </div>
 
-          {/* ✅ Thumbnail Gallery (No Scroll + Glow Effect) */}
+          {/* ✅ Thumbnail Gallery — smaller + one line */}
           {images.length > 1 && (
-            <div
-              className="mt-3 flex gap-3 flex-wrap justify-center overflow-hidden"
-              style={{
-                maxHeight: "none",
-                overscrollBehavior: "contain",
-              }}
-            >
+            <div className="mt-2 flex gap-2 justify-center overflow-x-auto no-scrollbar py-1">
               {images.map((src, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveIdx(i)}
-                  className={`relative w-16 h-16 rounded-lg overflow-hidden border transition-all duration-200 
-        ${
-          i === activeIdx
-            ? "border-pink-600 ring-2 ring-pink-400 shadow-lg"
-            : "border-pink-200 hover:border-pink-400 hover:shadow-[0_0_10px_rgba(59,130,246,0.6)]"
-        }`}
+                  className={`relative w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-md overflow-hidden border transition-all duration-200 
+                    ${
+                      i === activeIdx
+                        ? "border-pink-600 ring-1 ring-pink-400 shadow"
+                        : "border-pink-200 hover:border-pink-400 hover:shadow-[0_0_6px_rgba(236,72,153,0.5)]"
+                    }`}
                 >
                   <Image
                     src={src || "/no-image.png"}
                     alt={`${product.name} ${i + 1}`}
                     fill
                     className="object-cover"
-                    onError={(e) => (e.currentTarget.src = "/no-image.png")}
                   />
                 </button>
               ))}
@@ -324,6 +331,7 @@ export default function ProductDetailsClient({
               </Link>
             )}
           </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {related.map((p) => (
               <ProductCard key={p._id} product={p} />
