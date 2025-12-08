@@ -191,53 +191,20 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="">
       {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold">📂 Categories</h1>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold">✨ Categories</h1>
 
-        <div className="flex flex-wrap gap-2">
-          {/* FILTER BUTTONS */}
-          <button
-            className={`px-3 py-1 rounded border ${
-              filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
-            }`}
-            onClick={() => setFilter("all")}
-          >
-            All
-          </button>
-          <button
-            className={`px-3 py-1 rounded border ${
-              filter === "active" ? "bg-green-600 text-white" : "bg-white"
-            }`}
-            onClick={() => setFilter("active")}
-          >
-            Active
-          </button>
-          <button
-            className={`px-3 py-1 rounded border ${
-              filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
-            }`}
-            onClick={() => setFilter("hidden")}
-          >
-            Hidden
-          </button>
-
-          {/* ✅ BULK TOGGLE BUTTON ONLY */}
-          {categories.length > 0 && (
-            <button
-              onClick={toggleAllCategories}
-              className={`px-4 py-2 rounded-lg shadow text-white font-semibold ${
-                hasAnyActive
-                  ? "bg-gray-700 hover:bg-gray-800"
-                  : "bg-green-600 hover:bg-green-700"
-              }`}
-            >
-              {hasAnyActive ? "Hide All" : "Show All"}
-            </button>
-          )}
-
-          {/* ADD CATEGORY */}
+        {/* Right side controls */}
+        <div
+          className="
+      flex flex-col items-end gap-2
+      lg:flex-row lg:items-center lg:gap-2
+      lg:ml-auto
+    "
+        >
+          {/* ✅ ADD CATEGORY (mobile first, desktop last/right) */}
           <button
             onClick={() => {
               setEditId(null);
@@ -248,10 +215,63 @@ export default function CategoriesPage() {
               setIsActive(true);
               setShowModal(true);
             }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow"
+            className="
+        order-1 lg:order-last
+        bg-indigo-600 text-white shadow font-semibold
+        px-3 py-1.5 rounded-md text-sm
+        hover:bg-indigo-700 active:scale-[0.98]
+        lg:px-4 lg:py-2 lg:text-sm lg:rounded-lg
+      "
           >
             + Add Category
           </button>
+
+          {/* FILTER BUTTONS (a bit bigger on both mobile & desktop) */}
+          <div className="order-2 lg:order-first flex flex-wrap justify-end gap-1.5 lg:gap-2">
+            <button
+              className={`px-2.5 py-1.5 rounded-md border text-xs leading-none
+      lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+        filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
+      }`}
+              onClick={() => setFilter("all")}
+            >
+              All
+            </button>
+
+            <button
+              className={`px-2.5 py-1 rounded-md border text-xs leading-none
+      lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+        filter === "active" ? "bg-green-600 text-white" : "bg-white"
+      }`}
+              onClick={() => setFilter("active")}
+            >
+              Active
+            </button>
+
+            <button
+              className={`px-2.5 py-1 rounded-md border text-xs leading-none
+      lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+        filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
+      }`}
+              onClick={() => setFilter("hidden")}
+            >
+              Hidden
+            </button>
+
+            {categories.length > 0 && (
+              <button
+                onClick={toggleAllCategories}
+                className={`px-2.5 py-1 rounded-md border text-xs leading-none font-semibold text-white
+        lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+          hasAnyActive
+            ? "bg-gray-700 hover:bg-gray-800"
+            : "bg-green-600 hover:bg-green-700"
+        }`}
+              >
+                {hasAnyActive ? "Hide All" : "Show All"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -263,7 +283,7 @@ export default function CategoriesPage() {
           No categories found.
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {filteredCategories.map((c) => (
             <div
               key={c._id}

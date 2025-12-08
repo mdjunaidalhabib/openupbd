@@ -72,22 +72,6 @@ export default function ProductCard({ product, onEdit, onDelete }) {
             ক্যাটাগরি:{" "}
             <span className="font-medium text-gray-800">{cat.name}</span>
           </p>
-
-          <div className="flex items-center gap-2 text-[11px] flex-wrap">
-            <span className="px-2 py-0.5 rounded bg-gray-100 border text-gray-700">
-              Cat Serial: {cat.order || 0}
-            </span>
-
-            {cat.isActive ? (
-              <span className="px-2 py-0.5 rounded bg-green-100 border text-green-700 font-semibold">
-                Cat Active
-              </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded bg-gray-200 border text-gray-700 font-semibold">
-                Cat Hidden
-              </span>
-            )}
-          </div>
         </div>
       ) : (
         <p className="text-xs text-gray-400 mt-2">ক্যাটাগরি নেই</p>

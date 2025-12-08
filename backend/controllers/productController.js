@@ -139,6 +139,10 @@ export const updateProduct = async (req, res) => {
       category,
       order,
       isActive,
+
+      // ✅ NEW from frontend
+      existingImages,
+      removedImages,
     } = req.body;
 
     const product = await Product.findById(req.params.id);
@@ -164,22 +168,49 @@ export const updateProduct = async (req, res) => {
       fs.unlinkSync(req.files.image[0].path);
     }
 
-    // ---- Gallery Images ----
-    if (req.files?.images) {
-      for (let url of product.images || [])
-        await deleteFromCloudinary(url, "products/gallery");
+    // ======================================================
+    // ✅ Gallery Images Proper Update (KEEP + DELETE + ADD)
+    // ======================================================
 
-      let newGallery = [];
+    // Parse keep list
+    let keepImages = [];
+    if (existingImages) {
+      keepImages = Array.isArray(existingImages)
+        ? existingImages
+        : JSON.parse(existingImages);
+    } else {
+      keepImages = product.images || [];
+    }
+
+    // Parse remove list
+    let removeList = [];
+    if (removedImages) {
+      removeList = Array.isArray(removedImages)
+        ? removedImages
+        : JSON.parse(removedImages);
+    }
+
+    // ✅ delete removed urls from cloudinary
+    if (removeList.length > 0) {
+      for (let url of removeList) {
+        await deleteFromCloudinary(url, "products/gallery");
+      }
+    }
+
+    // ✅ upload new gallery files
+    let newUploaded = [];
+    if (req.files?.images?.length) {
       for (let file of req.files.images) {
         const uploaded = await cloudinary.uploader.upload(file.path, {
           folder: "products/gallery",
         });
-        newGallery.push(uploaded.secure_url);
+        newUploaded.push(uploaded.secure_url);
         fs.unlinkSync(file.path);
       }
-
-      product.images = newGallery.length > 0 ? newGallery : product.images;
     }
+
+    // ✅ final gallery list
+    product.images = [...keepImages, ...newUploaded];
 
     // ---- Reviews ----
     if (req.body.reviews) {

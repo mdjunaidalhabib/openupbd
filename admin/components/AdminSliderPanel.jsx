@@ -11,6 +11,9 @@ export default function AdminSliderPanel() {
   const [pageLoading, setPageLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
 
+  // ✅ FILTER STATE
+  const [filter, setFilter] = useState("all");
+
   // add/edit modal state
   const [showModal, setShowModal] = useState(false);
   const [editSlide, setEditSlide] = useState(null);
@@ -132,7 +135,7 @@ export default function AdminSliderPanel() {
     }
   };
 
-  // toggle active
+  // toggle active (single)
   const handleToggle = async (id) => {
     try {
       await fetch(`${API_URL}/admin/sliders/${id}/toggle`, {
@@ -145,6 +148,43 @@ export default function AdminSliderPanel() {
     }
   };
 
+  // ✅ any active?
+  const hasAnyActive = slides.some((s) => s.isActive);
+
+  // ✅ bulk toggle all slides (category/product page er moto)
+  const toggleAllSlides = async () => {
+    try {
+      const shouldHideAll = hasAnyActive;
+
+      const targets = slides.filter((s) =>
+        shouldHideAll ? s.isActive : !s.isActive
+      );
+
+      await Promise.all(
+        targets.map((s) =>
+          fetch(`${API_URL}/admin/sliders/${s._id}/toggle`, {
+            method: "PATCH",
+            credentials: "include",
+          })
+        )
+      );
+
+      toast.success(
+        shouldHideAll ? "✅ All slides hidden" : "✅ All slides active"
+      );
+      fetchSlides();
+    } catch (e) {
+      console.error(e);
+      toast.error("❌ Bulk toggle failed");
+    }
+  };
+
+  // ✅ FILTERED SLIDES
+  const filteredSlides =
+    filter === "all"
+      ? slides
+      : slides.filter((s) => (filter === "active" ? s.isActive : !s.isActive));
+
   // ✅ Skeleton UI
   if (pageLoading) {
     return (
@@ -153,56 +193,102 @@ export default function AdminSliderPanel() {
           <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
           <div className="h-9 w-56 bg-gray-200 rounded animate-pulse" />
         </div>
-
         <SliderPanelSkeleton count={8} />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <Toaster position="top-right" />
 
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">🖼️ Sliders</h1>
+      {/* ===================== HEADER ===================== */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold">✨ Sliders</h1>
 
-        <div className="flex gap-3">
-          {/* ✅ Delete All Button */}
-          {slides.length > 0 && (
-            <button
-              onClick={() => setDeleteAllModal(true)}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg shadow"
-            >
-              🗑 Delete All
-            </button>
-          )}
-
-          {/* Add New Slide Button */}
+        {/* Right side controls */}
+        <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:gap-2 lg:ml-auto">
+          {/* ✅ ADD SLIDE (mobile first, desktop last/right) */}
           <button
             onClick={() => {
               setEditSlide(null);
               setShowModal(true);
             }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow"
+            className="order-1 lg:order-last bg-indigo-600 text-white shadow font-semibold px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700 active:scale-[0.98] lg:px-4 lg:py-2 lg:text-sm lg:rounded-lg"
           >
             + Add New Slide
           </button>
+
+          {/* FILTER BUTTONS + HIDE/SHOW ALL + DELETE ALL */}
+          <div className="order-2 lg:order-first flex flex-wrap justify-end gap-1.5 lg:gap-2">
+            <button
+              className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+                filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
+              }`}
+              onClick={() => setFilter("all")}
+            >
+              All
+            </button>
+
+            <button
+              className={`px-2.5 py-1 rounded-md border text-xs leading-none lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+                filter === "active" ? "bg-green-600 text-white" : "bg-white"
+              }`}
+              onClick={() => setFilter("active")}
+            >
+              Active
+            </button>
+
+            <button
+              className={`px-2.5 py-1 rounded-md border text-xs leading-none lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+                filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
+              }`}
+              onClick={() => setFilter("hidden")}
+            >
+              Hidden
+            </button>
+
+            {/* ✅ HIDE ALL / SHOW ALL */}
+            {slides.length > 0 && (
+              <button
+                onClick={toggleAllSlides}
+                className={`px-2.5 py-1 rounded-md border text-xs leading-none font-semibold text-white lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+                  hasAnyActive
+                    ? "bg-gray-700 hover:bg-gray-800"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {hasAnyActive ? "Hide All" : "Show All"}
+              </button>
+            )}
+
+            {/* ✅ DELETE ALL */}
+            {slides.length > 0 && (
+              <button
+                onClick={() => setDeleteAllModal(true)}
+                className="px-2.5 py-1 rounded-md border text-xs leading-none font-semibold text-white bg-red-600 hover:bg-red-700 lg:px-4 lg:py-2 lg:text-base lg:rounded-lg"
+              >
+                🗑 Delete All
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Slides Grid */}
-      {slides.length === 0 ? (
+      {/* ===================== SLIDES GRID ===================== */}
+      {filteredSlides.length === 0 ? (
         <div className="text-center text-gray-500 py-10">No slides found.</div>
       ) : (
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-stretch">
-          {slides.map((s) => (
+          {filteredSlides.map((s) => (
             <div
               key={s._id}
-              className="border border-gray-200 bg-white rounded-xl p-3 shadow-sm flex flex-col h-full"
+              className={`border border-gray-200 rounded-xl p-3 shadow-sm flex flex-col h-full transition ${
+                s.isActive ? "bg-white" : "bg-gray-50 opacity-70 grayscale"
+              }`}
             >
-              {/* image fixed height */}
-              <div className="h-44 bg-gray-100 rounded-lg overflow-hidden">
+              {/* image fixed height + Hidden badge */}
+              <div className="h-44 bg-gray-100 rounded-lg overflow-hidden relative">
                 {s.src ? (
                   <img
                     src={s.src}
@@ -214,15 +300,29 @@ export default function AdminSliderPanel() {
                     No Image
                   </div>
                 )}
+
+                {!s.isActive && (
+                  <span className="absolute top-2 left-2 text-[11px] bg-gray-800/70 text-white px-2 py-0.5 rounded">
+                    Hidden
+                  </span>
+                )}
               </div>
 
               {/* body */}
               <div className="flex flex-col flex-1 mt-2">
-                <h2 className="font-semibold truncate min-h-[24px]">
+                <h2
+                  className={`font-semibold truncate min-h-[24px] ${
+                    s.isActive ? "text-gray-900" : "text-gray-500"
+                  }`}
+                >
                   {s.title || "No Title"}
                 </h2>
 
-                <p className="text-xs text-gray-500 truncate min-h-[18px]">
+                <p
+                  className={`text-xs truncate min-h-[18px] ${
+                    s.isActive ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
                   {s.href || "No link"}
                 </p>
 
