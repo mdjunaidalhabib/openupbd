@@ -10,7 +10,8 @@ import Toast from "./Toast";
 
 export default function CheckoutPage() {
   const { me } = useUser();
-  const { cart, setCart, updateCart, removeFromCart, calcSubtotal } = useCartUtils();
+  const { cart, setCart, updateCart, removeFromCart, calcSubtotal } =
+    useCartUtils();
   const searchParams = useSearchParams();
 
   const productId = searchParams.get("productId");
@@ -40,7 +41,14 @@ export default function CheckoutPage() {
       const p = allProducts.find((x) => String(x._id) === String(productId));
       if (!p) return [];
       return [
-        { productId: p._id, name: p.name, price: p.price, qty: checkoutQty, image: p.image, stock: p.stock },
+        {
+          productId: p._id,
+          name: p.name,
+          price: p.price,
+          qty: checkoutQty,
+          image: p.image,
+          stock: p.stock,
+        },
       ];
     }
     return Object.keys(cart)
@@ -72,6 +80,33 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [loading, setLoading] = useState(false);
 
+  // ✅ Validation UI state
+  const [touched, setTouched] = useState({
+    name: false,
+    phone: false,
+    address: false,
+  });
+  const [submitted, setSubmitted] = useState(false);
+
+  const phoneValid = /^(01[3-9]\d{8})$/.test(phone);
+
+  const errors = {
+    name: !name.trim(),
+    phone: !phone.trim() || !phoneValid,
+    address: !address.trim(),
+  };
+
+  const fieldClass = (hasError) =>
+    `mt-1 w-full p-2 border rounded-md outline-none transition
+     ${
+       hasError
+         ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
+         : "border-gray-300 focus:ring-2 focus:ring-green-200"
+     }`;
+
+  const labelClass = (hasError) =>
+    `text-sm font-medium ${hasError ? "text-red-600" : "text-gray-900"}`;
+
   const applyPromo = () => {
     if (promoCode.toLowerCase() === "habib10") {
       setDiscount(subtotal * 0.1);
@@ -84,8 +119,13 @@ export default function CheckoutPage() {
   };
 
   async function placeOrder() {
-    if (!name || !phone || !address) return showToast("⚠️ সব ঘর পূরণ করতে হবে!", "error");
-    if (!/^(01[3-9]\d{8})$/.test(phone)) return showToast("📞 সঠিক ১১ সংখ্যার নাম্বার দিন", "error");
+    setSubmitted(true);
+
+    // ✅ if required missing -> show red + toast
+    if (errors.name || errors.phone || errors.address) {
+      showToast("⚠️ সব ঘর ঠিকমতো পূরণ করতে হবে!", "error");
+      return;
+    }
 
     setLoading(true);
 
@@ -117,7 +157,9 @@ export default function CheckoutPage() {
       showToast("✅ অর্ডার সফলভাবে সম্পন্ন হয়েছে!", "success");
 
       setTimeout(() => {
-        window.location.href = `/order-summary/${data._id || data.id || data.order?._id}`;
+        window.location.href = `/order-summary/${
+          data._id || data.id || data.order?._id
+        }`;
       }, 1000);
     } catch (err) {
       console.error(err);
@@ -141,26 +183,96 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Billing Info */}
           <div>
+            {/* ✅ Name */}
             <label className="block mb-3">
-              <span className="text-sm font-medium">নাম *</span>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
-            </label>
-            <label className="block mb-3">
-              <span className="text-sm font-medium">মোবাইল *</span>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
-            </label>
-            <label className="block mb-3">
-              <span className="text-sm font-medium">ঠিকানা *</span>
-              <textarea value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 w-full p-2 border rounded-md" rows="2" />
-            </label>
-            <label className="block mb-3">
-              <span className="text-sm font-medium">নোট (ঐচ্ছিক)</span>
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 w-full p-2 border rounded-md" rows="2" />
+              <span
+                className={labelClass(
+                  (submitted || touched.name) && errors.name
+                )}
+              >
+                নাম *
+              </span>
+              <input
+                type="text"
+                value={name}
+                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                onChange={(e) => setName(e.target.value)}
+                className={fieldClass(
+                  (submitted || touched.name) && errors.name
+                )}
+              />
+              {(submitted || touched.name) && errors.name && (
+                <p className="text-xs text-red-600 mt-1">নাম লিখুন</p>
+              )}
             </label>
 
+            {/* ✅ Phone */}
+            <label className="block mb-3">
+              <span
+                className={labelClass(
+                  (submitted || touched.phone) && errors.phone
+                )}
+              >
+                মোবাইল *
+              </span>
+              <input
+                type="tel"
+                value={phone}
+                onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+                onChange={(e) => setPhone(e.target.value)}
+                className={fieldClass(
+                  (submitted || touched.phone) && errors.phone
+                )}
+              />
+              {(submitted || touched.phone) && errors.phone && (
+                <p className="text-xs text-red-600 mt-1">
+                  সঠিক ১১ সংখ্যার নাম্বার দিন (01XXXXXXXXX)
+                </p>
+              )}
+            </label>
+
+            {/* ✅ Address */}
+            <label className="block mb-3">
+              <span
+                className={labelClass(
+                  (submitted || touched.address) && errors.address
+                )}
+              >
+                ঠিকানা *
+              </span>
+              <textarea
+                value={address}
+                rows="2"
+                onBlur={() => setTouched((t) => ({ ...t, address: true }))}
+                onChange={(e) => setAddress(e.target.value)}
+                className={fieldClass(
+                  (submitted || touched.address) && errors.address
+                )}
+              />
+              {(submitted || touched.address) && errors.address && (
+                <p className="text-xs text-red-600 mt-1">ঠিকানা লিখুন</p>
+              )}
+            </label>
+
+            {/* Note (optional) */}
+            <label className="block mb-3">
+              <span className="text-sm font-medium">নোট (ঐচ্ছিক)</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="mt-1 w-full p-2 border rounded-md border-gray-300"
+                rows="2"
+              />
+            </label>
+
+            {/* Payment */}
             <label className="block mb-3">
               <span className="text-sm font-medium">পেমেন্ট মেথড *</span>
-              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-1 w-full p-2 border rounded-md">
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="mt-1 w-full p-2 border rounded-md border-gray-300"
+              >
                 <option value="cod">Cash on Delivery</option>
                 <option value="bkash">Bkash</option>
               </select>
@@ -170,9 +282,16 @@ export default function CheckoutPage() {
           {/* Cart Summary */}
           <div>
             {cartItems.map((it) => (
-              <div key={it.productId} className="flex items-center justify-between border p-3 rounded-lg mb-3">
+              <div
+                key={it.productId}
+                className="flex items-center justify-between border p-3 rounded-lg mb-3"
+              >
                 <div className="flex items-center space-x-3">
-                  <img src={it.image} alt={it.name} className="w-16 h-16 rounded-md object-cover" />
+                  <img
+                    src={it.image}
+                    alt={it.name}
+                    className="w-16 h-16 rounded-md object-cover"
+                  />
                   <div>
                     <p className="font-medium">{it.name}</p>
                     <QuantityController
@@ -180,7 +299,9 @@ export default function CheckoutPage() {
                       stock={it.stock}
                       onChange={(change) =>
                         productId
-                          ? setCheckoutQty((prev) => Math.min(Math.max(1, prev + change), it.stock))
+                          ? setCheckoutQty((prev) =>
+                              Math.min(Math.max(1, prev + change), it.stock)
+                            )
                           : updateCart(it.productId, change, it.stock)
                       }
                     />
@@ -189,7 +310,10 @@ export default function CheckoutPage() {
                 <div className="text-right">
                   <p className="font-semibold">৳{it.price * it.qty}</p>
                   {!productId && (
-                    <button onClick={() => removeFromCart(it.productId)} className="text-red-500 text-sm mt-1">
+                    <button
+                      onClick={() => removeFromCart(it.productId)}
+                      className="text-red-500 text-sm mt-1"
+                    >
                       Remove
                     </button>
                   )}
@@ -217,8 +341,19 @@ export default function CheckoutPage() {
             </div>
 
             <div className="flex items-center mt-4 gap-2">
-              <input type="text" placeholder="Promo Code" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} className="flex-1 border rounded-md p-2" />
-              <button onClick={applyPromo} className="bg-green-600 text-white px-4 py-2 rounded-md">Apply</button>
+              <input
+                type="text"
+                placeholder="Promo Code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                className="flex-1 border rounded-md p-2 border-gray-300"
+              />
+              <button
+                onClick={applyPromo}
+                className="bg-green-600 text-white px-4 py-2 rounded-md"
+              >
+                Apply
+              </button>
             </div>
 
             <div className="mt-6">
@@ -236,7 +371,11 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "" })} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: "", type: "" })}
+      />
     </div>
   );
 }
