@@ -23,7 +23,7 @@
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.501.0",
     "mongoose": "^8.18.1",
-    "next": "15.4.6",
+    "next": "^16.0.8",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
