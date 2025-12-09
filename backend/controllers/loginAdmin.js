@@ -68,20 +68,21 @@ export const loginAdmin = async (req, res) => {
     // ✅ JWT generate
     const token = generateToken(admin);
 
-    // ✅ COOKIE CONFIG (ENV domain + dev/prod safe)
-    const isProd = process.env.NODE_ENV === "production";
-    const cookieDomain = process.env.COOKIE_DOMAIN || ".habibsfashion.com";
+    // ✅ COOKIE CONFIG (ENV driven)
+const isProd = process.env.NODE_ENV === "production";
+const cookieDomain = process.env.COOKIE_DOMAIN; // only from env
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: isProd, // prod=true, dev=false
-      sameSite: isProd ? "none" : "lax", // prod=none, dev=lax
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      ...(isProd ? { domain: cookieDomain } : {}), // ✅ domain only in prod
-    };
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd ? true : false, // prod true, local false
+  sameSite: isProd ? "none" : "lax", // ✅ local MUST be lax
+  path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  ...(isProd && cookieDomain ? { domain: cookieDomain } : {}),
+};
 
-    res.cookie("admin_token", token, cookieOptions);
+res.cookie("admin_token", token, cookieOptions);
+
 
     return res.status(200).json({
       message: "✅ লগইন সফল হয়েছে!",

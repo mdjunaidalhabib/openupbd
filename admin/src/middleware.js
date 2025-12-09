@@ -22,33 +22,38 @@ export function middleware(req) {
   const token = req.cookies.get("admin_token")?.value || "";
   const { pathname, origin } = req.nextUrl;
 
-  // ✅ token থাকলে কিন্তু expire হলে → cookie clear + login এ পাঠাবে
-  if (token && isJwtExpired(token)) {
-    const res = NextResponse.redirect(`${origin}/login`);
-
-    res.cookies.set("admin_token", "", {
-      path: "/",
-      expires: new Date(0),
-    });
-
-    return res;
+  // =============================
+  // LOGIN PAGE LOGIC
+  // =============================
+  if (pathname === "/login") {
+    if (token && !isJwtExpired(token)) {
+      return NextResponse.redirect(`${origin}/admin/dashboard`);
+    }
+    return NextResponse.next();
   }
 
-  // 🔒 /admin এর ভিতরের যেকোনো route এ token না থাকলে → login
-  if (pathname.startsWith("/admin") && !token) {
-    return NextResponse.redirect(`${origin}/login`);
-  }
+  // =============================
+  // PROTECT ADMIN ROUTES
+  // =============================
+  if (pathname.startsWith("/admin")) {
+    // token missing
+    if (!token) {
+      return NextResponse.redirect(`${origin}/login`);
+    }
 
-  // 🚫 শুধু exact /login এ গেলে এবং token থাকলে → dashboard
-  // (old code এ startsWith("/login") ছিল, এতে loop হচ্ছিল)
-  if (pathname === "/login" && token) {
-    return NextResponse.redirect(`${origin}/admin/dashboard`);
+    // token expired
+    if (isJwtExpired(token)) {
+      const res = NextResponse.redirect(`${origin}/login`);
+      res.cookies.set("admin_token", "", { path: "/", expires: new Date(0) });
+      return res;
+    }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
-// ✅ Middleware Scope
 export const config = {
   matcher: ["/admin/:path*", "/login"],
 };
