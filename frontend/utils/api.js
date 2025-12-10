@@ -1,6 +1,10 @@
 export async function apiFetch(url, options = {}) {
-  const baseUrl = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost:4000";
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_AUTH_API_URL ||
+    process.env.AUTH_API_URL || "";
+
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const res = await fetch(`${baseUrl}${url}`, {
     ...options,
@@ -12,10 +16,11 @@ export async function apiFetch(url, options = {}) {
   });
 
   if (!res.ok) {
-    const text = await res.text(); // full response দেখার জন্য
+    const text = await res.text();
     throw new Error(`API error: ${res.status} → ${text}`);
   }
 
   if (res.status === 204) return null;
+
   return res.json();
 }

@@ -27,7 +27,7 @@ async function getProduct(id) {
 async function getCategory(categoryId) {
   if (!categoryId) return null;
   try {
-    return await apiFetch(`/api/categories/${categoryId}`, { cache: "no-store" });
+    return await apiFetch(`/categories/${categoryId}`, { cache: "no-store" });
   } catch {
     return null;
   }
@@ -37,7 +37,7 @@ async function getCategory(categoryId) {
 async function getRelated(categoryId, productId) {
   if (!categoryId) return [];
   try {
-    const products = await apiFetch(`/api/products/category/${categoryId}`, {
+    const products = await apiFetch(`/products/category/${categoryId}`, {
       cache: "no-store",
     });
     return products.filter((p) => p._id !== productId);
@@ -47,8 +47,11 @@ async function getRelated(categoryId, productId) {
 }
 
 export default async function ProductDetailsPage({ params }) {
+  // ✅ Next.js 15+ এ params Promise, তাই await করে id বের করো
+  const { id } = await params;
+
   // ✅ প্রোডাক্ট ডাটা লোড
-  const product = await getProduct(params.id);
+  const product = await getProduct(id);
 
   if (!product?._id) {
     return (

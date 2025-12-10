@@ -24,7 +24,9 @@ export default function ProductDetailsClient({
   const [activeIdx, setActiveIdx] = useState(0);
   const [tab, setTab] = useState("desc");
 
-  // ✅ Image Gallery Handling
+  // ===========================
+  //   IMAGE GALLERY HANDLING
+  // ===========================
   const images = useMemo(() => {
     const gallery = Array.isArray(product.images) ? product.images : [];
     const main =
@@ -35,22 +37,26 @@ export default function ProductDetailsClient({
     return ["/no-image.png"];
   }, [product]);
 
-  // ✅ Auto Image Slider (no mouse/touch needed)
+  // ===========================
+  //   AUTO SLIDER
+  // ===========================
   useEffect(() => {
     if (!images || images.length <= 1) return;
 
     const interval = setInterval(() => {
       setActiveIdx((prev) => (prev + 1) % images.length);
-    }, 2500); // 2.5 sec por por auto change
+    }, 2500);
 
     return () => clearInterval(interval);
   }, [images]);
 
   const quantity = cart[product._id] || 0;
   const totalPrice = product.price * quantity;
+
   const discountPct = product.oldPrice
     ? (((product.oldPrice - product.price) / product.oldPrice) * 100).toFixed(1)
     : null;
+
   const isInWishlist = wishlist.includes(product._id);
 
   const tabBtn = (key, label) => (
@@ -66,7 +72,9 @@ export default function ProductDetailsClient({
     </button>
   );
 
-  // ✅ Checkout Logic
+  // ===========================
+  //   CHECKOUT HANDLING
+  // ===========================
   const handleCheckout = async () => {
     if (product.stock <= 0) return;
 
@@ -101,12 +109,12 @@ export default function ProductDetailsClient({
         <span className="text-gray-700">{product.name}</span>
       </nav>
 
-      {/* 🖼️ Gallery + Summary */}
+      {/* ===========================
+            PRODUCT GALLERY + SUMMARY
+        =========================== */}
       <section className="bg-pink-100 rounded-2xl shadow p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Product Image */}
+        {/* Gallery */}
         <div className="bg-pink-50 rounded-xl">
-          {/* ✅ Perfect Aspect Ratio + Hover Zoom */}
-          {/* ✅ Perfect Aspect Ratio + Smaller Height + Hover Zoom */}
           <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] max-h-[380px] sm:max-h-[420px] md:max-h-[600px] rounded-lg overflow-hidden bg-gray-100 group mx-auto">
             <Image
               src={images[activeIdx] || "/no-image.png"}
@@ -117,7 +125,7 @@ export default function ProductDetailsClient({
             />
           </div>
 
-          {/* ✅ Thumbnail Gallery — smaller + one line */}
+          {/* Thumbnails */}
           {images.length > 1 && (
             <div className="mt-2 flex gap-2 justify-center overflow-x-auto no-scrollbar py-1">
               {images.map((src, i) => (
@@ -143,7 +151,9 @@ export default function ProductDetailsClient({
           )}
         </div>
 
-        {/* Summary Section */}
+        {/* ===========================
+              SUMMARY (INFO)
+        =========================== */}
         <div className="flex flex-col justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
@@ -166,7 +176,7 @@ export default function ProductDetailsClient({
                 : "❌ Out of Stock"}
             </p>
 
-            {/* ⭐ Rating */}
+            {/* Rating */}
             <div className="flex items-center gap-2 mb-3">
               <div className="flex">
                 {[...Array(5)].map((_, i) => (
@@ -185,7 +195,7 @@ export default function ProductDetailsClient({
               </span>
             </div>
 
-            {/* 💰 Price + Wishlist */}
+            {/* Price + Wishlist */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <p className="text-blue-600 font-bold text-2xl">
@@ -216,7 +226,7 @@ export default function ProductDetailsClient({
             </div>
           </div>
 
-          {/* 🛒 Cart + Checkout */}
+          {/* CART + CHECKOUT */}
           <div className="flex flex-wrap md:flex-nowrap gap-4 items-start">
             {!quantity ? (
               <>
@@ -273,7 +283,9 @@ export default function ProductDetailsClient({
         </div>
       </section>
 
-      {/* 📋 Tabs */}
+      {/* ===========================
+                TABS
+        =========================== */}
       <section className="mt-8">
         <div className="inline-flex bg-pink-100 rounded-xl p-1">
           {tabBtn("desc", "Description")}
@@ -287,11 +299,13 @@ export default function ProductDetailsClient({
               {product.description || "No description available."}
             </p>
           )}
+
           {tab === "info" && (
             <p className="whitespace-pre-wrap">
               {product.additionalInfo || "No additional information provided."}
             </p>
           )}
+
           {tab === "reviews" && (
             <div className="text-sm">
               {product.reviews?.length ? (
@@ -315,13 +329,16 @@ export default function ProductDetailsClient({
         </div>
       </section>
 
-      {/* 🧩 Related Products */}
+      {/* ===========================
+         RELATED PRODUCTS
+      =========================== */}
       {related?.length > 0 && (
         <section className="mt-10">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg sm:text-xl font-semibold">
               Related products
             </h3>
+
             {category && (
               <Link
                 href={`/categories/${category._id}`}
