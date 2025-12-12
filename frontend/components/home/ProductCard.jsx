@@ -11,7 +11,6 @@ import {
 } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 
-// ✅ Memoized Product Card
 const ProductCard = memo(
   ({ product }) => {
     const { cart, updateCart, wishlist, toggleWishlist } = useCart();
@@ -40,13 +39,16 @@ const ProductCard = memo(
           href={`/products/${productId}`}
           className="relative w-full aspect-[4/4] mb-3 overflow-hidden rounded-lg"
         >
+          {/* Top Badges */}
           <div className="absolute top-1 left-1 right-1 flex justify-between items-center z-10">
+            {/* Discount Badge */}
             {product?.oldPrice && (
               <div className="bg-red-500 text-white px-1 py-0.5 rounded-full text-xs font-semibold shadow-sm">
                 -{discount}%
               </div>
             )}
 
+            {/* Wishlist Button */}
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -63,12 +65,17 @@ const ProductCard = memo(
             </button>
           </div>
 
+          {/* ⭐ Optimized Image (Warning-Free) */}
           <Image
             src={mainImage}
             alt={product?.name || "Product"}
             fill
+            priority={false}
+            loading="lazy"
+            sizes="(max-width: 768px) 100vw,
+                   (max-width: 1200px) 33vw,
+                   25vw"
             className="object-cover rounded-lg transition-transform duration-500 ease-out group-hover:scale-110"
-            priority
           />
         </Link>
 
@@ -78,6 +85,7 @@ const ProductCard = memo(
             {product?.name}
           </h4>
 
+          {/* Stock Status */}
           <p
             className={`text-xs font-medium ${
               product?.stock > 0 ? "text-green-600" : "text-red-500"
@@ -138,7 +146,9 @@ const ProductCard = memo(
                 <span className="font-semibold text-xs sm:text-sm">
                   Quantity:
                 </span>
+
                 <div className="flex items-center rounded-md px-1">
+                  {/* - Button */}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -150,10 +160,12 @@ const ProductCard = memo(
                     <FaMinus className="text-[10px] sm:text-xs" />
                   </button>
 
+                  {/* Qty Display */}
                   <span className="text-xs sm:text-sm font-bold w-4 text-center select-none">
                     {quantity}
                   </span>
 
+                  {/* + Button */}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -169,6 +181,7 @@ const ProductCard = memo(
 
               <hr className="border-t border-gray-300 my-1" />
 
+              {/* Total Price */}
               <p className="text-center font-semibold text-gray-700 text-xs sm:text-sm">
                 Total: <span className="text-blue-600">৳{totalPrice}</span>
               </p>
@@ -178,10 +191,14 @@ const ProductCard = memo(
       </div>
     );
   },
+
+  // 🔥 Smart Memo — No useless re-render
   (prev, next) => {
     return (
       prev.product._id === next.product._id &&
-      prev.product.price === next.product.price
+      prev.product.price === next.product.price &&
+      prev.product.stock === next.product.stock &&
+      prev.product.rating === next.product.rating
     );
   }
 );

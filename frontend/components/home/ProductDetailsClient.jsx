@@ -25,7 +25,7 @@ export default function ProductDetailsClient({
   const [tab, setTab] = useState("desc");
 
   // ===========================
-  //   IMAGE GALLERY HANDLING
+  // IMAGE GALLERY
   // ===========================
   const images = useMemo(() => {
     const gallery = Array.isArray(product.images) ? product.images : [];
@@ -34,12 +34,11 @@ export default function ProductDetailsClient({
 
     if (main && !gallery.includes(main)) return [main, ...gallery];
     if (gallery.length > 0) return gallery;
+
     return ["/no-image.png"];
   }, [product]);
 
-  // ===========================
-  //   AUTO SLIDER
-  // ===========================
+  // Auto Slide
   useEffect(() => {
     if (!images || images.length <= 1) return;
 
@@ -73,7 +72,7 @@ export default function ProductDetailsClient({
   );
 
   // ===========================
-  //   CHECKOUT HANDLING
+  // CHECKOUT HANDLING
   // ===========================
   const handleCheckout = async () => {
     if (product.stock <= 0) return;
@@ -109,19 +108,21 @@ export default function ProductDetailsClient({
         <span className="text-gray-700">{product.name}</span>
       </nav>
 
-      {/* ===========================
-            PRODUCT GALLERY + SUMMARY
-        =========================== */}
+      {/* PRODUCT SECTION */}
       <section className="bg-pink-100 rounded-2xl shadow p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gallery */}
+        {/* MAIN IMAGE */}
         <div className="bg-pink-50 rounded-xl">
           <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] max-h-[380px] sm:max-h-[420px] md:max-h-[600px] rounded-lg overflow-hidden bg-gray-100 group mx-auto">
             <Image
               src={images[activeIdx] || "/no-image.png"}
               alt={product?.name || "Product"}
               fill
-              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
               priority
+              loading="eager"
+              sizes="(max-width: 768px) 100vw,
+                     (max-width: 1200px) 50vw,
+                     600px"
+              className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
             />
           </div>
 
@@ -132,17 +133,18 @@ export default function ProductDetailsClient({
                 <button
                   key={i}
                   onClick={() => setActiveIdx(i)}
-                  className={`relative w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 rounded-md overflow-hidden border transition-all duration-200 
-                    ${
-                      i === activeIdx
-                        ? "border-pink-600 ring-1 ring-pink-400 shadow"
-                        : "border-pink-200 hover:border-pink-400 hover:shadow-[0_0_6px_rgba(236,72,153,0.5)]"
-                    }`}
+                  className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-md overflow-hidden border transition-all ${
+                    i === activeIdx
+                      ? "border-pink-600 ring-1 ring-pink-400 shadow"
+                      : "border-pink-200 hover:border-pink-400"
+                  }`}
                 >
                   <Image
                     src={src || "/no-image.png"}
                     alt={`${product.name} ${i + 1}`}
                     fill
+                    loading="lazy"
+                    sizes="80px"
                     className="object-cover"
                   />
                 </button>
@@ -151,9 +153,7 @@ export default function ProductDetailsClient({
           )}
         </div>
 
-        {/* ===========================
-              SUMMARY (INFO)
-        =========================== */}
+        {/* PRODUCT INFO */}
         <div className="flex flex-col justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
@@ -195,17 +195,19 @@ export default function ProductDetailsClient({
               </span>
             </div>
 
-            {/* Price + Wishlist */}
+            {/* Price */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <p className="text-blue-600 font-bold text-2xl">
                   ৳{product.price}
                 </p>
+
                 {product.oldPrice && (
                   <p className="text-gray-400 line-through text-lg">
                     ৳{product.oldPrice}
                   </p>
                 )}
+
                 {discountPct && (
                   <span className="text-red-500 font-semibold">
                     -{discountPct}%
@@ -213,9 +215,10 @@ export default function ProductDetailsClient({
                 )}
               </div>
 
+              {/* Wishlist */}
               <button
                 onClick={() => toggleWishlist(product._id)}
-                className={`p-3 rounded-full shadow transition-all duration-200 ${
+                className={`p-3 rounded-full shadow ${
                   isInWishlist
                     ? "bg-red-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
@@ -226,14 +229,14 @@ export default function ProductDetailsClient({
             </div>
           </div>
 
-          {/* CART + CHECKOUT */}
+          {/* CART SECTION */}
           <div className="flex flex-wrap md:flex-nowrap gap-4 items-start">
             {!quantity ? (
               <>
                 <button
                   disabled={product.stock <= 0}
                   onClick={() => updateCart(product._id, +1, product.stock)}
-                  className={`flex-1 md:flex-[2] px-4 py-3 rounded-lg font-medium transition-all ${
+                  className={`flex-1 md:flex-[2] px-4 py-3 rounded-lg font-medium ${
                     product.stock > 0
                       ? "bg-pink-600 text-white hover:bg-pink-700"
                       : "bg-gray-400 text-white cursor-not-allowed"
@@ -263,6 +266,7 @@ export default function ProductDetailsClient({
                       allowZero={true}
                     />
                   </div>
+
                   <p className="text-sm font-medium">
                     Total:{" "}
                     <span className="text-blue-600 font-semibold">
@@ -283,17 +287,15 @@ export default function ProductDetailsClient({
         </div>
       </section>
 
-      {/* ===========================
-                TABS
-        =========================== */}
+      {/* TABS */}
       <section className="mt-8">
         <div className="inline-flex bg-pink-100 rounded-xl p-1">
           {tabBtn("desc", "Description")}
-          {tabBtn("info", "Additional Information")}
+          {tabBtn("info", "Additional Info")}
           {tabBtn("reviews", "Reviews")}
         </div>
 
-        <div className="mt-4 bg-pink-100 rounded-2xl shadow p-4 sm:p-6 text-gray-700 leading-relaxed">
+        <div className="mt-4 bg-pink-100 rounded-2xl shadow p-4">
           {tab === "desc" && (
             <p className="whitespace-pre-wrap">
               {product.description || "No description available."}
@@ -329,9 +331,7 @@ export default function ProductDetailsClient({
         </div>
       </section>
 
-      {/* ===========================
-         RELATED PRODUCTS
-      =========================== */}
+      {/* RELATED PRODUCTS */}
       {related?.length > 0 && (
         <section className="mt-10">
           <div className="flex items-center justify-between mb-4">

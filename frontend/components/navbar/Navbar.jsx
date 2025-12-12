@@ -124,9 +124,13 @@ export default function Navbar() {
               </div>
             )}
 
-            <span className="text-xl font-bold text-pink-600 block min-w-[100px] truncate">
-              {navbar?.brand?.name?.trim() || "Your business name"}
-            </span>
+            {navbar?.brand?.name?.trim() ? (
+              <span className="text-xl font-bold text-pink-600 block min-w-[100px] truncate">
+                {navbar.brand.name.trim()}
+              </span>
+            ) : (
+              <div className="h-6 w-32 bg-gray-200 rounded-lg animate-pulse"></div>
+            )}
           </Link>
 
           {/* 📱 Hamburger */}

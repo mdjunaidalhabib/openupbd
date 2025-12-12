@@ -13,8 +13,8 @@ export default function CategoryPage() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [products, setProducts] = useState([]);
 
-  const [loading, setLoading] = useState(true); // category loading
-  const [productLoading, setProductLoading] = useState(false); // products loading
+  const [loading, setLoading] = useState(true);
+  const [productLoading, setProductLoading] = useState(false);
 
   const [catError, setCatError] = useState(false);
   const [prodError, setProdError] = useState(false);
@@ -35,19 +35,18 @@ export default function CategoryPage() {
       .catch((err) => {
         console.error(err);
 
-        // ✅ hidden category / forbidden (403) হলে graceful fallback
         if (err?.response?.status === 403) {
           setProducts([]);
-          setProdError(false); // error message না দেখিয়ে empty দেখাবে
+          setProdError(false);
         } else {
           setProdError(true);
-          setProducts([]); // clear stale data
+          setProducts([]);
         }
       })
       .finally(() => setProductLoading(false));
   }, []);
 
-  // 🔹 Categories fetch (only active + serial sorted)
+  // 🔹 Categories fetch
   useEffect(() => {
     let cancelled = false;
     let retryTimer = null;
@@ -62,10 +61,7 @@ export default function CategoryPage() {
 
         let data = Array.isArray(res.data) ? res.data : [];
 
-        // ✅ extra safe: only active categories
         data = data.filter((c) => c.isActive !== false);
-
-        // ✅ serial sort
         data.sort((a, b) => (a.order || 0) - (b.order || 0));
 
         setCategories(data);
@@ -87,7 +83,6 @@ export default function CategoryPage() {
         setCatError(true);
         setLoading(false);
 
-        // ✅ Auto retry after 3s
         retryTimer = setTimeout(loadCategories, 3000);
       }
     };
@@ -100,12 +95,10 @@ export default function CategoryPage() {
     };
   }, [fetchProducts]);
 
-  // ✅ category skeleton should show if:
   const shouldShowCategorySkeleton = useMemo(() => {
     return loading || catError || categories.length === 0;
   }, [loading, catError, categories.length]);
 
-  // ✅ product skeleton should show if:
   const shouldShowProductSkeleton = useMemo(() => {
     if (!selectedCategory) return false;
     return productLoading || prodError;
@@ -151,6 +144,9 @@ export default function CategoryPage() {
                       src={cat.image}
                       alt={cat.name}
                       fill
+                      sizes="(max-width: 768px) 8vw,
+                             (max-width: 1200px) 6vw,
+                             4vw"
                       className="rounded-md object-cover border"
                     />
                   </div>
@@ -169,7 +165,6 @@ export default function CategoryPage() {
               : "👉 প্রথমে কোনো Category সিলেক্ট করুন"}
           </h3>
 
-          {/* ✅ Products skeleton when loading or error */}
           {shouldShowProductSkeleton ? (
             <div>
               <ProductDetailsSkeleton />

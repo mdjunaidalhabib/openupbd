@@ -66,23 +66,23 @@ export default function Footer() {
   if (loading) return <FooterSkeleton />;
   if (!data) return null;
 
-  const { brand = {}, contact = {}, copyrightText } = data;
+  const { brand = {}, contact = {} } = data;
 
   return (
     <footer className="bg-pink-100 text-gray-900 pt-10 pb-2 px-6 md:px-12 mb-14 md:mb-0">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
-        {/* 1. Brand + About */}
+        {/* BRAND */}
         <div>
           <div className="flex items-center gap-3 mb-3">
             {brand.logo && !imgError ? (
               <Image
                 src={brand.logo}
-                alt={brand.title || "Brand"}
+                alt={brand?.title || "Brand Logo"}
                 width={40}
                 height={40}
+                loading="lazy"
                 className="w-8 h-8 md:w-10 md:h-10 rounded-lg object-cover"
                 onError={() => setImgError(true)}
-                unoptimized
               />
             ) : (
               <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-pink-50 rounded-lg">
@@ -108,7 +108,6 @@ export default function Footer() {
                   href={s.url || "#"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={s.icon}
                 >
                   <Icon className="hover:text-pink-600" />
                 </Link>
@@ -117,21 +116,21 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* 2. Quick Links */}
+        {/* QUICK LINKS */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
           <ul className="space-y-2 text-sm">
-            {quickLinksData.map((l, i) => (
+            {quickLinksData.map((item, i) => (
               <li key={i}>
-                <Link href={l.href} className="hover:text-pink-600">
-                  {l.label}
+                <Link href={item.href} className="hover:text-pink-600">
+                  {item.label}
                 </Link>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* 3. Contact */}
+        {/* CONTACT */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Contact Us</h2>
           <ul className="space-y-2 text-sm">
@@ -139,7 +138,7 @@ export default function Footer() {
               <li className="flex items-center gap-2">
                 <FaMapMarkerAlt />
                 <a
-                  href={`https://maps.app.goo.gl/Qvc2AX1ELx5JCaWY9?g_st=ipc`}
+                  href="https://maps.app.goo.gl/Qvc2AX1ELx5JCaWY9?g_st=ipc"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-pink-600"

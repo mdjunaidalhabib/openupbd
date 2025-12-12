@@ -19,32 +19,5 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-
-  "screenshots": [
-    {
-      "src": "/main-ss-wide-1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/main-ss-wide-2.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/main-ss-mobile-1.png",
-      "sizes": "720x1280",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/main-ss-mobile-2.png",
-      "sizes": "720x1280",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
   ]
 }

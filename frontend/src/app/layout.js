@@ -22,11 +22,17 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#f472b6" />
+
+        {/* 🔥 Modern Required (Fixes warning) */}
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        {/* 🔧 Optional (Old Safari support) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
 
       <body className="flex flex-col min-h-screen bg-gray-50">
         <PWARegister />
+
         <UserProvider>
           <CartProvider>
             <Navbar />

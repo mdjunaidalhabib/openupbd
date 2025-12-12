@@ -172,7 +172,8 @@ export default function ImageSlider({
                       fill
                       className="object-cover"
                       sizes="100vw"
-                      priority={i === 0}
+                      priority={true}
+                      loading="eager"
                     />
                   </div>
                 </Link>
@@ -186,7 +187,8 @@ export default function ImageSlider({
                     fill
                     className="object-cover"
                     sizes="100vw"
-                    priority={i === 0}
+                    priority={true}
+                    loading="eager"
                   />
                 </div>
               )}
