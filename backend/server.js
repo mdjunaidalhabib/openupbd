@@ -72,7 +72,7 @@ app.use(passport.initialize());
 app.use("/", publicRoutes);
 app.use("/admin", adminRoutes);
 
-app.get("/", (req, res) => res.send("✅ HabibsFashion API is running..."));
+app.get("/", (req, res) => res.send("✅ API is running..."));
 app.use("/uploads", express.static("uploads"));
 
 app.get("/health", (req, res) => {
@@ -101,7 +101,10 @@ const startServer = async () => {
   try {
     await dbConnect(process.env.MONGO_URI);
     await createSuperAdmin();
-    app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
+
+    app.listen(PORT, "0.0.0.0", () =>
+      console.log(`🚀 Backend running on port ${PORT}`)
+    );
   } catch (err) {
     console.error("❌ Failed to connect DB:", err);
     process.exit(1);

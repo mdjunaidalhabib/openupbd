@@ -42,8 +42,7 @@
     "start:frontend": "cd frontend && npm run dev",
     "start:admin": "cd admin && npm run dev",
     "start:backend": "cd backend && npm run dev",
-    "dev": "concurrently \"npm run start:frontend\" \"npm run start:admin\" \"npm run start:backend\"",
-    "build": "next build"
+    "dev": "concurrently \"npm run start:frontend\" \"npm run start:admin\" \"npm run start:backend\""
   },
   "repository": {
     "type": "git",
