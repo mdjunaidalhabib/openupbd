@@ -3,15 +3,6 @@ import Sidebar from "../../../components/Sidebar";
 import Header from "../../../components/Header";
 import "../globals.css";
 
-export const metadata = {
-  title: "Dashboard | Admin Panel",
-  icons: {
-    icon: "/Logo-Rounted.ico",
-    shortcut: "/Logo-Rounted.ico",
-    apple: "/Logo-Rounted.ico",
-  },
-};
-
 export default function AdminLayout({ children }) {
   return (
         <div className="flex h-screen bg-gray-100">
