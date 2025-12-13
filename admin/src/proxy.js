@@ -19,7 +19,7 @@ function isJwtExpired(token) {
   }
 }
 
-export function middleware(req) {
+export function proxy(req) {
   const token = req.cookies.get("admin_token")?.value || "";
   const { pathname, origin } = req.nextUrl;
 

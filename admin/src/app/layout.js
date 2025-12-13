@@ -4,9 +4,9 @@ import AdminPWARegister from "../../components/pwa-register.jsx";
 export const metadata = {
   title: "Dashboard | Admin Panel",
   icons: {
-    icon: "/Logo-Rounted.ico",
-    shortcut: "/Logo-Rounted.ico",
-    apple: "/Logo-Rounted.ico",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 

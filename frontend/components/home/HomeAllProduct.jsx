@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "./ProductCard";
 import ProductCardSkeleton from "../skeletons/ProductCardSkeleton";
 import { apiFetch } from "../../utils/api";
@@ -12,6 +12,15 @@ export default function CategoryTabsSection() {
   const [activeCat, setActiveCat] = useState(null);
   const [error, setError] = useState(false);
 
+  /* ================= DRAG SCROLL STATE ================= */
+  const scrollRef = useRef(null);
+  const isDownRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const velocityRef = useRef(0);
+  const rafRef = useRef(null);
+
+  /* ================= DATA FETCH ================= */
   useEffect(() => {
     let cancelled = false;
     let retryTimer = null;
@@ -23,24 +32,20 @@ export default function CategoryTabsSection() {
 
         const [pRes, cRes] = await Promise.all([
           apiFetch("/products"),
-          apiFetch("/categories"), // public categories route
+          apiFetch("/categories"),
         ]);
 
         if (cancelled) return;
 
-        const pArr = Array.isArray(pRes) ? pRes : [];
+        let pArr = Array.isArray(pRes) ? pRes : [];
         let cArr = Array.isArray(cRes) ? cRes : [];
 
-        // ✅ only active categories
         cArr = cArr.filter((c) => c.isActive !== false);
-
-        // ✅ sort by serial/order
         cArr.sort((a, b) => (a.order || 0) - (b.order || 0));
 
         setProducts(pArr);
         setCategories(cArr);
 
-        // ✅ activeCat যদি hidden or deleted হয়ে যায় → reset
         if (
           activeCat &&
           !cArr.find((c) => String(c._id) === String(activeCat))
@@ -55,8 +60,6 @@ export default function CategoryTabsSection() {
 
         setError(true);
         setLoading(false);
-
-        // ✅ Auto retry (optional)
         retryTimer = setTimeout(fetchData, 3000);
       }
     };
@@ -70,6 +73,7 @@ export default function CategoryTabsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ================= FILTER PRODUCTS ================= */
   const filtered = useMemo(() => {
     if (!activeCat) return products;
     return products.filter(
@@ -80,13 +84,70 @@ export default function CategoryTabsSection() {
   const shouldShowSkeleton =
     loading || error || products.length === 0 || categories.length === 0;
 
+  /* ================= DRAG LOGIC ================= */
+  const startInertia = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const step = () => {
+      velocityRef.current *= 0.95; // friction
+
+      if (Math.abs(velocityRef.current) < 0.5) return;
+
+      el.scrollLeft -= velocityRef.current;
+      rafRef.current = requestAnimationFrame(step);
+    };
+
+    rafRef.current = requestAnimationFrame(step);
+  };
+
+  const onMouseDown = (e) => {
+    if (window.innerWidth < 640) return;
+
+    isDownRef.current = true;
+    scrollRef.current.classList.add("cursor-grabbing");
+
+    startXRef.current = e.pageX;
+    scrollLeftRef.current = scrollRef.current.scrollLeft;
+    velocityRef.current = 0;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  };
+
+  const onMouseMove = (e) => {
+    if (!isDownRef.current) return;
+
+    e.preventDefault();
+    const dx = e.pageX - startXRef.current;
+    const walk = dx * 1.1; // sensitivity
+
+    scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+    velocityRef.current = walk;
+  };
+
+  const onMouseUp = () => {
+    if (!isDownRef.current) return;
+
+    isDownRef.current = false;
+    scrollRef.current.classList.remove("cursor-grabbing");
+    startInertia();
+  };
+
+  const onMouseLeave = () => {
+    if (!isDownRef.current) return;
+
+    isDownRef.current = false;
+    scrollRef.current.classList.remove("cursor-grabbing");
+    startInertia();
+  };
+
+  /* ================= SKELETON ================= */
   if (shouldShowSkeleton) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 px-4 py-10">
         {Array.from({ length: 8 }).map((_, i) => (
           <ProductCardSkeleton key={i} />
         ))}
-
         <p className="col-span-full text-center text-sm text-gray-500 mt-4">
           {error
             ? "ডেটা লোড হচ্ছে না—আবার চেষ্টা করা হচ্ছে..."
@@ -96,6 +157,7 @@ export default function CategoryTabsSection() {
     );
   }
 
+  /* ================= UI ================= */
   return (
     <motion.section
       initial={{ opacity: 0, y: 40 }}
@@ -103,28 +165,35 @@ export default function CategoryTabsSection() {
       transition={{ duration: 0.6 }}
       className="container mx-auto px-4 sm:px-6 lg:px-8 py-8"
     >
-      {/* ✅ Section Heading */}
-      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6 relative inline-block w-full">
+      {/* Categories Heading */}
+      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
         <span className="bg-gradient-to-r from-blue-600 via-purple-500 to-pink-500 text-transparent bg-clip-text">
           🛍️ Categories
         </span>
-        <motion.span
-          initial={{ width: 0 }}
-          animate={{ width: "60px" }}
-          transition={{ duration: 0.6 }}
-          className="block mx-auto mt-2 h-[2px] bg-gradient-to-r from-blue-600 to-pink-500 rounded-full"
-        />
       </h2>
 
-      {/* CATEGORY BUTTONS → mobile: 2 rows + horizontal scroll */}
+      {/* ================= CATEGORY SCROLL ================= */}
       <div
+        ref={scrollRef}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseLeave}
         className="
-          px-1 mb-8
+          px-1 mb-8 w-full
           overflow-x-auto overflow-y-hidden
           [&::-webkit-scrollbar]:hidden scrollbar-none
+          sm:cursor-grab
+          select-none
         "
       >
-        <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem] sm:flex sm:flex-wrap sm:justify-center sm:gap-3 sm:items-start">
+        <div
+          className="
+            grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem]
+            sm:flex sm:flex-nowrap sm:gap-3
+            sm:min-w-max
+          "
+        >
           {categories.map((cat) => (
             <button
               key={cat._id}
@@ -133,7 +202,8 @@ export default function CategoryTabsSection() {
               }
               className={`flex-none flex flex-col items-center justify-center
                 w-24 h-24 p-2 rounded-xl
-                transition-all duration-300 border shadow-sm hover:shadow-md
+                transition-all duration-300
+                border shadow-sm hover:shadow-md
                 ${
                   activeCat === cat._id
                     ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
@@ -147,9 +217,7 @@ export default function CategoryTabsSection() {
                   className="w-10 h-10 object-cover transition-transform duration-300 hover:scale-110"
                 />
               </div>
-
-              {/* fixed text area so height doesn't change */}
-              <span className="text-xs font-medium text-center leading-tight line-clamp-2">
+              <span className="text-xs font-medium text-center line-clamp-2">
                 {cat.name}
               </span>
             </button>
@@ -157,20 +225,14 @@ export default function CategoryTabsSection() {
         </div>
       </div>
 
-      {/* ✅ Product Heading */}
-      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6 relative inline-block w-full">
+      {/* Products Heading */}
+      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
         <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text">
           {activeCat ? "📦 Selected Category Products" : "📦 All Products"}
         </span>
-        <motion.span
-          initial={{ width: 0 }}
-          animate={{ width: "60px" }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="block mx-auto mt-2 h-[2px] bg-gradient-to-r from-pink-500 to-blue-600 rounded-full"
-        />
       </h2>
 
-      {/* ✅ Product Grid */}
+      {/* Products Grid */}
       {filtered.length ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {filtered.map((prod) => (

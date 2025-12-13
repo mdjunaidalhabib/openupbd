@@ -3,33 +3,24 @@ import { CartProvider } from "../../context/CartContext";
 import Navbar from "../../components/navbar/Navbar";
 import Footer from "../../components/home/footer";
 import { UserProvider } from "../../context/UserContext";
-import PWARegister from "../../components/pwa-register";
+import PWARegister from "../../components/pwa/pwa-register";
 import FloatingActionButton from "../../components/home/FloatingActionButton";
+import { rootMetadata } from "../../components/seo/RootMetadata";
 
-export const metadata = {
-  title: "openupbd",
-  description: "openupbd Store",
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
-  },
-};
+// তোমার আগের themeColor এখন আলাদা করে এখানে declare করতে পারো
+const themeColor = "#f472b6";
+
+export const metadata = rootMetadata;
+
+export function generateViewportMetadata() {
+  return {
+    themeColor,
+  };
+}
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#f472b6" />
-
-        {/* 🔥 Modern Required (Fixes warning) */}
-        <meta name="mobile-web-app-capable" content="yes" />
-
-        {/* 🔧 Optional (Old Safari support) */}
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-      </head>
-
       <body className="flex flex-col min-h-screen bg-gray-50">
         <PWARegister />
 
