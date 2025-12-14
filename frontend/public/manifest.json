@@ -1,21 +1,20 @@
 {
-  "name": "openupbd",
-  "short_name": "openup",
-  "description": "openupbd store",
-  "start_url": "/",
+  "name": "OpenUp BD",
+  "short_name": "OpenUp",
+  "description": "OpenUp BD is a trusted online shopping platform in Bangladesh with fast delivery and quality products.",
+  "start_url": "https://openupbd.com/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#f472b6",
-
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "https://openupbd.com/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icon-512.png",
+      "src": "https://openupbd.com/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
