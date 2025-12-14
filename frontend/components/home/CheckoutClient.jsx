@@ -7,6 +7,7 @@ import { useCartUtils } from "../../hooks/useCartUtils";
 import QuantityController from "./QuantityController";
 import CheckoutButton from "./CheckoutButton";
 import Toast from "./Toast";
+import CheckoutSummarySkeleton from "../skeletons/CheckoutSummarySkeleton";
 
 export default function CheckoutPage() {
   const { me } = useUser();
@@ -37,6 +38,7 @@ export default function CheckoutPage() {
 
   const cartItems = useMemo(() => {
     if (!allProducts.length) return [];
+
     if (productId) {
       const p = allProducts.find((x) => String(x._id) === String(productId));
       if (!p) return [];
@@ -51,6 +53,7 @@ export default function CheckoutPage() {
         },
       ];
     }
+
     return Object.keys(cart)
       .map((id) => {
         const p = allProducts.find((x) => String(x._id) === String(id));
@@ -118,12 +121,33 @@ export default function CheckoutPage() {
     }
   };
 
+  // ✅ Button disable rule (required + loading + empty cart)
+  const isOrderDisabled =
+    productsLoading ||
+    loading ||
+    errors.name ||
+    errors.phone ||
+    errors.address ||
+    !cartItems.length;
+
   async function placeOrder() {
     setSubmitted(true);
 
-    // ✅ if required missing -> show red + toast
+    // ✅ products loading guard
+    if (productsLoading) {
+      showToast("⏳ প্রোডাক্ট লোড হচ্ছে... একটু অপেক্ষা করুন", "error");
+      return;
+    }
+
+    // ✅ validation guard
     if (errors.name || errors.phone || errors.address) {
       showToast("⚠️ সব ঘর ঠিকমতো পূরণ করতে হবে!", "error");
+      return;
+    }
+
+    // ✅ empty cart guard
+    if (!cartItems.length) {
+      showToast("🛒 আপনার প্রোডাক্ট খালি", "error");
       return;
     }
 
@@ -154,17 +178,14 @@ export default function CheckoutPage() {
       if (!res.ok) throw new Error(data.error || "Order failed");
 
       if (!productId) setCart({});
-      showToast("✅ অর্ডার সফলভাবে সম্পন্ন হয়েছে!", "success");
 
-      setTimeout(() => {
-        window.location.href = `/order-summary/${
-          data._id || data.id || data.order?._id
-        }`;
-      }, 1000);
+      const orderId = data._id || data.id || data.order?._id;
+      if (!orderId) throw new Error("Order created but orderId missing");
+
+      window.location.href = `/order-summary/${orderId}`;
     } catch (err) {
       console.error(err);
       showToast("🚨 সার্ভারে সংযোগ ব্যর্থ হয়েছে!", "error");
-    } finally {
       setLoading(false);
     }
   }
@@ -175,201 +196,204 @@ export default function CheckoutPage() {
         অর্ডারটি সম্পন্ন করতে আপনার নাম, মোবাইল নাম্বার ও ঠিকানা লিখুন
       </h2>
 
-      {productsLoading ? (
-        <p className="text-center text-gray-600">⏳ প্রোডাক্ট লোড হচ্ছে...</p>
-      ) : !cartItems.length ? (
-        <p className="text-center text-gray-600">🛒 আপনার প্রোডাক্ট খালি</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Billing Info */}
-          <div>
-            {/* ✅ Name */}
-            <label className="block mb-3">
-              <span
-                className={labelClass(
-                  (submitted || touched.name) && errors.name
-                )}
-              >
-                নাম *
-              </span>
-              <input
-                type="text"
-                value={name}
-                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-                onChange={(e) => setName(e.target.value)}
-                className={fieldClass(
-                  (submitted || touched.name) && errors.name
-                )}
-              />
-              {(submitted || touched.name) && errors.name && (
-                <p className="text-xs text-red-600 mt-1">নাম লিখুন</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* ✅ Billing Info (always visible) */}
+        <div>
+          {/* ✅ Name */}
+          <label className="block mb-3">
+            <span
+              className={labelClass((submitted || touched.name) && errors.name)}
+            >
+              নাম *
+            </span>
+            <input
+              type="text"
+              value={name}
+              onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+              onChange={(e) => setName(e.target.value)}
+              className={fieldClass((submitted || touched.name) && errors.name)}
+            />
+            {(submitted || touched.name) && errors.name && (
+              <p className="text-xs text-red-600 mt-1">নাম লিখুন</p>
+            )}
+          </label>
+
+          {/* ✅ Phone */}
+          <label className="block mb-3">
+            <span
+              className={labelClass(
+                (submitted || touched.phone) && errors.phone
               )}
-            </label>
-
-            {/* ✅ Phone */}
-            <label className="block mb-3">
-              <span
-                className={labelClass(
-                  (submitted || touched.phone) && errors.phone
-                )}
-              >
-                মোবাইল *
-              </span>
-              <input
-                type="tel"
-                value={phone}
-                onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
-                onChange={(e) => setPhone(e.target.value)}
-                className={fieldClass(
-                  (submitted || touched.phone) && errors.phone
-                )}
-              />
-              {(submitted || touched.phone) && errors.phone && (
-                <p className="text-xs text-red-600 mt-1">
-                  সঠিক ১১ সংখ্যার নাম্বার দিন (01XXXXXXXXX)
-                </p>
+            >
+              মোবাইল *
+            </span>
+            <input
+              type="tel"
+              value={phone}
+              onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+              onChange={(e) => setPhone(e.target.value)}
+              className={fieldClass(
+                (submitted || touched.phone) && errors.phone
               )}
-            </label>
+            />
+            {(submitted || touched.phone) && errors.phone && (
+              <p className="text-xs text-red-600 mt-1">
+                সঠিক ১১ সংখ্যার নাম্বার দিন (01XXXXXXXXX)
+              </p>
+            )}
+          </label>
 
-            {/* ✅ Address */}
-            <label className="block mb-3">
-              <span
-                className={labelClass(
-                  (submitted || touched.address) && errors.address
-                )}
-              >
-                ঠিকানা *
-              </span>
-              <textarea
-                value={address}
-                rows="2"
-                onBlur={() => setTouched((t) => ({ ...t, address: true }))}
-                onChange={(e) => setAddress(e.target.value)}
-                className={fieldClass(
-                  (submitted || touched.address) && errors.address
-                )}
-              />
-              {(submitted || touched.address) && errors.address && (
-                <p className="text-xs text-red-600 mt-1">ঠিকানা লিখুন</p>
+          {/* ✅ Address */}
+          <label className="block mb-3">
+            <span
+              className={labelClass(
+                (submitted || touched.address) && errors.address
               )}
-            </label>
+            >
+              ঠিকানা *
+            </span>
+            <textarea
+              value={address}
+              rows="2"
+              onBlur={() => setTouched((t) => ({ ...t, address: true }))}
+              onChange={(e) => setAddress(e.target.value)}
+              className={fieldClass(
+                (submitted || touched.address) && errors.address
+              )}
+            />
+            {(submitted || touched.address) && errors.address && (
+              <p className="text-xs text-red-600 mt-1">ঠিকানা লিখুন</p>
+            )}
+          </label>
 
-            {/* Note (optional) */}
-            <label className="block mb-3">
-              <span className="text-sm font-medium">নোট (ঐচ্ছিক)</span>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="mt-1 w-full p-2 border rounded-md border-gray-300"
-                rows="2"
-              />
-            </label>
+          {/* Note */}
+          <label className="block mb-3">
+            <span className="text-sm font-medium">নোট (ঐচ্ছিক)</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="mt-1 w-full p-2 border rounded-md border-gray-300"
+              rows="2"
+            />
+          </label>
 
-            {/* Payment */}
-            <label className="block mb-3">
-              <span className="text-sm font-medium">পেমেন্ট মেথড *</span>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="mt-1 w-full p-2 border rounded-md border-gray-300"
-              >
-                <option value="cod">Cash on Delivery</option>
-                <option value="bkash">Bkash</option>
-              </select>
-            </label>
-          </div>
+          {/* Payment */}
+          <label className="block mb-3">
+            <span className="text-sm font-medium">পেমেন্ট মেথড *</span>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="mt-1 w-full p-2 border rounded-md border-gray-300"
+            >
+              <option value="cod">Cash on Delivery</option>
+              <option value="bkash">Bkash</option>
+            </select>
+          </label>
+        </div>
 
-          {/* Cart Summary */}
-          <div>
-            {cartItems.map((it) => (
-              <div
-                key={it.productId}
-                className="flex items-center justify-between border p-3 rounded-lg mb-3"
-              >
-                <div className="flex items-center space-x-3">
-                  <img
-                    src={it.image}
-                    alt={it.name}
-                    className="w-16 h-16 rounded-md object-cover"
-                  />
-                  <div>
-                    <p className="font-medium">{it.name}</p>
-                    <QuantityController
-                      qty={it.qty}
-                      stock={it.stock}
-                      onChange={(change) =>
-                        productId
-                          ? setCheckoutQty((prev) =>
-                              Math.min(Math.max(1, prev + change), it.stock)
-                            )
-                          : updateCart(it.productId, change, it.stock)
-                      }
+        {/* ✅ Right Side Summary */}
+        <div>
+          {productsLoading ? (
+            <CheckoutSummarySkeleton />
+          ) : !cartItems.length ? (
+            <p className="text-center text-gray-600">🛒 আপনার প্রোডাক্ট খালি</p>
+          ) : (
+            <>
+              {cartItems.map((it) => (
+                <div
+                  key={it.productId}
+                  className="flex items-center justify-between border p-3 rounded-lg mb-3"
+                >
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={it.image}
+                      alt={it.name}
+                      className="w-16 h-16 rounded-md object-cover"
                     />
+                    <div>
+                      <p className="font-medium">{it.name}</p>
+                      <QuantityController
+                        qty={it.qty}
+                        stock={it.stock}
+                        onChange={(change) =>
+                          productId
+                            ? setCheckoutQty((prev) =>
+                                Math.min(Math.max(1, prev + change), it.stock)
+                              )
+                            : updateCart(it.productId, change, it.stock)
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="font-semibold">৳{it.price * it.qty}</p>
+                    {!productId && (
+                      <button
+                        onClick={() => removeFromCart(it.productId)}
+                        className="text-red-500 text-sm mt-1"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">৳{it.price * it.qty}</p>
-                  {!productId && (
-                    <button
-                      onClick={() => removeFromCart(it.productId)}
-                      className="text-red-500 text-sm mt-1"
-                    >
-                      Remove
-                    </button>
-                  )}
+              ))}
+
+              <div className="flex justify-between mt-4 text-lg font-semibold">
+                <span>Subtotal</span>
+                <span>৳{subtotal}</span>
+              </div>
+              <div className="flex justify-between mt-2 text-lg font-semibold">
+                <span>Delivery Charge</span>
+                <span>৳{deliveryCharge}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between mt-2 text-lg font-semibold text-red-600">
+                  <span>Discount</span>
+                  <span>-৳{discount}</span>
                 </div>
+              )}
+              <div className="flex justify-between mt-2 text-lg font-bold text-green-700">
+                <span>Total</span>
+                <span>৳{total}</span>
               </div>
-            ))}
 
-            <div className="flex justify-between mt-4 text-lg font-semibold">
-              <span>Subtotal</span>
-              <span>৳{subtotal}</span>
-            </div>
-            <div className="flex justify-between mt-2 text-lg font-semibold">
-              <span>Delivery Charge</span>
-              <span>৳{deliveryCharge}</span>
-            </div>
-            {discount > 0 && (
-              <div className="flex justify-between mt-2 text-lg font-semibold text-red-600">
-                <span>Discount</span>
-                <span>-৳{discount}</span>
+              <div className="flex items-center mt-4 gap-2">
+                <input
+                  type="text"
+                  placeholder="Promo Code"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  className="flex-1 border rounded-md p-2 border-gray-300"
+                />
+                <button
+                  onClick={applyPromo}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md"
+                >
+                  Apply
+                </button>
               </div>
-            )}
-            <div className="flex justify-between mt-2 text-lg font-bold text-green-700">
-              <span>Total</span>
-              <span>৳{total}</span>
-            </div>
 
-            <div className="flex items-center mt-4 gap-2">
-              <input
-                type="text"
-                placeholder="Promo Code"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
-                className="flex-1 border rounded-md p-2 border-gray-300"
-              />
-              <button
-                onClick={applyPromo}
-                className="bg-green-600 text-white px-4 py-2 rounded-md"
-              >
-                Apply
-              </button>
-            </div>
+              {/* ✅ Button */}
+              <div className="mt-6">
+                <CheckoutButton
+                  fullWidth
+                  onClick={placeOrder}
+                  loading={loading}
+                  disabled={isOrderDisabled}
+                />
 
-            <div className="mt-6">
-              <CheckoutButton
-                product={cartItems[0]}
-                productId={productId}
-                qty={productId ? checkoutQty : 1}
-                total={total}
-                fullWidth
-                onClick={placeOrder}
-                loading={loading}
-              />
-            </div>
-          </div>
+                {isOrderDisabled && (
+                  <p className="text-xs text-red-500 mt-2">
+                    ⚠️ অর্ডার দিতে নাম, মোবাইল ও ঠিকানা সঠিকভাবে পূরণ করুন
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       <Toast
         message={toast.message}

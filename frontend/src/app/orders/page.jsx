@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "../../../context/UserContext";
 import { apiFetch } from "../../../utils/api";
+import Toast from "../../../components/home/Toast";
+import EditOrderForm from "../../../components/orders/EditOrderForm";
 
 // ✅ Custom date-time formatter
 const formatDateTime = (dateString) => {
@@ -22,17 +24,35 @@ const formatDateTime = (dateString) => {
 
 export default function OrdersPage() {
   const { me, loadingUser } = useUser();
+
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("lifetime");
 
-  // ✅ pagination setup
+  // 🔔 toast
+  const [toast, setToast] = useState(null);
+
+  // ✏️ edit modal
+  const [editOrder, setEditOrder] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ✅ fetch orders from API
+  // ===============================
+  // Toast helper (same old pattern)
+  // ===============================
+  const showToast = (message, type = "success", time = 2000) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), time);
+  };
+
+  // ===============================
+  // Fetch orders
+  // ===============================
   useEffect(() => {
     if (!loadingUser && me) {
       (async () => {
@@ -41,7 +61,7 @@ export default function OrdersPage() {
           setOrders(data || []);
           setFilteredOrders(data || []);
         } catch (err) {
-          console.error("❌ Failed to load orders:", err);
+          console.error(err);
           setError("Failed to load orders");
         } finally {
           setLoadingOrders(false);
@@ -50,42 +70,92 @@ export default function OrdersPage() {
     }
   }, [me, loadingUser]);
 
-  // ✅ filter orders by time
+  // ===============================
+  // Filter orders
+  // ===============================
   useEffect(() => {
     if (!orders.length) return;
+
     const now = new Date();
-    let cutoff;
-    switch (filter) {
-      case "1m":
-        cutoff = new Date();
-        cutoff.setMonth(now.getMonth() - 1);
-        break;
-      case "6m":
-        cutoff = new Date();
-        cutoff.setMonth(now.getMonth() - 6);
-        break;
-      default:
-        cutoff = null;
+    let cutoff = null;
+
+    if (filter === "1m") {
+      cutoff = new Date();
+      cutoff.setMonth(now.getMonth() - 1);
+    } else if (filter === "6m") {
+      cutoff = new Date();
+      cutoff.setMonth(now.getMonth() - 6);
     }
 
     const result = cutoff
-      ? orders.filter((o) => o.createdAt && new Date(o.createdAt) >= cutoff)
+      ? orders.filter((o) => new Date(o.createdAt) >= cutoff)
       : orders;
+
     setFilteredOrders(result);
     setCurrentPage(1);
   }, [filter, orders]);
 
-  // ✅ pagination calculation
+  // ===============================
+  // Pagination
+  // ===============================
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  const goToNextPage = () => currentPage < totalPages && setCurrentPage((p) => p + 1);
-  const goToPrevPage = () => currentPage > 1 && setCurrentPage((p) => p - 1);
+  // ===============================
+  // Update order
+  // ===============================
+  const saveBilling = async (billing) => {
+    setSaving(true);
+    try {
+      const updated = await apiFetch(`/orders/${editOrder._id}`, {
+        method: "PUT",
+        body: JSON.stringify({ billing }),
+      });
 
-  // ✅ loading state
+      setOrders((prev) =>
+        prev.map((o) => (o._id === updated._id ? updated : o))
+      );
+
+      setEditOrder(null);
+      showToast("✅ Order updated");
+    } catch {
+      showToast("❌ Update failed", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ===============================
+  // Cancel order (NOT delete)
+  // ===============================
+  const cancelOrder = async (orderId) => {
+    if (!confirm("Cancel this order?")) return;
+
+    try {
+      const updated = await apiFetch(`/orders/${orderId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          status: "cancelled",
+          cancelReason: "Cancelled by customer",
+        }),
+      });
+
+      setOrders((prev) =>
+        prev.map((o) => (o._id === updated._id ? updated : o))
+      );
+
+      showToast("🚫 Order cancelled");
+    } catch {
+      showToast("❌ Cancel failed", "error");
+    }
+  };
+
+  // ===============================
+  // UI states
+  // ===============================
   if (loadingUser || loadingOrders)
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -93,195 +163,191 @@ export default function OrdersPage() {
       </div>
     );
 
-  // ✅ not logged in
   if (!me)
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center">
-        <p className="text-gray-500 mb-4 text-lg">You are not logged in</p>
-        <a
-          href="/"
-          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-md shadow hover:from-blue-700 hover:to-blue-600 transition"
-        >
-          Go Home
-        </a>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-500">You are not logged in</p>
       </div>
     );
 
-  // ✅ error display
   if (error)
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-red-500 font-semibold">{error}</p>
+        <p className="text-red-500">{error}</p>
       </div>
     );
 
-  // ✅ no orders found
-  if (!filteredOrders.length)
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-gray-500 text-lg mb-4">
-          No orders found for this time range.
-        </p>
-        <button
-          onClick={() => setFilter("lifetime")}
-          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-md hover:from-blue-700 hover:to-blue-600 transition"
-        >
-          Reset Filter
-        </button>
-      </div>
-    );
-
-  // ✅ main UI
+  // ===============================
+  // MAIN UI
+  // ===============================
   return (
-    <div className="max-w-6xl mx-auto mt-10 px-4 sm:px-6 lg:px-8">
-      {/* Header + Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">My Orders</h1>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="1m">Last 1 Month</option>
-          <option value="6m">Last 6 Months</option>
-          <option value="lifetime">Lifetime</option>
-        </select>
-      </div>
+    <>
+      {/* 🔔 Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
 
-      {/* 📱 Mobile Card View */}
-      <div className="grid gap-4 sm:hidden">
-        {paginatedOrders.map((order) => (
-          <div
-            key={order._id}
-            className="bg-white shadow-sm rounded-lg p-3 border border-gray-100 hover:shadow-md transition"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="font-semibold text-gray-900 text-sm truncate">
-                #{order.orderId || order._id}
-              </h2>
-              <span
-                className={`px-2 py-0.5 text-[10px] rounded-full font-medium ${
-                  order.status === "delivered"
-                    ? "bg-green-100 text-green-600"
-                    : order.status === "pending"
-                    ? "bg-yellow-100 text-yellow-600"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {order.status}
-              </span>
-            </div>
-            <p className="text-xs text-gray-600 mb-1">
-              <span className="font-medium">Date:</span>{" "}
-              {formatDateTime(order.createdAt)}
-            </p>
-            <p className="text-xs text-gray-600">
-              <span className="font-medium">Total:</span> ৳{order.total}
-            </p>
-
-            <div className="flex gap-2 mt-3">
-              <Link
-                href={`/orders/${order._id}`}
-                className="flex-1 px-2 py-1 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs rounded-md hover:from-blue-700 hover:to-blue-600 shadow-sm transition text-center"
-              >
-                🧾Receipt
-              </Link>
-
-              {/* ⬇️ PDF Download */}
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/api/receipts/${order._id}?download=true`}
-                className="flex-1 px-2 py-1 bg-gradient-to-r from-green-600 to-green-500 text-white text-xs rounded-md hover:from-green-700 hover:to-green-600 shadow-sm transition text-center"
-              >
-                ⬇️ Download
-              </a>
-            </div>
+      {/* ✏️ Edit Modal */}
+      {editOrder && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-sm p-4">
+            <h3 className="font-semibold mb-3">✏️ Edit Order</h3>
+            <EditOrderForm
+              billingData={editOrder.billing}
+              loading={saving}
+              onSave={saveBilling}
+              onCancel={() => setEditOrder(null)}
+            />
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      {/* 💻 Desktop Table View */}
-      <div className="hidden sm:block overflow-x-auto bg-white shadow-md rounded-lg">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-gray-100 text-left text-gray-700">
-              <th className="p-3">Order ID</th>
-              <th className="p-3">Date</th>
-              <th className="p-3">Status</th>
-              <th className="p-3">Total</th>
-              <th className="p-3 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedOrders.map((order) => (
-              <tr key={order._id} className="border-t hover:bg-gray-50 transition">
-                <td className="p-3 font-medium text-gray-900">{order.orderId || order._id}</td>
-                <td className="p-3 text-gray-600">{formatDateTime(order.createdAt)}</td>
-                <td className="p-3">
-                  <span
-                    className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                      order.status === "delivered"
-                        ? "bg-green-100 text-green-600"
-                        : order.status === "pending"
-                        ? "bg-yellow-100 text-yellow-600"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
+      <div className="max-w-6xl mx-auto mt-10 px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">My Orders</h1>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="border rounded px-3 py-2 text-sm"
+          >
+            <option value="1m">Last 1 Month</option>
+            <option value="6m">Last 6 Months</option>
+            <option value="lifetime">Lifetime</option>
+          </select>
+        </div>
+
+        {/* 📱 Mobile Card View */}
+        <div className="grid gap-4 sm:hidden">
+          {paginatedOrders.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              No orders found.
+            </div>
+          ) : (
+            paginatedOrders.map((order) => (
+              <div
+                key={order._id}
+                className="bg-white rounded-lg p-3 border shadow-sm"
+              >
+                <p className="font-semibold text-sm">
+                  #{order.orderId || order._id}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatDateTime(order.createdAt)}
+                </p>
+                <p className="text-xs mt-1">Total: ৳{order.total}</p>
+
+                <div className="flex gap-2 mt-3">
+                  <Link
+                    href={`/orders/${order._id}`}
+                    className="flex-1 bg-blue-600 text-white text-xs py-1.5 rounded text-center"
                   >
-                    {order.status}
-                  </span>
-                </td>
-                <td className="p-3 font-semibold text-gray-800">৳{order.total}</td>
-                <td className="p-3 text-center">
-                  <div className="flex justify-center gap-2">
-                    <Link
-                      href={`/orders/${order._id}`}
-                      className="px-3 py-1 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs rounded-md hover:from-blue-700 hover:to-blue-600 shadow-sm transition"
-                    >
-                     🧾Receipt
-                    </Link>
+                    🧾 View
+                  </Link>
 
-                    {/* ⬇️ PDF Download */}
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL}/receipts/${order._id}?download=true`}
-                      className="px-3 py-1 bg-gradient-to-r from-green-600 to-green-500 text-white text-xs rounded-md hover:from-green-700 hover:to-green-600 shadow-sm transition"
-                    >
-                      ⬇️ Download
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  {order.status === "pending" && (
+                    <>
+                      <button
+                        onClick={() => setEditOrder(order)}
+                        className="flex-1 bg-yellow-500 text-white text-xs py-1.5 rounded"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => cancelOrder(order._id)}
+                        className="flex-1 bg-red-600 text-white text-xs py-1.5 rounded"
+                      >
+                        🚫 Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
-      {/* Pagination */}
-      <div className="flex justify-center items-center gap-4 my-6">
-        <button
-          onClick={goToPrevPage}
-          disabled={currentPage === 1}
-          className={`px-3 py-1 rounded-md text-sm shadow-sm transition ${
-            currentPage === 1
-              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
-          }`}
-        >
-          Previous
-        </button>
-        <span className="text-sm text-gray-600">
-          Page {currentPage} of {totalPages}
-        </span>
-        <button
-          onClick={goToNextPage}
-          disabled={currentPage === totalPages}
-          className={`px-3 py-1 rounded-md text-sm shadow-sm transition ${
-            currentPage === totalPages
-              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-              : "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
-          }`}
-        >
-          Next
-        </button>
+        {/* 💻 Desktop Table View */}
+        <div className="hidden sm:block bg-white shadow rounded-lg overflow-x-auto">
+          {paginatedOrders.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              No orders found.
+            </div>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3 text-left">Order ID</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Total</th>
+                  <th className="p-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedOrders.map((order) => (
+                  <tr key={order._id} className="border-t">
+                    <td className="p-3">{order.orderId || order._id}</td>
+                    <td className="p-3">{formatDateTime(order.createdAt)}</td>
+                    <td className="p-3">{order.status}</td>
+                    <td className="p-3">৳{order.total}</td>
+                    <td className="p-3 text-center">
+                      <div className="flex justify-center gap-2">
+                        <Link
+                          href={`/orders/${order._id}`}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
+                        >
+                          View
+                        </Link>
+
+                        {order.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => setEditOrder(order)}
+                              className="px-3 py-1 bg-yellow-500 text-white rounded text-xs"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() => cancelOrder(order._id)}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs"
+                            >
+                              🚫 Cancel
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-center gap-4 my-6">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            Next
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

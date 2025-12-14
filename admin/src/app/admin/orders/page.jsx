@@ -1,12 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Papa from "papaparse";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-
 import useOrders from "../../../../hooks/useOrders";
 import OrdersGrid from "../../../../components/orders/OrdersGrid";
 import OrdersTable from "../../../../components/orders/OrdersTable";
@@ -20,8 +14,6 @@ export default function OrdersPage() {
   const {
     filtered,
     loading,
-    filter,
-    setFilter,
     fetchOrders,
 
     // delete
@@ -47,6 +39,7 @@ export default function OrdersPage() {
 
   const [open, setOpen] = useState(false);
   const [currentId, setCurrentId] = useState(null);
+
   const [form, setForm] = useState({
     status: "pending",
     paymentMethod: "cod",
@@ -71,53 +64,30 @@ export default function OrdersPage() {
     setOpen(true);
   };
 
-  const updateOrder = async (updatedForm) => {
-    try {
-      const res = await fetch(`${API}/admin/orders/${currentId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedForm),
-      });
+const updateOrder = async (updatedForm) => {
+  try {
+    const res = await fetch(`${API}/admin/orders/${currentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedForm),
+    });
 
-      if (!res.ok) throw new Error();
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Update failed");
 
-      fetchOrders();
-      setOpen(false);
-      setToast({ message: "✔ Order updated", type: "success" });
-    } catch {
-      setToast({ message: "❌ Update failed", type: "error" });
-    }
-  };
+    fetchOrders();
+    return { success: true }; // ✅ FIX
+  } catch (err) {
+    setToast({ message: err.message || "❌ Update failed", type: "error" });
+    return { success: false }; // ✅ FIX
+  }
+};
 
   return (
     <div className="space-y-4 px-2 sm:px-4">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-        <input
-          className="border rounded px-3 py-2 flex-1"
-          placeholder="Search by OrderID / Name / Phone"
-          value={filter.q}
-          onChange={(e) => setFilter({ ...filter, q: e.target.value })}
-        />
-        <select
-          className="border rounded px-3 py-2 sm:w-40"
-          value={filter.status}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-        >
-          <option value="">All status</option>
-          {[
-            "pending",
-            "confirmed",
-            "processing",
-            "shipped",
-            "delivered",
-            "cancelled",
-          ].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+      {/* Top Bar */}
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-lg font-bold">Orders</h1>
 
         <button
           onClick={fetchOrders}
@@ -162,12 +132,13 @@ export default function OrdersPage() {
       {/* DELETE POPUP */}
       {deleteModal && (
         <>
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
           <div className="fixed inset-0 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow">
               <h2 className="text-xl font-bold text-red-600 mb-3">
                 ⚠ Delete Order
               </h2>
+
               <p className="mb-6">
                 Are you sure you want to delete order{" "}
                 <strong>{deleteModal._id}</strong>?
@@ -198,7 +169,7 @@ export default function OrdersPage() {
       {/* COURIER POPUP */}
       {courierModal && (
         <>
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"></div>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" />
           <div className="fixed inset-0 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-6 rounded-xl w-full max-w-sm shadow">
               <h2 className="text-xl font-bold text-blue-600 mb-3">

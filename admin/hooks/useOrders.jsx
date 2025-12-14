@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 
+export const STATUS_OPTIONS = [
+  "pending",
+  "ready_to_delivery",
+  "send_to_courier",
+  "delivered",
+  "cancelled",
+];
+
 export default function useOrders(API) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8,18 +16,21 @@ export default function useOrders(API) {
 
   const [toast, setToast] = useState(null);
 
-  // 🚚 Courier Modal
+  // 🚚 Courier
   const [courierModal, setCourierModal] = useState(null);
   const [courierSending, setCourierSending] = useState(false);
 
-  // 🗑 Delete Modal
+  // 🗑 Delete
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // 🔹 Fetch Orders
+  // ===============================
+  // 🔹 Fetch orders
+  // ===============================
   const fetchOrders = async () => {
     try {
       setLoading(true);
+
       const params = new URLSearchParams();
       if (filter.status) params.append("status", filter.status);
 
@@ -28,7 +39,7 @@ export default function useOrders(API) {
 
       setOrders(Array.isArray(data) ? data : []);
     } catch {
-      setToast({ message: "⚠ Failed to load orders", type: "error" });
+      setToast({ message: "❌ Failed to load orders", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -38,53 +49,82 @@ export default function useOrders(API) {
     fetchOrders();
   }, [filter.status]);
 
+  // ===============================
   // 🔍 Search
+  // ===============================
   const filtered = useMemo(() => {
     if (!filter.q) return orders;
-
     const q = filter.q.toLowerCase();
-    return orders.filter((o) => {
-      return (
+
+    return orders.filter(
+      (o) =>
         o._id?.toLowerCase().includes(q) ||
         o.billing?.name?.toLowerCase().includes(q) ||
         o.billing?.phone?.toLowerCase().includes(q)
-      );
-    });
+    );
   }, [orders, filter.q]);
 
-  // 🛑 Open courier modal
-  const confirmCourierSend = (order) => {
-    setCourierModal(order);
+  // ===============================
+  // ✏️ UPDATE STATUS / ORDER (🔥 MAIN FIX)
+  // ===============================
+  const updateStatus = async (id, payload) => {
+    try {
+      const res = await fetch(`${API}/admin/orders/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const updated = await res.json();
+      if (!res.ok) throw new Error(updated?.error);
+
+      // ✅ MERGE UPDATED ORDER (NO REFRESH NEEDED)
+      setOrders((prev) =>
+        prev.map((o) => (o._id === updated._id ? updated : o))
+      );
+
+      setToast({ message: "✔ Order updated", type: "success" });
+      return updated;
+    } catch (err) {
+      setToast({
+        message: err?.message || "❌ Update failed",
+        type: "error",
+      });
+      throw err;
+    }
   };
 
-  // 🚚 Final courier send
+  // ===============================
+  // 🚚 Courier
+  // ===============================
+  const confirmCourierSend = (order) => setCourierModal(order);
+
   const sendCourierNow = async () => {
     if (!courierModal) return;
 
     try {
       setCourierSending(true);
 
-      const order = courierModal;
-
       const res = await fetch(`${API}/api/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          invoice: order._id,
-          name: order.billing?.name,
-          phone: order.billing?.phone,
-          address: order.billing?.address,
-          cod_amount: order.total,
+          invoice: courierModal._id,
+          name: courierModal.billing?.name,
+          phone: courierModal.billing?.phone,
+          address: courierModal.billing?.address,
+          cod_amount: courierModal.total,
         }),
       });
 
-      const data = await res.json();
+      if (!res.ok) throw new Error();
 
-      if (!res.ok) throw new Error(data.message);
+      // ✅ update locally
+      await updateStatus(courierModal._id, {
+        status: "send_to_courier",
+      });
 
-      setToast({ message: "🚚 Sent to courier", type: "success" });
       setCourierModal(null);
-      fetchOrders();
     } catch {
       setToast({ message: "❌ Courier sending failed", type: "error" });
     } finally {
@@ -92,24 +132,26 @@ export default function useOrders(API) {
     }
   };
 
-  // 🗑 Open delete modal
+  // ===============================
+  // 🗑 Delete
+  // ===============================
   const confirmDelete = (order) => setDeleteModal(order);
 
   const handleDelete = async () => {
     if (!deleteModal) return;
 
-    setDeleting(true);
-
     try {
+      setDeleting(true);
+
       const res = await fetch(`${API}/admin/orders/${deleteModal._id}`, {
         method: "DELETE",
       });
-
       if (!res.ok) throw new Error();
+
+      setOrders((prev) => prev.filter((o) => o._id !== deleteModal._id));
 
       setToast({ message: "🗑 Order deleted", type: "success" });
       setDeleteModal(null);
-      fetchOrders();
     } catch {
       setToast({ message: "❌ Delete failed", type: "error" });
     } finally {
@@ -117,41 +159,23 @@ export default function useOrders(API) {
     }
   };
 
-  // ✏️ Update Status
-  const updateStatus = async (id, newStatus) => {
-    try {
-      await fetch(`${API}/admin/orders/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      setToast({ message: "✔ Status updated", type: "success" });
-
-      setOrders((prev) =>
-        prev.map((o) => (o._id === id ? { ...o, status: newStatus } : o))
-      );
-    } catch {
-      setToast({ message: "❌ Status update failed", type: "error" });
-    }
-  };
-
+  // ===============================
+  // RETURN
+  // ===============================
   return {
-    orders,
     filtered,
     loading,
     filter,
     setFilter,
+
     fetchOrders,
 
-    // delete modal
     deleteModal,
     deleting,
     confirmDelete,
     handleDelete,
     setDeleteModal,
 
-    // courier modal
     courierModal,
     courierSending,
     confirmCourierSend,
@@ -161,6 +185,6 @@ export default function useOrders(API) {
     toast,
     setToast,
 
-    updateStatus,
+    updateStatus, // ✅ now accepts full payload
   };
 }

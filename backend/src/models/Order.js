@@ -12,6 +12,7 @@ const orderSchema = new mongoose.Schema(
         image: String,
       },
     ],
+
     subtotal: { type: Number, required: true },
     deliveryCharge: { type: Number, required: true },
     discount: { type: Number, default: 0 },
@@ -27,26 +28,27 @@ const orderSchema = new mongoose.Schema(
     promoCode: String,
     userId: { type: Number },
 
-    // Payment
+    // 💳 Payment
     paymentMethod: {
       type: String,
       enum: ["cod", "bkash"],
       default: "cod",
     },
 
-    // Order lifecycle
+    // 📦 Order Status (SIMPLIFIED)
     status: {
       type: String,
       enum: [
         "pending",
-        "confirmed",
-        "processing",
-        "shipped",
+        "ready_to_delivery",
+        "send_to_courier",
         "delivered",
         "cancelled",
       ],
       default: "pending",
+      index: true,
     },
+
     trackingId: { type: String },
     cancelReason: { type: String },
   },

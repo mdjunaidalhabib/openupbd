@@ -4,18 +4,24 @@ import { Edit3, Trash2, Send, ChevronDown, ChevronUp } from "lucide-react";
 
 const STATUS_OPTIONS = [
   "pending",
-  "confirmed",
-  "processing",
-  "shipped",
+  "ready_to_delivery",
+  "send_to_courier",
   "delivered",
   "cancelled",
 ];
 
+const STATUS_LABEL = {
+  pending: "PENDING",
+  ready_to_delivery: "READY TO DELIVERY",
+  send_to_courier: "SEND TO COURIER",
+  delivered: "DELIVERED",
+  cancelled: "CANCELLED",
+};
+
 const STATUS_COLORS = {
   pending: "text-yellow-700 bg-yellow-50 ring-yellow-200",
-  confirmed: "text-blue-700 bg-blue-50 ring-blue-200",
-  processing: "text-indigo-700 bg-indigo-50 ring-indigo-200",
-  shipped: "text-purple-700 bg-purple-50 ring-purple-200",
+  ready_to_delivery: "text-blue-700 bg-blue-50 ring-blue-200",
+  send_to_courier: "text-purple-700 bg-purple-50 ring-purple-200",
   delivered: "text-green-700 bg-green-50 ring-green-200",
   cancelled: "text-red-700 bg-red-50 ring-red-200",
 };
@@ -47,8 +53,12 @@ export default function OrdersGrid({
 
   const handleChange = async (id, newStatus) => {
     setUpdatingId(id);
-    await onStatusChange(id, newStatus);
-    setUpdatingId(null);
+    try {
+      // ✅ NEW SIGNATURE: onStatusChange(id, payload)
+      await onStatusChange(id, { status: newStatus });
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   if (!orders?.length) {
@@ -64,190 +74,166 @@ export default function OrdersGrid({
       {orders.map((o) => {
         const expanded = openId === o._id;
         const isUpdating = updatingId === o._id;
-        const isSending = sendingId === o._id;
-        const alreadySent = !!o.trackingId;
 
-        const itemCount = o.items?.reduce((a, b) => a + (b.qty || 0), 0) || 0;
+        const locked = o.status === "delivered" || o.status === "cancelled";
+
+        const isSending = sendingId === o._id;
+        const canSendCourier =
+          o.status === "ready_to_delivery" && !o.trackingId;
+
+        const itemCount =
+          o.items?.reduce((sum, it) => sum + (it.qty || 0), 0) || 0;
 
         const firstTwo = o.items?.slice(0, 2) || [];
         const moreCount = (o.items?.length || 0) - firstTwo.length;
 
-        const orderTime = formatOrderTime(o);
-
         return (
-          <div key={o._id} className="px-3 py-2 max-w-full">
-            {/* ✅ ULTRA COMPACT ROW */}
+          <div key={o._id} className="px-3 py-2">
+            {/* ===== Compact Header ===== */}
             <button
               type="button"
               onClick={() => setOpenId(expanded ? null : o._id)}
-              className="w-full flex items-center gap-2 text-left max-w-full"
+              className="w-full flex items-center gap-2 text-left"
             >
-              {/* status chip */}
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${
                   STATUS_COLORS[o.status] ||
                   "text-gray-700 bg-gray-50 ring-gray-200"
                 }`}
               >
-                {o.status?.toUpperCase()}
+                {STATUS_LABEL[o.status] || o.status?.toUpperCase()}
               </span>
 
-              {/* main info */}
-              <div className="min-w-0 flex-1">
-                {/* line 1: Name + ID */}
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
                   <div className="truncate text-xs font-semibold text-gray-900">
                     {o.billing?.name || "Unknown"}
                   </div>
-                  <div className="shrink-0 text-[10px] text-gray-400 font-mono">
+                  <div className="text-[10px] text-gray-400 font-mono">
                     #{o._id}
                   </div>
                 </div>
 
-                {/* line 2: time + meta */}
-                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-600 truncate">
-                  <span className="shrink-0 text-[10px] text-gray-500">
-                    {orderTime}
-                  </span>
+                <div className="mt-0.5 flex gap-2 text-[11px] text-gray-600 truncate">
+                  <span>{formatOrderTime(o)}</span>
                   <span>{itemCount} items</span>
-
                   {o.paymentMethod && (
-                    <span className="uppercase text-[10px] text-gray-500">
+                    <span className="uppercase text-[10px]">
                       {o.paymentMethod}
-                    </span>
-                  )}
-
-                  {o.trackingId && (
-                    <span className="text-[10px] text-indigo-600 font-semibold">
-                      TRK:{o.trackingId}
-                    </span>
-                  )}
-
-                  {o.courier && (
-                    <span className="text-[10px] text-emerald-700 font-semibold">
-                      {o.courier}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* total */}
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-extrabold text-gray-900 leading-none">
-                  ৳{o.total}
-                </div>
+              <div className="text-right">
+                <div className="text-sm font-extrabold">৳{o.total}</div>
                 <div className="text-[10px] text-gray-400">
                   {expanded ? "close" : "open"}
                 </div>
               </div>
 
-              {/* chevron */}
-              <div className="shrink-0 text-gray-400">
-                {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </div>
+              {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
 
-            {/* ✅ EXPANDED DETAILS */}
+            {/* ===== Expanded ===== */}
             {expanded && (
-              <div className="mt-2 space-y-2 text-xs text-gray-700 max-w-full overflow-hidden">
-                {/* Customer ছোট | Items বড় */}
-                <div className="grid grid-cols-12 gap-2 max-w-full">
-                  {/* Customer box ছোট */}
-                  <div className="col-span-5 min-w-0 rounded-md bg-gray-50 p-2 space-y-1 overflow-hidden">
-                    <div className="text-[11px] font-bold text-gray-900">
-                      Customer
-                    </div>
-
-                    <div className="text-xs font-semibold text-gray-900 leading-tight break-words">
+              <div className="mt-2 space-y-3 text-xs text-gray-700">
+                {/* Customer + Items */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-5 rounded-md bg-gray-50 p-2 space-y-1">
+                    <div className="text-[11px] font-bold">Customer</div>
+                    <div className="font-semibold">
                       {o.billing?.name || "Unknown"}
                     </div>
-
-                    <div className="text-[11px] text-gray-700 font-medium break-words">
+                    <div className="text-[11px]">
                       {o.billing?.phone || "No phone"}
                     </div>
-
-                    <div className="text-[11px] text-gray-600 line-clamp-2 break-words">
+                    <div className="text-[11px] text-gray-600 line-clamp-2">
                       {o.billing?.address || "No address"}
                     </div>
-
-                    {o.courier && (
-                      <div className="text-[10px] text-emerald-700 font-semibold break-words">
-                        Courier: {o.courier}
-                      </div>
-                    )}
                   </div>
 
-                  {/* Items box বড় */}
-                  <div className="col-span-7 min-w-0 rounded-md bg-gray-50 p-2 overflow-hidden">
-                    <div className="text-[11px] font-bold text-gray-900 mb-1">
-                      Items
+                  <div className="col-span-7 rounded-md bg-gray-50 p-2">
+                    <div className="flex justify-between text-[11px] font-bold mb-1">
+                      <span>Items</span>
+                      <span className="text-gray-500">
+                        {firstTwo.length}/{o.items?.length || 0}
+                      </span>
                     </div>
 
-                    <ul className="space-y-1">
+                    <div className="space-y-2">
                       {firstTwo.map((it, idx) => (
-                        <li
+                        <div
                           key={idx}
-                          className="flex items-start justify-between gap-2 text-[11px] min-w-0"
+                          className="flex items-center justify-between gap-2 rounded-lg border bg-white p-2"
                         >
-                          <span className="min-w-0 whitespace-normal break-words leading-snug">
-                            {it.name} × {it.qty}
-                          </span>
-                          <span className="shrink-0 font-medium">
-                            ৳{it.price}
-                          </span>
-                        </li>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <img
+                              src={it.image || "/placeholder.png"}
+                              alt={it.name}
+                              className="w-9 h-9 rounded-md object-cover border"
+                              loading="lazy"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold truncate">
+                                {it.name}
+                              </p>
+                              <p className="text-[10px] text-gray-500">
+                                Qty: {it.qty} • ৳{it.price}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
 
                     {moreCount > 0 && (
                       <div className="mt-1 text-[10px] text-gray-500">
                         +{moreCount} more items
                       </div>
                     )}
-
-                    {/* Totals inside items box */}
-                    <div className="mt-2 pt-2 border-t border-gray-200 space-y-0.5 text-[11px] text-gray-700">
-                      <div className="flex justify-between">
-                        <span>Sub</span>
-                        <span>৳{o.subtotal}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Del</span>
-                        <span>৳{o.deliveryCharge}</span>
-                      </div>
-                      {!!o.discount && (
-                        <div className="flex justify-between text-red-700">
-                          <span>Dis</span>
-                          <span>-৳{o.discount}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between font-semibold text-gray-900">
-                        <span>Total</span>
-                        <span>৳{o.total}</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                {/* status select + icon actions */}
-                <div className="flex items-center justify-between gap-2 pt-1 max-w-full">
+                {/* Totals */}
+                <div className="rounded-md bg-gray-50 p-2 space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <span>৳{o.subtotal}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Delivery</span>
+                    <span>৳{o.deliveryCharge}</span>
+                  </div>
+                  {!!o.discount && (
+                    <div className="flex justify-between text-red-600">
+                      <span>Discount</span>
+                      <span>-৳{o.discount}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold">
+                    <span>Total</span>
+                    <span>৳{o.total}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between gap-2">
                   <select
-                    className={`h-8 rounded-md border bg-white px-2 text-xs font-semibold outline-none
-                    ${isUpdating ? "opacity-60" : "hover:border-gray-400"}`}
+                    className="h-8 rounded-md border px-2 text-xs font-semibold"
                     value={o.status}
                     onChange={(e) => handleChange(o._id, e.target.value)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || locked}
                   >
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {STATUS_LABEL[s]}
                       </option>
                     ))}
                   </select>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex gap-1">
                     <IconBtn
-                      title="Edit"
                       onClick={() => onEdit(o)}
                       className="bg-yellow-500 text-white"
                     >
@@ -255,7 +241,6 @@ export default function OrdersGrid({
                     </IconBtn>
 
                     <IconBtn
-                      title="Delete"
                       onClick={() => onDelete(o)}
                       className="bg-red-600 text-white"
                     >
@@ -263,11 +248,10 @@ export default function OrdersGrid({
                     </IconBtn>
 
                     <IconBtn
-                      title="Send Courier"
                       onClick={() => onSendCourier(o)}
-                      disabled={isSending || alreadySent}
+                      disabled={isSending || !canSendCourier}
                       className={
-                        isSending || alreadySent
+                        isSending || !canSendCourier
                           ? "bg-gray-200 text-gray-500"
                           : "bg-blue-600 text-white"
                       }
@@ -277,8 +261,20 @@ export default function OrdersGrid({
                   </div>
                 </div>
 
-                {isUpdating && (
-                  <div className="text-[10px] text-gray-500">Updating...</div>
+                {/* ✅ Cancel Reason */}
+                {o.status === "cancelled" && o.cancelReason && (
+                  <div className="text-[11px] text-red-700">
+                    <span className="font-semibold">Reason:</span>{" "}
+                    {o.cancelReason}
+                  </div>
+                )}
+
+                {/* Tracking */}
+                {o.trackingId && (
+                  <div className="text-[11px] text-gray-700">
+                    <span className="font-semibold">Tracking:</span>{" "}
+                    <span className="text-indigo-600">{o.trackingId}</span>
+                  </div>
                 )}
               </div>
             )}
@@ -294,8 +290,9 @@ function IconBtn({ children, className = "", disabled, ...props }) {
     <button
       disabled={disabled}
       {...props}
-      className={`h-8 w-8 grid place-items-center rounded-md text-xs font-bold shadow-sm active:scale-95 transition
-      ${disabled ? "cursor-not-allowed" : ""} ${className}`}
+      className={`h-8 w-8 grid place-items-center rounded-md shadow-sm transition active:scale-95 ${
+        disabled ? "cursor-not-allowed" : ""
+      } ${className}`}
     >
       {children}
     </button>

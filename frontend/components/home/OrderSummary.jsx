@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import OrderSummarySkeleton from "../skeletons/OrderSummarySkeleton";
 
 export default function OrderSummary({ orderId }) {
   const [order, setOrder] = useState(null);
@@ -7,6 +8,9 @@ export default function OrderSummary({ orderId }) {
 
   useEffect(() => {
     if (!orderId) return;
+
+    setLoading(true);
+
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}`)
       .then((res) => res.json())
       .then(setOrder)
@@ -17,10 +21,13 @@ export default function OrderSummary({ orderId }) {
       .finally(() => setLoading(false));
   }, [orderId]);
 
-  if (loading)
-    return <p className="text-center text-gray-500 mt-10 animate-pulse">⏳ অর্ডার তথ্য লোড হচ্ছে...</p>;
+  if (loading) return <OrderSummarySkeleton />;
   if (!order)
-    return <p className="text-center text-red-500 mt-10">❌ অর্ডার খুঁজে পাওয়া যায়নি</p>;
+    return (
+      <p className="text-center text-red-500 mt-10">
+        ❌ অর্ডার খুঁজে পাওয়া যায়নি
+      </p>
+    );
 
   return (
     <div className="max-w-sm mx-auto my-4 bg-white shadow rounded-lg divide-y divide-gray-200 text-sm">
@@ -53,7 +60,7 @@ export default function OrderSummary({ orderId }) {
                 : "bg-gray-200 text-gray-600"
             }`}
           >
-            {order.status.toUpperCase()}
+            {String(order.status || "").toUpperCase()}
           </span>
         </p>
       </div>
@@ -80,7 +87,7 @@ export default function OrderSummary({ orderId }) {
       {/* Product List */}
       <div className="p-3 space-y-1">
         <h3 className="font-semibold text-gray-700 text-xs mb-1">📦 Items</h3>
-        {order.items.map((item, i) => (
+        {order.items?.map((item, i) => (
           <div
             key={i}
             className="flex items-center justify-between p-1 border rounded-lg hover:shadow-sm transition text-xs"
@@ -115,7 +122,6 @@ export default function OrderSummary({ orderId }) {
 
       {/* Actions */}
       <div className="flex gap-2 p-3">
-        {/* 🧾 PDF View */}
         <a
           href={`${process.env.NEXT_PUBLIC_API_URL}/receipts/${order._id}`}
           target="_blank"

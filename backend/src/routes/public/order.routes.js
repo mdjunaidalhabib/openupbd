@@ -1,13 +1,14 @@
 import express from "express";
 import Order from "../../models/Order.js";
-// যদি protect middleware থাকে, ইউজারের অর্ডার দেখার জন্য ব্যবহার করো
 // import { protect } from "../../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 /**
+ * ================================
  * POST /api/orders
- * ইউজার অর্ডার প্লেস করবে
+ * Create new order
+ * ================================
  */
 router.post("/", async (req, res) => {
   try {
@@ -27,7 +28,6 @@ router.post("/", async (req, res) => {
       cancelReason,
     } = req.body;
 
-    // basic validation
     if (
       !items?.length ||
       subtotal == null ||
@@ -38,7 +38,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Missing required order fields" });
     }
 
-    const orderData = {
+    const order = new Order({
       items,
       subtotal,
       deliveryCharge,
@@ -46,31 +46,27 @@ router.post("/", async (req, res) => {
       total,
       billing,
       promoCode: promoCode || "",
-      userId: userId || null, // protect দিলে এখানে req.user._id বসাতে পারো
+      userId: userId || null,
       paymentMethod: paymentMethod || "cod",
       paymentStatus: paymentStatus || "pending",
       status: status || "pending",
       trackingId: trackingId || "",
       cancelReason: cancelReason || "",
-    };
+    });
 
-    const newOrder = new Order(orderData);
-    await newOrder.save();
-
-    return res.status(201).json({ order: newOrder });
+    await order.save();
+    return res.status(201).json(order);
   } catch (err) {
     console.error("❌ Failed to create order:", err);
-    return res.status(400).json({
-      error: "Failed to create order",
-      details: err.message,
-    });
+    return res.status(500).json({ error: "Failed to create order" });
   }
 });
 
 /**
- * ✅ NEW
+ * ================================
  * GET /api/orders?userId=xxx
- * ইউজার নিজের সব অর্ডার দেখবে (query দিয়ে)
+ * User order list
+ * ================================
  */
 router.get("/", async (req, res) => {
   try {
@@ -84,18 +80,15 @@ router.get("/", async (req, res) => {
     return res.json(orders);
   } catch (err) {
     console.error("❌ Failed to fetch orders:", err);
-    return res.status(500).json({
-      error: "Failed to fetch orders",
-      details: err.message,
-    });
+    return res.status(500).json({ error: "Failed to fetch orders" });
   }
 });
 
-
 /**
+ * ================================
  * GET /api/orders/:id
- * ইউজার নিজের অর্ডারের ডিটেইল দেখবে
- * (protect দিলে এখানে userId match করানো যাবে)
+ * Single order detail
+ * ================================
  */
 router.get("/:id", async (req, res) => {
   try {
@@ -107,12 +100,81 @@ router.get("/:id", async (req, res) => {
 
     return res.json(order);
   } catch (err) {
-    console.error("❌ Error fetching order:", err);
-    return res.status(500).json({
-      error: "Failed to fetch order",
-      details: err.message,
-    });
+    console.error("❌ Failed to fetch order:", err);
+    return res.status(500).json({ error: "Failed to fetch order" });
   }
 });
+
+/**
+ * ================================
+ * PUT /api/orders/:id
+ * ✅ Update order (ONLY pending)
+ * ✅ Cancel order (status=cancelled) (ONLY pending)
+ * ================================
+ */
+router.put("/:id", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // 🔒 Only pending orders can be changed/cancelled
+    if (order.status !== "pending") {
+      return res
+        .status(403)
+        .json({ error: "Only pending orders can be updated/cancelled" });
+    }
+
+    const {
+      billing,
+      items,
+      trackingId,
+      paymentMethod,
+      paymentStatus,
+      status,
+      cancelReason,
+    } = req.body;
+
+    // ✅ Update billing
+    if (billing) order.billing = billing;
+
+    // ✅ Optional updates (if needed)
+    if (items) order.items = items;
+    if (trackingId !== undefined) order.trackingId = trackingId;
+    if (paymentMethod) order.paymentMethod = paymentMethod;
+    if (paymentStatus) order.paymentStatus = paymentStatus;
+
+    // ✅ Cancel order
+    if (status) {
+      // only allow cancelling from frontend
+      if (status === "cancelled") {
+        order.status = "cancelled";
+        order.cancelReason = cancelReason || "Cancelled by customer";
+      } else {
+        return res.status(400).json({
+          error: "Only 'cancelled' status is allowed from this endpoint",
+        });
+      }
+    }
+
+    // cancelReason alone (optional)
+    if (cancelReason && !status) order.cancelReason = cancelReason;
+
+    await order.save();
+    return res.json(order);
+  } catch (err) {
+    console.error("❌ Failed to update order:", err);
+    return res.status(500).json({ error: "Failed to update order" });
+  }
+});
+
+/**
+ * ================================
+ * ❌ DELETE route removed (because now we cancel, not delete)
+ * If you still want to keep delete, tell me.
+ * ================================
+ */
 
 export default router;

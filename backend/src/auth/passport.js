@@ -46,7 +46,7 @@ export function configurePassport() {
           const token = jwt.sign(
             { id: user._id, email: user.email },
             process.env.JWT_SECRET,
-            { expiresIn: "10s" }
+            { expiresIn: "1d" }
           );
 
           return done(null, { token, user });
