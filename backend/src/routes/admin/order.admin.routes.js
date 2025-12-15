@@ -5,11 +5,20 @@ const router = express.Router();
 
 /**
  * ================================
+ * STATUS FLOW (SINGLE SOURCE)
+ * ================================
+ */
+const STATUS_FLOW = {
+  pending: ["ready_to_delivery", "cancelled"],
+  ready_to_delivery: ["send_to_courier", "cancelled"],
+  send_to_courier: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
+
+/**
+ * ================================
  * GET all orders
- * Optional filters:
- *  - userId
- *  - status
- *  - paymentStatus
  * ================================
  */
 router.get("/", async (req, res) => {
@@ -33,6 +42,94 @@ router.get("/", async (req, res) => {
 
 /**
  * ================================
+ * 🔥 BULK STATUS UPDATE (ADMIN)
+ * ================================
+ * body: { ids: [], status, cancelReason? }
+ */
+router.put("/bulk/status", async (req, res) => {
+  try {
+    const { ids, status, cancelReason } = req.body;
+
+    if (!Array.isArray(ids) || !status) {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const orders = await Order.find({ _id: { $in: ids } });
+
+    const result = {
+      updated: [],
+      skipped: [],
+      errors: [],
+    };
+
+    for (const o of orders) {
+      try {
+        if (["delivered", "cancelled"].includes(o.status)) {
+          result.skipped.push(o._id);
+          continue;
+        }
+
+        const allowedNext = STATUS_FLOW[o.status] || [];
+        if (!allowedNext.includes(status)) {
+          result.skipped.push(o._id);
+          continue;
+        }
+
+        const update = { status };
+
+        if (status === "cancelled") {
+          update.cancelReason = cancelReason?.trim() || "Cancelled by admin";
+        }
+
+        const updated = await Order.findByIdAndUpdate(o._id, update, {
+          new: true,
+        });
+
+        result.updated.push(updated._id);
+      } catch (e) {
+        result.errors.push({ id: o._id, error: e.message });
+      }
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Bulk status update failed:", err);
+    res.status(500).json({
+      error: "Bulk update failed",
+      details: err.message,
+    });
+  }
+});
+
+/**
+ * ================================
+ * 🔥 BULK DELETE (ADMIN)
+ * ================================
+ * body: { ids: [] }
+ */
+router.post("/bulk/delete", async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const result = await Order.deleteMany({
+      _id: { $in: ids },
+    });
+
+    res.json({ deletedCount: result.deletedCount });
+  } catch (err) {
+    console.error("❌ Bulk delete failed:", err);
+    res.status(500).json({
+      error: "Bulk delete failed",
+      details: err.message,
+    });
+  }
+});
+
+/**
+ * ================================
  * GET single order
  * ================================
  */
@@ -40,6 +137,7 @@ router.get("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: "Order not found" });
+
     res.json(order);
   } catch (err) {
     console.error("❌ Error fetching order:", err);
@@ -62,60 +160,33 @@ router.put("/:id", async (req, res) => {
 
     const updateData = {};
 
-    // ----------------------------
-    // Simple fields
-    // ----------------------------
-    if (req.body.status !== undefined) {
-      updateData.status = req.body.status;
-    }
+    if (req.body.status !== undefined) updateData.status = req.body.status;
 
-    if (req.body.trackingId !== undefined) {
+    if (req.body.trackingId !== undefined)
       updateData.trackingId = req.body.trackingId;
-    }
 
-    if (req.body.paymentMethod !== undefined) {
+    if (req.body.paymentMethod !== undefined)
       updateData.paymentMethod = req.body.paymentMethod;
-    }
 
-    if (req.body.cancelReason !== undefined) {
+    if (req.body.cancelReason !== undefined)
       updateData.cancelReason = req.body.cancelReason;
-    }
 
-    // ----------------------------
-    // Billing (safe merge)
-    // ----------------------------
     if (req.body.billing) {
       updateData.billing = {
         name: req.body.billing.name?.trim()
           ? req.body.billing.name
           : current.billing?.name,
-
         phone: req.body.billing.phone?.trim()
           ? req.body.billing.phone
           : current.billing?.phone,
-
         address: req.body.billing.address?.trim()
           ? req.body.billing.address
           : current.billing?.address,
-
         note: req.body.billing.note?.trim()
           ? req.body.billing.note
           : current.billing?.note,
       };
     }
-
-    /**
-     * ================================
-     * STATUS FLOW (STRICT)
-     * ================================
-     */
-    const STATUS_FLOW = {
-      pending: ["ready_to_delivery", "cancelled"],
-      ready_to_delivery: ["send_to_courier", "cancelled"],
-      send_to_courier: ["delivered"],
-      delivered: [],
-      cancelled: [],
-    };
 
     if (
       updateData.status !== undefined &&
@@ -129,11 +200,6 @@ router.put("/:id", async (req, res) => {
       }
     }
 
-    /**
-     * ================================
-     * FINAL STATE PROTECTION
-     * ================================
-     */
     if (
       ["delivered", "cancelled"].includes(current.status) &&
       Object.keys(updateData).some((k) => k !== "status")
@@ -143,13 +209,7 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    /**
-     * ================================
-     * ✅ FINAL CANCEL REASON GUARD
-     * ================================
-     */
     if (updateData.status === "cancelled") {
-      // Admin cancelled without reason
       if (!updateData.cancelReason?.trim()) {
         updateData.cancelReason = "Cancelled by admin";
       }
@@ -172,7 +232,7 @@ router.put("/:id", async (req, res) => {
 
 /**
  * ================================
- * DELETE order (ADMIN ONLY)
+ * DELETE order (ADMIN)
  * ================================
  */
 router.delete("/:id", async (req, res) => {

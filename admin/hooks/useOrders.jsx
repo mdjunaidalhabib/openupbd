@@ -14,15 +14,28 @@ export default function useOrders(API) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ status: "", q: "" });
 
+  // 🔔 Toast
   const [toast, setToast] = useState(null);
 
-  // 🚚 Courier
+  // ❓ Confirmation modal
+  const [confirm, setConfirm] = useState(null);
+
+  // 🚚 Courier (single)
   const [courierModal, setCourierModal] = useState(null);
   const [courierSending, setCourierSending] = useState(false);
 
-  // 🗑 Delete
+  // 🗑 Delete (single)
   const [deleteModal, setDeleteModal] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // ===============================
+  // 🔔 Auto hide toast
+  // ===============================
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // ===============================
   // 🔹 Fetch orders
@@ -65,7 +78,7 @@ export default function useOrders(API) {
   }, [orders, filter.q]);
 
   // ===============================
-  // ✏️ UPDATE STATUS / ORDER (🔥 MAIN FIX)
+  // ✏️ UPDATE STATUS (SINGLE)
   // ===============================
   const updateStatus = async (id, payload) => {
     try {
@@ -78,7 +91,6 @@ export default function useOrders(API) {
       const updated = await res.json();
       if (!res.ok) throw new Error(updated?.error);
 
-      // ✅ MERGE UPDATED ORDER (NO REFRESH NEEDED)
       setOrders((prev) =>
         prev.map((o) => (o._id === updated._id ? updated : o))
       );
@@ -95,7 +107,53 @@ export default function useOrders(API) {
   };
 
   // ===============================
-  // 🚚 Courier
+  // ✏️ UPDATE STATUS (BULK) ✅ FIXED
+  // ===============================
+  const updateManyStatus = (ids, payload) =>
+    setConfirm({
+      title: "Update order status?",
+      description: `Change status for ${ids.length} orders.`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API}/admin/orders/bulk/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ids,
+              status: payload.status,
+              cancelReason: payload.cancelReason,
+            }),
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+
+          // update local state
+          setOrders((prev) =>
+            prev.map((o) =>
+              data.updated.includes(o._id)
+                ? { ...o, status: payload.status }
+                : o
+            )
+          );
+
+          setToast({
+            message: `✔ ${data.updated.length} orders updated`,
+            type: "success",
+          });
+        } catch (err) {
+          setToast({
+            message: err.message || "❌ Bulk update failed",
+            type: "error",
+          });
+        } finally {
+          setConfirm(null);
+        }
+      },
+    });
+
+  // ===============================
+  // 🚚 Courier (SINGLE)
   // ===============================
   const confirmCourierSend = (order) => setCourierModal(order);
 
@@ -119,7 +177,6 @@ export default function useOrders(API) {
 
       if (!res.ok) throw new Error();
 
-      // ✅ update locally
       await updateStatus(courierModal._id, {
         status: "send_to_courier",
       });
@@ -133,7 +190,49 @@ export default function useOrders(API) {
   };
 
   // ===============================
-  // 🗑 Delete
+  // 🚚 Courier (BULK) (still loop – courier API is single)
+  // ===============================
+  const sendCourierMany = (orders) =>
+    setConfirm({
+      title: "Send to courier?",
+      description: `Send ${orders.length} orders to courier service.`,
+      onConfirm: async () => {
+        try {
+          for (const o of orders) {
+            if (o.status !== "ready_to_delivery" || o.trackingId) continue;
+
+            await fetch(`${API}/api/send-order`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                invoice: o._id,
+                name: o.billing?.name,
+                phone: o.billing?.phone,
+                address: o.billing?.address,
+                cod_amount: o.total,
+              }),
+            });
+
+            await updateStatus(o._id, { status: "send_to_courier" });
+          }
+
+          setToast({
+            message: "🚚 Orders sent to courier",
+            type: "success",
+          });
+        } catch {
+          setToast({
+            message: "❌ Courier sending failed",
+            type: "error",
+          });
+        } finally {
+          setConfirm(null);
+        }
+      },
+    });
+
+  // ===============================
+  // 🗑 Delete (SINGLE)
   // ===============================
   const confirmDelete = (order) => setDeleteModal(order);
 
@@ -149,7 +248,6 @@ export default function useOrders(API) {
       if (!res.ok) throw new Error();
 
       setOrders((prev) => prev.filter((o) => o._id !== deleteModal._id));
-
       setToast({ message: "🗑 Order deleted", type: "success" });
       setDeleteModal(null);
     } catch {
@@ -160,6 +258,42 @@ export default function useOrders(API) {
   };
 
   // ===============================
+  // 🗑 Delete (BULK) ✅ FIXED
+  // ===============================
+  const deleteMany = (ids) =>
+    setConfirm({
+      title: "Delete orders?",
+      description: `${ids.length} orders will be permanently deleted.`,
+      danger: true,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${API}/admin/orders/bulk/delete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids }),
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+
+          setOrders((prev) => prev.filter((o) => !ids.includes(o._id)));
+          setToast({
+            message: `🗑 ${data.deletedCount} orders deleted`,
+            type: "success",
+          });
+        } catch (err) {
+          setToast({
+            message: err.message || "❌ Bulk delete failed",
+            type: "error",
+          });
+        } finally {
+          setConfirm(null);
+        }
+      },
+    });
+
+  // ===============================
   // RETURN
   // ===============================
   return {
@@ -167,24 +301,29 @@ export default function useOrders(API) {
     loading,
     filter,
     setFilter,
-
     fetchOrders,
 
-    deleteModal,
-    deleting,
-    confirmDelete,
-    handleDelete,
-    setDeleteModal,
-
-    courierModal,
-    courierSending,
+    // single
+    updateStatus,
     confirmCourierSend,
     sendCourierNow,
-    setCourierModal,
+    courierModal,
+    courierSending,
 
+    confirmDelete,
+    handleDelete,
+    deleteModal,
+    deleting,
+
+    // bulk
+    updateManyStatus,
+    deleteMany,
+    sendCourierMany,
+
+    // ui
     toast,
     setToast,
-
-    updateStatus, // ✅ now accepts full payload
+    confirm,
+    setConfirm,
   };
 }
