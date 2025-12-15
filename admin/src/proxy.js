@@ -1,33 +1,42 @@
 import { NextResponse } from "next/server";
 
-// JWT expiration check
+/**
+ * Base64URL decode (Edge safe)
+ */
+function base64UrlDecode(str) {
+  const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(atob(base64));
+}
+
+/**
+ * Check JWT expiration (Edge compatible)
+ */
 function isJwtExpired(token) {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return true;
 
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64").toString("utf8")
-    );
+    const payload = base64UrlDecode(parts[1]);
     if (!payload?.exp) return true;
 
     const now = Math.floor(Date.now() / 1000);
     return payload.exp < now;
-  } catch (err) {
-    console.error("JWT parse error:", err);
+  } catch {
     return true;
   }
 }
 
+/**
+ * NEXT.JS PROXY (NEW SYSTEM)
+ */
 export function proxy(req) {
   const token = req.cookies.get("admin_token")?.value || "";
   const { pathname, origin } = req.nextUrl;
 
   // =============================
-  // LOGIN PAGE LOGIC
+  // LOGIN PAGE
   // =============================
   if (pathname === "/login") {
-    // If logged in, redirect to dashboard
     if (token && !isJwtExpired(token)) {
       return NextResponse.redirect(`${origin}/admin/dashboard`);
     }
@@ -38,31 +47,24 @@ export function proxy(req) {
   // PROTECT ADMIN ROUTES
   // =============================
   if (pathname.startsWith("/admin")) {
-    // Token missing
-    if (!token) {
-      return NextResponse.redirect(`${origin}/login`);
-    }
-
-    // Token expired
-    if (isJwtExpired(token)) {
+    if (!token || isJwtExpired(token)) {
       const res = NextResponse.redirect(`${origin}/login`);
-      // Clear expired token
-      res.cookies.set("admin_token", "", { path: "/", expires: new Date(0) });
+      res.cookies.set("admin_token", "", {
+        path: "/",
+        expires: new Date(0),
+        sameSite: "none",
+        secure: true,
+      });
       return res;
     }
-
-    return NextResponse.next();
   }
 
-  // =============================
-  // ALLOW OTHER ROUTES
-  // =============================
   return NextResponse.next();
 }
 
-// =============================
-// CONFIGURE ROUTES TO APPLY MIDDLEWARE
-// =============================
+/**
+ * APPLY PROXY TO ROUTES
+ */
 export const config = {
   matcher: ["/admin/:path*", "/login"],
 };
