@@ -1,6 +1,7 @@
 export function formatOrderTime(o) {
   const raw = o?.createdAt || o?.orderDate || o?.date;
   if (!raw) return "—";
+
   const d = new Date(raw);
   if (isNaN(d.getTime())) return "—";
 
