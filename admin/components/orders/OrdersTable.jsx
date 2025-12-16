@@ -266,7 +266,9 @@ export default function OrdersTable({
                 const locked =
                   o.status === "delivered" || o.status === "cancelled";
                 const canSendCourier =
-                  o.status === "ready_to_delivery" && !o.trackingId;
+                  o.status === "ready_to_delivery" &&
+                  !o.trackingId &&
+                  tabStatus === "ready_to_delivery";
 
                 return (
                   <tr key={o._id} className="border-t hover:bg-gray-50">
