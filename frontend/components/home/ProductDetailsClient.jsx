@@ -109,10 +109,10 @@ export default function ProductDetailsClient({
       </nav>
 
       {/* PRODUCT SECTION */}
-      <section className="bg-pink-100 rounded-2xl shadow p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="bg-pink-100 rounded-2xl shadow grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* MAIN IMAGE */}
         <div className="bg-pink-50 rounded-xl">
-          <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] max-h-[380px] sm:max-h-[420px] md:max-h-[600px] rounded-lg overflow-hidden bg-gray-100 group mx-auto">
+          <div className="relative w-full aspect-[4/4] sm:aspect-[4/5] max-h-[380px] sm:max-h-[420px] md:max-h-[600px] rounded-lg overflow-hidden bg-gray-100 group mx-auto">
             <Image
               src={images[activeIdx] || "/no-image.png"}
               alt={product?.name || "Product"}
@@ -154,7 +154,7 @@ export default function ProductDetailsClient({
         </div>
 
         {/* PRODUCT INFO */}
-        <div className="flex flex-col justify-between">
+        <div className="flex flex-col justify-between px-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
               {product.name}
@@ -230,7 +230,7 @@ export default function ProductDetailsClient({
           </div>
 
           {/* CART SECTION */}
-          <div className="flex flex-wrap md:flex-nowrap gap-4 items-start">
+          <div className="flex flex-wrap md:flex-nowrap gap-4 items-start mb-4">
             {!quantity ? (
               <>
                 <button
@@ -288,31 +288,55 @@ export default function ProductDetailsClient({
       </section>
 
       {/* TABS */}
-      <section className="mt-8">
-        <div className="inline-flex bg-pink-100 rounded-xl p-1">
-          {tabBtn("desc", "Description")}
-          {tabBtn("info", "Additional Info")}
-          {tabBtn("reviews", "Reviews")}
+      <section className="mt-6 ">
+        <div className="flex justify-center">
+          <div className="inline-flex bg-pink-100 rounded-xl">
+            {tabBtn("desc", "Description")}
+            {tabBtn("info", "Additional Info")}
+            {tabBtn("reviews", "Reviews")}
+          </div>
         </div>
 
-        <div className="mt-4 bg-pink-100 rounded-2xl shadow p-4">
+        <div className="mt-4 rounded-2xl bg-pink-50 border border-pink-200 shadow-sm px-2 py-2 md:px-7 text-gray-800 max-w-full">
           {tab === "desc" && (
-            <p className="whitespace-pre-wrap">
+            <div
+              className="whitespace-pre-line text-justify text-[14px] md:text-sm font-light leading-[1.45] break-normal hyphens-none"
+              style={{
+                overflowWrap: "normal",
+                wordBreak: "normal",
+                textAlignLast: "left",
+              }}
+            >
               {product.description || "No description available."}
-            </p>
+            </div>
           )}
 
           {tab === "info" && (
-            <p className="whitespace-pre-wrap">
+            <div
+              className="
+        whitespace-pre-line
+        text-justify
+        text-[14px] md:text-sm
+        font-light
+        leading-[1.45]
+        break-normal
+        hyphens-none
+      "
+              style={{
+                overflowWrap: "normal",
+                wordBreak: "normal",
+                textAlignLast: "left",
+              }}
+            >
               {product.additionalInfo || "No additional information provided."}
-            </p>
+            </div>
           )}
 
           {tab === "reviews" && (
-            <div className="text-sm">
+            <div className="text-sm leading-relaxed">
               {product.reviews?.length ? (
                 product.reviews.map((r, i) => (
-                  <div key={i} className="border-b py-2">
+                  <div key={i} className="border-b py-4 last:border-none">
                     <p className="font-semibold">
                       {r.user}{" "}
                       <span className="text-yellow-500">
@@ -320,7 +344,9 @@ export default function ProductDetailsClient({
                       </span>{" "}
                       <span className="text-gray-500">{r.rating}/5</span>
                     </p>
-                    <p>{r.comment}</p>
+                    <p className="mt-1 text-gray-700 leading-relaxed">
+                      {r.comment}
+                    </p>
                   </div>
                 ))
               ) : (
@@ -343,9 +369,7 @@ export default function ProductDetailsClient({
               <Link
                 href={`/categories/${category._id}`}
                 className="text-blue-600 hover:underline text-sm"
-              >
-                View all in {category.name}
-              </Link>
+              ></Link>
             )}
           </div>
 

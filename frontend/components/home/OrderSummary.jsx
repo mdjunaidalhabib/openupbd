@@ -123,17 +123,17 @@ export default function OrderSummary({ orderId }) {
       {/* Actions */}
       <div className="flex gap-2 p-3">
         <a
-          href={`${process.env.NEXT_PUBLIC_API_URL}/receipts/${order._id}`}
+          href={`${process.env.NEXT_PUBLIC_API_URL}/api/invoice/${orderId}`}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noreferrer"
           className="flex-1 bg-blue-600 text-white py-1.5 rounded text-center hover:bg-blue-700 text-xs"
         >
-          🧾 View
+          🧾 Download Invoice
         </a>
 
         <a
           href="/"
-          className="flex-1 bg-gray-600 text-white py-1.5 rounded text-center hover:bg-gray-700 text-xs"
+          className="flex-1 bg-indigo-600 text-white py-1.5 rounded text-center hover:bg-indigo-700 text-xs"
         >
           🏠 Home
         </a>

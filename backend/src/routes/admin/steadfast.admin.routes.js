@@ -1,146 +1,124 @@
 import express from "express";
-import axios from "axios";
-import dotenv from "dotenv";
-import Order from "../../models/Order.js";
+import CourierSetting from "../../models/CourierSetting.js";
+import Order from "../../models/Order.js"; // ✅ ADD
 
-dotenv.config();
 const router = express.Router();
 
-// ✅ Send order to Steadfast Courier (Packzy API)
-// FINAL path: POST /api/v1/admin/steadfast/send-to-steadfast
-router.post("/send-to-steadfast", async (req, res) => {
-  try {
-    const { invoice, name, phone, address, cod_amount } = req.body;
+/* ======================================================
+   🪵 DEBUG LOGGER
+====================================================== */
+router.use((req, res, next) => {
+  console.log("🚚 STEADFAST ROUTE HIT:", req.method, req.originalUrl);
+  next();
+});
 
-    // 🧠 Step 1: Validate incoming data
+/* ======================================================
+   🔑 Helper: Get active courier config
+====================================================== */
+async function getActiveCourier(courier = "steadfast") {
+  const setting = await CourierSetting.findOne({
+    courier,
+    isActive: true,
+  }).lean();
+
+  if (!setting) {
+    const err = new Error("Courier setting not found or inactive");
+    err.code = "COURIER_NOT_CONFIGURED";
+    throw err;
+  }
+
+  return setting;
+}
+
+/* ======================================================
+   🚚 SINGLE ORDER → Steadfast
+   POST /admin/api/send-order
+====================================================== */
+router.post("/send-order", async (req, res) => {
+  try {
+    const {
+      invoice, // orderId
+      name,
+      phone,
+      address,
+      cod_amount,
+      note,
+      item_description,
+    } = req.body || {};
+
+    /* ---------- VALIDATION ---------- */
     if (!invoice || !name || !phone || !address || cod_amount === undefined) {
       return res.status(400).json({
-        success: false,
-        message:
-          "Missing required fields: invoice, name, phone, address, cod_amount",
+        error: "invoice, name, phone, address, cod_amount are required",
       });
     }
 
-    // 🧠 Step 2: Prepare request data (based on Steadfast official docs)
+    /* ---------- LOAD ORDER ---------- */
+    const order = await Order.findById(invoice);
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    /* ---------- LOAD COURIER ---------- */
+    const courier = await getActiveCourier("steadfast");
+
+    if (!courier.baseUrl || !/^https?:\/\//i.test(courier.baseUrl)) {
+      return res.status(500).json({
+        error: "Courier service URL invalid",
+      });
+    }
+
+    /* ---------- STEADFAST PAYLOAD ---------- */
     const payload = {
-      invoice, // must be unique
+      invoice: String(invoice),
       recipient_name: name,
       recipient_phone: phone,
       recipient_address: address,
-      cod_amount: cod_amount,
-      delivery_type: 0, // 0 = home delivery, 1 = point delivery
-      item_description: "General parcel",
-      note: "Deliver within office hours",
+      cod_amount: Number(cod_amount),
+      delivery_type: 0,
+      note: note || "",
+      item_description: item_description || "",
     };
 
-    // 🧠 Step 3: Make POST request to Steadfast API
-    const apiUrl = `${process.env.STEADFAST_BASE_URL}/create_order`;
-    const headers = {
-      "Api-Key": process.env.STEADFAST_API_KEY,
-      "Secret-Key": process.env.STEADFAST_SECRET_KEY,
-      "Content-Type": "application/json",
-    };
-
-    const response = await axios.post(apiUrl, payload, { headers });
-
-    // 🧠 Step 4: Extract tracking code
-    const trackingCode =
-      response.data?.consignment?.tracking_code ||
-      response.data?.tracking_code ||
-      null;
-
-    // 🧠 Step 5: Immediately fetch current delivery status
-    let deliveryStatus = "in_review";
-    try {
-      const statusUrl = `${process.env.STEADFAST_BASE_URL}/status_by_invoice/${invoice}`;
-      const statusRes = await axios.get(statusUrl, { headers });
-      deliveryStatus = statusRes.data?.delivery_status || "in_review";
-    } catch (err) {
-      console.log(
-        "⚠️ Could not fetch delivery status right now, using default."
-      );
-    }
-
-    // 🧠 Step 6: Update order in MongoDB
-    const updatedOrder = await Order.findByIdAndUpdate(
-      invoice,
-      { trackingId: trackingCode, status: deliveryStatus },
-      { new: true }
-    );
-
-    if (!updatedOrder) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found in database!" });
-    }
-
-    // 🧠 Step 7: Send success response to admin panel
-    res.json({
-      success: true,
-      message:
-        response.data?.message || "✅ Order sent to Steadfast successfully!",
-      trackingId: trackingCode,
-      deliveryStatus,
-      steadfastResponse: response.data,
+    /* ---------- STEADFAST API CALL ---------- */
+    const resp = await fetch(`${courier.baseUrl}/create_order`, {
+      method: "POST",
+      headers: {
+        "Api-Key": courier.apiKey,
+        "Secret-Key": courier.secretKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
-  } catch (error) {
-    console.error("🚨 Steadfast Error:", error.message);
 
-    res.status(error.response?.status || 500).json({
-      success: false,
-      message: "❌ Failed to send order to Steadfast",
-      error: error.response?.data || error.message,
-    });
-  }
-});
+    const data = await resp.json();
 
-// ✅ Delete (Cancel) order from Steadfast Courier
-// FINAL path: POST /api/v1/admin/steadfast/delete-steadfast-order
-router.post("/delete-steadfast-order", async (req, res) => {
-  try {
-    const { invoice, trackingId } = req.body;
-
-    if (!invoice && !trackingId) {
-      return res.status(400).json({
-        success: false,
-        message: "Invoice or Tracking ID required!",
+    if (!resp.ok || data?.status !== 200) {
+      return res.status(502).json({
+        error: data?.message || "Steadfast API error",
+        details: data,
       });
     }
 
-    const headers = {
-      "Api-Key": process.env.STEADFAST_API_KEY,
-      "Secret-Key": process.env.STEADFAST_SECRET_KEY,
-      "Content-Type": "application/json",
-    };
+    /* ======================================================
+       ✅ UPDATE ORDER STATUS HERE (IMPORTANT FIX)
+    ====================================================== */
+    order.status = "send_to_courier";
+    order.trackingId = data?.consignment?.tracking_code || "";
+    await order.save();
 
-    // 🧠 Cancel order on Steadfast
-    const payload = {
-      consignment_id: invoice,
-      tracking_code: trackingId,
-      reason: "Customer cancelled from admin panel",
-    };
-
-    const response = await axios.post(
-      `${process.env.STEADFAST_BASE_URL}/create_return_request`,
-      payload,
-      { headers }
-    );
-
-    // 🧩 Update local database status
-    await Order.findByIdAndUpdate(invoice, { status: "cancelled" });
-
-    res.json({
-      success: true,
-      message: "✅ Order cancelled successfully from Steadfast!",
-      steadfastResponse: response.data,
+    /* ---------- SUCCESS ---------- */
+    return res.json({
+      ok: true,
+      message: "Courier order created & status updated",
+      trackingCode: order.trackingId,
+      order,
     });
-  } catch (error) {
-    console.error("🚨 Delete from Steadfast Error:", error.message);
+  } catch (err) {
+    console.error("🚨 COURIER ERROR:", err);
 
-    res.status(500).json({
-      success: false,
-      message: "❌ Failed to delete order from Steadfast",
-      error: error.response?.data || error.message,
+    return res.status(500).json({
+      error: err.message || "Courier service error",
     });
   }
 });

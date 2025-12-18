@@ -5,43 +5,36 @@ import useOrders from "../../../hooks/useOrders";
 
 import OrdersGrid from "../ordersGrid/OrdersGrid";
 import OrdersTable from "../ordersTable/OrdersTable";
-import EditOrderModal from "../EditOrderModal";
+import EditOrderModal from "../modals/EditOrderModal";
 import OrdersSkeleton from "../../Skeleton/OrdersSkeleton";
 import Toast from "../../Toast";
 
 import ConfirmModal from "../modals/ConfirmModal";
-import DeleteOrderModal from "../modals/DeleteOrderModal";
-import CourierModal from "../modals/CourierModal";
 
 export default function OrdersPage() {
   const API = process.env.NEXT_PUBLIC_API_URL;
 
-  const {
-    filtered,
-    loading,
-    fetchOrders,
+const {
+  filtered,
+  loading,
+  fetchOrders,
 
-    deleteModal,
-    deleting,
-    handleDelete,
-    setDeleteModal,
+  deleting,
+  handleDelete,
 
-    courierModal,
-    courierSending,
-    sendCourierNow,
-    setCourierModal,
+  toast,
+  setToast,
 
-    toast,
-    setToast,
+  updateStatus,
+  updateManyStatus,
+  deleteMany,
+  sendCourierDirect, // ✅ ADD THIS
+  sendCourierMany,
 
-    updateStatus,
-    updateManyStatus,
-    deleteMany,
-    sendCourierMany,
+  confirm,
+  setConfirm,
+} = useOrders(API);
 
-    confirm,
-    setConfirm,
-  } = useOrders(API);
 
   const [open, setOpen] = useState(false);
   const [currentId, setCurrentId] = useState(null);
@@ -54,6 +47,22 @@ export default function OrdersPage() {
     billing: { name: "", phone: "", address: "" },
   });
 
+  /* =======================
+     🗑 DELETE CONFIRM ✅ FIXED
+     ======================= */
+  const confirmDelete = (order) => {
+    setConfirm({
+      title: "Delete Order",
+      message: "আপনি কি নিশ্চিত এই order টি delete করতে চান?",
+      danger: true,
+      loading: deleting,
+      onConfirm: () => handleDelete(order), // ✅ FIX
+    });
+  };
+
+  /* =======================
+     ✏️ EDIT ORDER
+     ======================= */
   const openEdit = (order) => {
     setCurrentId(order._id);
     setForm({
@@ -66,6 +75,9 @@ export default function OrdersPage() {
     setOpen(true);
   };
 
+  /* =======================
+     💾 UPDATE ORDER
+     ======================= */
   const updateOrder = async (updatedForm) => {
     try {
       const res = await fetch(`${API}/admin/orders/${currentId}`, {
@@ -103,9 +115,9 @@ export default function OrdersPage() {
           <OrdersGrid
             orders={filtered}
             onEdit={openEdit}
-            onDelete={setDeleteModal}
+            onDelete={confirmDelete}
             onStatusChange={updateStatus}
-            onSendCourier={setCourierModal}
+            onSendCourier={sendCourierDirect} // ✅ THIS WAS MISSING
             onBulkStatusChange={updateManyStatus}
             onBulkDelete={deleteMany}
             onBulkSendCourier={sendCourierMany}
@@ -114,9 +126,9 @@ export default function OrdersPage() {
           <OrdersTable
             orders={filtered}
             onEdit={openEdit}
-            onDelete={setDeleteModal}
+            onDelete={confirmDelete}
             onStatusChange={updateStatus}
-            onSendCourier={setCourierModal}
+            onSendCourier={sendCourierDirect} // ✅ THIS WAS MISSING
             onBulkStatusChange={updateManyStatus}
             onBulkDelete={deleteMany}
             onBulkSendCourier={sendCourierMany}
@@ -124,6 +136,7 @@ export default function OrdersPage() {
         </>
       )}
 
+      {/* EDIT MODAL */}
       <EditOrderModal
         open={open}
         form={form}
@@ -132,24 +145,12 @@ export default function OrdersPage() {
         onClose={() => setOpen(false)}
       />
 
-      <DeleteOrderModal
-        order={deleteModal}
-        deleting={deleting}
-        onCancel={() => setDeleteModal(null)}
-        onConfirm={handleDelete}
-      />
-
-      <CourierModal
-        order={courierModal}
-        sending={courierSending}
-        onCancel={() => setCourierModal(null)}
-        onConfirm={sendCourierNow}
-      />
-
+      {/* CONFIRM MODAL */}
       {confirm && (
         <ConfirmModal data={confirm} onClose={() => setConfirm(null)} />
       )}
 
+      {/* TOAST */}
       {toast && (
         <Toast
           message={toast.message}

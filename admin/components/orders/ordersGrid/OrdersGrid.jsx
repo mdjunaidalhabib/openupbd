@@ -1,16 +1,17 @@
 "use client";
 import { useMemo, useState } from "react";
 
+import { READY_STATUS } from "../shared/constants"; // ✅ VERY IMPORTANT
+
 import useOrdersManager from "../hooks/useOrdersManager";
 import StatusSummary from "./StatusSummary";
 import BulkBar from "./BulkBar";
 import OrderCard from "./OrderCard";
-import ConfirmModal from "./ConfirmModal";
 
 export default function OrdersGrid({
   orders,
   onEdit,
-  onDelete,
+  onDelete = null,
   onStatusChange,
   onSendCourier,
   onBulkStatusChange,
@@ -20,22 +21,45 @@ export default function OrdersGrid({
   const [tabStatus, setTabStatus] = useState("");
   const [openId, setOpenId] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
-  const [confirm, setConfirm] = useState(null);
 
   const manager = useOrdersManager({
     orders,
     tabStatus,
   });
 
-  const handleChange = async (id, payload) => {
+  /* ===============================
+     SINGLE ORDER STATUS CHANGE
+     READY → SEND_TO_COURIER হলে
+     auto courier create হবে
+  =============================== */
+  const handleChange = async (id, payload, order) => {
     setUpdatingId(id);
     try {
+      // 🚚 READY → SEND TO COURIER
+      if (
+        order?.status === READY_STATUS &&
+        payload.status === "send_to_courier"
+      ) {
+        await onSendCourier(order);
+
+        // success হলে selection clear
+        manager.setSelected([]);
+
+        return; // ⛔ status update এখানেই থামবে
+      }
+
+      // 🔁 NORMAL STATUS UPDATE
       await onStatusChange(id, payload);
+
+      manager.setSelected([]);
     } finally {
       setUpdatingId(null);
     }
   };
 
+  /* ===============================
+     STATUS COUNT (SUMMARY)
+  =============================== */
   const statusCount = useMemo(() => {
     const base = {
       pending: 0,
@@ -44,40 +68,62 @@ export default function OrdersGrid({
       delivered: 0,
       cancelled: 0,
     };
+
     (orders || []).forEach((o) => {
-      if (base[o.status] !== undefined) base[o.status]++;
+      if (base[o.status] !== undefined) {
+        base[o.status]++;
+      }
     });
+
     return base;
   }, [orders]);
 
   return (
     <div className="md:hidden space-y-2">
-      {/* STATUS SUMMARY */}
+      {/* ================= STATUS SUMMARY ================= */}
       <StatusSummary
         orders={orders || []}
         tabStatus={tabStatus}
-        setTabStatus={setTabStatus}
+        setTabStatus={(s) => {
+          setTabStatus(s);
+          manager.setSelected([]); // clear selection on tab change
+        }}
         statusCount={statusCount}
       />
 
-      {/* BULK BAR */}
-      {manager.selected.length > 0 && (
-        <BulkBar
-          selected={manager.selected}
-          selectedOrders={manager.selectedOrders}
-          sameStatus={manager.sameStatus}
-          bulkStatus={manager.bulkStatus}
-          canBulkSendCourier={manager.canBulkSendCourier}
-          setSelected={manager.setSelected}
-          onStatusChange={onStatusChange}
-          onBulkStatusChange={onBulkStatusChange}
-          onBulkDelete={onBulkDelete}
-          onBulkSendCourier={onBulkSendCourier}
-          setConfirm={setConfirm}
-        />
+      {/* ================= SELECT ALL + BULK ================= */}
+      {manager.filteredOrders.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2">
+          {/* SELECT ALL */}
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={manager.allSelected}
+              onChange={manager.toggleAll}
+            />
+            <span className="text-xs font-semibold whitespace-nowrap">
+              Select all ({manager.filteredOrders.length})
+            </span>
+          </label>
+
+          {/* BULK ACTIONS */}
+          <div className="flex-1">
+            <BulkBar
+              selected={manager.selected}
+              selectedOrders={manager.selectedOrders}
+              sameStatus={manager.sameStatus}
+              bulkStatus={manager.bulkStatus}
+              setSelected={manager.setSelected}
+              onStatusChange={onStatusChange}
+              onBulkStatusChange={onBulkStatusChange}
+              onBulkDelete={onBulkDelete}
+              onBulkSendCourier={onBulkSendCourier}
+            />
+          </div>
+        </div>
       )}
 
-      {/* ORDER LIST */}
+      {/* ================= ORDER LIST ================= */}
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         {manager.filteredOrders.length === 0 ? (
           <div className="p-6 text-center text-gray-500 text-sm">
@@ -96,35 +142,13 @@ export default function OrdersGrid({
                 updatingId={updatingId}
                 onStatusChange={handleChange}
                 onEdit={onEdit}
-                setConfirm={setConfirm}
+                onDelete={onDelete}
+                onSendCourier={onSendCourier}
               />
             ))}
           </div>
         )}
       </div>
-
-      {/* CONFIRM MODAL */}
-      {confirm && (
-        <ConfirmModal
-          title={
-            confirm.type === "delete" ? "Delete order?" : "Send to courier?"
-          }
-          onClose={() => setConfirm(null)}
-          onConfirm={() => {
-            if (confirm.type === "delete") {
-              confirm.orders.length === 1
-                ? onDelete(confirm.orders[0])
-                : onBulkDelete(confirm.orders.map((o) => o._id));
-            } else {
-              confirm.orders.length === 1
-                ? onSendCourier(confirm.orders[0])
-                : onBulkSendCourier(confirm.orders);
-            }
-            manager.setSelected([]);
-            setConfirm(null);
-          }}
-        />
-      )}
     </div>
   );
 }

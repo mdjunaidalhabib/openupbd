@@ -8,6 +8,7 @@ import navbarRoutes from "./navbar.routes.js";
 import footerRoutes from "./footer.routes.js";
 import receiptRoutes from "./receipt.routes.js";
 import sliderRoutes from "./slider.routes.js";
+import invoiceRoute from "./invoice.js";
 
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.use("/navbar", navbarRoutes);
 router.use("/footer", footerRoutes);
 router.use("/receipts", receiptRoutes);
 router.use("/slider-images", sliderRoutes);
+router.use("/api", invoiceRoute);
+
 
 export default router;

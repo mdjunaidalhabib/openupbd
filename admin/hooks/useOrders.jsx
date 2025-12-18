@@ -1,55 +1,52 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-
-export const STATUS_OPTIONS = [
-  "pending",
-  "ready_to_delivery",
-  "send_to_courier",
-  "delivered",
-  "cancelled",
-];
+import { useEffect, useRef, useState } from "react";
 
 export default function useOrders(API) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ status: "", q: "" });
 
-  // 🔔 Toast
+  /* ===============================
+     🔁 QUEUE
+     =============================== */
+  const queueRef = useRef(Promise.resolve());
+
+  const enqueue = (task) => {
+    queueRef.current = queueRef.current.then(() => task()).catch(() => {});
+    return queueRef.current;
+  };
+
+  /* ===============================
+     🔔 TOAST
+     =============================== */
   const [toast, setToast] = useState(null);
 
-  // ❓ Confirmation modal
+  /* ===============================
+     ❓ CONFIRM
+     =============================== */
   const [confirm, setConfirm] = useState(null);
 
-  // 🚚 Courier (single)
-  const [courierModal, setCourierModal] = useState(null);
-  const [courierSending, setCourierSending] = useState(false);
-
-  // 🗑 Delete (single)
-  const [deleteModal, setDeleteModal] = useState(null);
+  /* ===============================
+     🗑 DELETE LOADING
+     =============================== */
   const [deleting, setDeleting] = useState(false);
 
-  // ===============================
-  // 🔔 Auto hide toast
-  // ===============================
+  /* ===============================
+     Auto hide toast
+     =============================== */
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
 
-  // ===============================
-  // 🔹 Fetch orders
-  // ===============================
+  /* ===============================
+     Fetch orders
+     =============================== */
   const fetchOrders = async () => {
     try {
       setLoading(true);
-
-      const params = new URLSearchParams();
-      if (filter.status) params.append("status", filter.status);
-
-      const res = await fetch(`${API}/admin/orders?${params.toString()}`);
+      const res = await fetch(`${API}/admin/orders`);
       const data = await res.json();
-
       setOrders(Array.isArray(data) ? data : []);
     } catch {
       setToast({ message: "❌ Failed to load orders", type: "error" });
@@ -60,59 +57,49 @@ export default function useOrders(API) {
 
   useEffect(() => {
     fetchOrders();
-  }, [filter.status]);
+  }, []);
 
-  // ===============================
-  // 🔍 Search
-  // ===============================
-  const filtered = useMemo(() => {
-    if (!filter.q) return orders;
-    const q = filter.q.toLowerCase();
+  /* ===============================
+     Update status (single) – SILENT SUPPORT
+     =============================== */
+  const updateStatus = (id, payload, options = {}) =>
+    enqueue(async () => {
+      try {
+        const res = await fetch(`${API}/admin/orders/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-    return orders.filter(
-      (o) =>
-        o._id?.toLowerCase().includes(q) ||
-        o.billing?.name?.toLowerCase().includes(q) ||
-        o.billing?.phone?.toLowerCase().includes(q)
-    );
-  }, [orders, filter.q]);
+        const updated = await res.json();
+        if (!res.ok) throw new Error(updated?.error);
 
-  // ===============================
-  // ✏️ UPDATE STATUS (SINGLE)
-  // ===============================
-  const updateStatus = async (id, payload) => {
-    try {
-      const res = await fetch(`${API}/admin/orders/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+        setOrders((prev) =>
+          prev.map((o) => (o._id === updated._id ? updated : o))
+        );
 
-      const updated = await res.json();
-      if (!res.ok) throw new Error(updated?.error);
+        if (!options.silent) {
+          setToast({ message: "✔ Order updated", type: "success" });
+        }
 
-      setOrders((prev) =>
-        prev.map((o) => (o._id === updated._id ? updated : o))
-      );
+        return updated;
+      } catch (err) {
+        // ❗ error কখনো silent হবে না
+        setToast({
+          message: err?.message || "❌ Status update failed",
+          type: "error",
+        });
+        throw err;
+      }
+    });
 
-      setToast({ message: "✔ Order updated", type: "success" });
-      return updated;
-    } catch (err) {
-      setToast({
-        message: err?.message || "❌ Update failed",
-        type: "error",
-      });
-      throw err;
-    }
-  };
-
-  // ===============================
-  // ✏️ UPDATE STATUS (BULK) ✅ FIXED
-  // ===============================
+  /* ===============================
+     Update status (bulk)
+     =============================== */
   const updateManyStatus = (ids, payload) =>
     setConfirm({
       title: "Update order status?",
-      description: `Change status for ${ids.length} orders.`,
+      message: `Change status for ${ids.length} orders.`,
       onConfirm: async () => {
         try {
           const res = await fetch(`${API}/admin/orders/bulk/status`, {
@@ -128,7 +115,6 @@ export default function useOrders(API) {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
 
-          // update local state
           setOrders((prev) =>
             prev.map((o) =>
               data.updated.includes(o._id)
@@ -152,77 +138,88 @@ export default function useOrders(API) {
       },
     });
 
-  // ===============================
-  // 🚚 Courier (SINGLE)
-  // ===============================
-  const confirmCourierSend = (order) => setCourierModal(order);
-
-  const sendCourierNow = async () => {
-    if (!courierModal) return;
-
+  /* ===============================
+     🚚 COURIER (SINGLE) – FINAL & SAFE
+     =============================== */
+const sendCourierDirect = (order) =>
+  enqueue(async () => {
     try {
-      setCourierSending(true);
+      if (!order) throw new Error("Invalid order");
 
-      const res = await fetch(`${API}/api/send-order`, {
+      /* 1️⃣ CREATE COURIER ORDER */
+      const res = await fetch(`${API}/admin/api/send-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          invoice: courierModal._id,
-          name: courierModal.billing?.name,
-          phone: courierModal.billing?.phone,
-          address: courierModal.billing?.address,
-          cod_amount: courierModal.total,
+          invoice: order._id,
+          name: order.billing?.name,
+          phone: order.billing?.phone,
+          address: order.billing?.address,
+          cod_amount: order.total,
         }),
       });
 
-      if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => ({}));
 
-      await updateStatus(courierModal._id, {
-        status: "send_to_courier",
+      if (!res.ok) {
+        throw new Error(
+          data?.error || data?.message || "Courier sending failed"
+        );
+      }
+
+      /* 2️⃣ LOCAL STATE SYNC (IMPORTANT) */
+      if (data.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o._id === data.order._id ? data.order : o))
+        );
+      }
+
+      /* 3️⃣ SUCCESS TOAST */
+      setToast({
+        message: "🚚 Courier order created & status updated",
+        type: "success",
       });
 
-      setCourierModal(null);
-    } catch {
-      setToast({ message: "❌ Courier sending failed", type: "error" });
-    } finally {
-      setCourierSending(false);
-    }
-  };
+      return data;
+    } catch (err) {
+      const msg = err?.message?.toLowerCase() || "";
 
-  // ===============================
-  // 🚚 Courier (BULK) (still loop – courier API is single)
-  // ===============================
+      const friendlyMessage =
+        msg.includes("courier") || msg.includes("setting")
+          ? "Courier সেটিং পাওয়া যায়নি বা inactive"
+          : err.message;
+
+      setToast({
+        message: friendlyMessage,
+        type: "error",
+      });
+
+      throw err;
+    }
+  });
+
+
+  /* ===============================
+     Courier (bulk)
+     =============================== */
   const sendCourierMany = (orders) =>
     setConfirm({
       title: "Send to courier?",
-      description: `Send ${orders.length} orders to courier service.`,
+      message: `Send ${orders.length} orders to courier service.`,
       onConfirm: async () => {
         try {
           for (const o of orders) {
-            if (o.status !== "ready_to_delivery" || o.trackingId) continue;
-
-            await fetch(`${API}/api/send-order`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                invoice: o._id,
-                name: o.billing?.name,
-                phone: o.billing?.phone,
-                address: o.billing?.address,
-                cod_amount: o.total,
-              }),
-            });
-
-            await updateStatus(o._id, { status: "send_to_courier" });
+            if (o.status !== "ready_to_delivery") continue;
+            await sendCourierDirect(o);
           }
 
           setToast({
             message: "🚚 Orders sent to courier",
             type: "success",
           });
-        } catch {
+        } catch (err) {
           setToast({
-            message: "❌ Courier sending failed",
+            message: err.message || "❌ Courier sending failed",
             type: "error",
           });
         } finally {
@@ -231,39 +228,37 @@ export default function useOrders(API) {
       },
     });
 
-  // ===============================
-  // 🗑 Delete (SINGLE)
-  // ===============================
-  const confirmDelete = (order) => setDeleteModal(order);
-
-  const handleDelete = async () => {
-    if (!deleteModal) return;
+  /* ===============================
+     🗑 DELETE (single)
+     =============================== */
+  const handleDelete = async (order) => {
+    if (!order) return;
 
     try {
       setDeleting(true);
-
-      const res = await fetch(`${API}/admin/orders/${deleteModal._id}`, {
+      const res = await fetch(`${API}/admin/orders/${order._id}`, {
         method: "DELETE",
       });
+
       if (!res.ok) throw new Error();
 
-      setOrders((prev) => prev.filter((o) => o._id !== deleteModal._id));
+      setOrders((prev) => prev.filter((o) => o._id !== order._id));
       setToast({ message: "🗑 Order deleted", type: "success" });
-      setDeleteModal(null);
     } catch {
       setToast({ message: "❌ Delete failed", type: "error" });
     } finally {
       setDeleting(false);
+      setConfirm(null);
     }
   };
 
-  // ===============================
-  // 🗑 Delete (BULK) ✅ FIXED
-  // ===============================
+  /* ===============================
+     Delete (bulk)
+     =============================== */
   const deleteMany = (ids) =>
     setConfirm({
       title: "Delete orders?",
-      description: `${ids.length} orders will be permanently deleted.`,
+      message: `${ids.length} orders will be permanently deleted.`,
       danger: true,
       confirmText: "Delete",
       onConfirm: async () => {
@@ -293,32 +288,26 @@ export default function useOrders(API) {
       },
     });
 
-  // ===============================
-  // RETURN
-  // ===============================
+  /* ===============================
+     RETURN
+     =============================== */
   return {
-    filtered,
+    filtered: orders,
     loading,
-    filter,
-    setFilter,
     fetchOrders,
 
-    // single
+    // status
     updateStatus,
-    confirmCourierSend,
-    sendCourierNow,
-    courierModal,
-    courierSending,
-
-    confirmDelete,
-    handleDelete,
-    deleteModal,
-    deleting,
-
-    // bulk
     updateManyStatus,
-    deleteMany,
+
+    // courier
+    sendCourierDirect,
     sendCourierMany,
+
+    // delete
+    handleDelete,
+    deleteMany,
+    deleting,
 
     // ui
     toast,

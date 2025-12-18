@@ -1,71 +1,107 @@
-import { STATUS_OPTIONS, STATUS_LABEL } from "../shared/constants";
+"use client";
+import { useState } from "react";
+import { STATUS_OPTIONS, STATUS_LABEL, STATUS_FLOW } from "../shared/constants";
+import Toast from "../../Toast";
 
 export default function BulkBar({
   selected,
   selectedOrders,
-
-  /* from useOrdersManager */
   sameStatus,
   bulkStatus,
-  canBulkSendCourier,
-
   setSelected,
   onStatusChange,
   onBulkStatusChange,
-  onBulkDelete,
   onBulkSendCourier,
-  setConfirm,
+  onBulkDelete,
 }) {
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "error") => {
+    setToast({ message, type });
+  };
+
+  const allowedNext = STATUS_FLOW[bulkStatus] || [];
+  const disabled = selected.length === 0;
+
   return (
-    <div className="sticky top-[44px] z-20 bg-gray-50 border rounded-lg p-2 flex flex-wrap gap-2 items-center">
-      <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">
-        {selected.length} Selected
-      </span>
+    <>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
 
-      {/* BULK STATUS UPDATE */}
-      {sameStatus && bulkStatus && (
-        <select
-          className="border rounded-full px-2 py-1 text-xs bg-white"
-          value={bulkStatus}
-          onChange={(e) => {
-            const status = e.target.value;
-            selected.length === 1
-              ? onStatusChange(selected[0], { status })
-              : onBulkStatusChange(selected, { status });
-            setSelected([]);
-          }}
-        >
-          <option value={bulkStatus} disabled>
-            {STATUS_LABEL[bulkStatus]}
-          </option>
+      {/* ✅ ALWAYS VISIBLE BULK BAR */}
+      <div className="sticky top-[44px] z-20  flex flex-wrap gap-2 items-center">
+        {/* BULK STATUS */}
+        {sameStatus && bulkStatus && (
+          <select
+            className="rounded-full py-1 text-xs bg-white border"
+            value={bulkStatus}
+            disabled={disabled}
+            onChange={async (e) => {
+              const nextStatus = e.target.value;
 
-          {STATUS_OPTIONS.filter((s) => s !== bulkStatus).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABEL[s]}
+              if (!allowedNext.includes(nextStatus)) {
+                showToast("এই status এ bulk update করা যাবে না");
+                return;
+              }
+
+              try {
+                // 🚚 SEND TO COURIER
+                if (nextStatus === "send_to_courier") {
+                  await onBulkSendCourier(selectedOrders);
+                  showToast("Courier order তৈরি হয়েছে", "success");
+                  return;
+                }
+
+                // 🔁 NORMAL STATUS UPDATE
+                if (selected.length === 1) {
+                  await onStatusChange(selected[0], { status: nextStatus });
+                } else {
+                  await onBulkStatusChange(selected, { status: nextStatus });
+                }
+
+                showToast("Status update হয়েছে", "success");
+              } finally {
+                setSelected([]);
+              }
+            }}
+          >
+            <option value={bulkStatus} disabled>
+              {STATUS_LABEL[bulkStatus]}
             </option>
-          ))}
-        </select>
-      )}
 
-      {/* BULK COURIER */}
-      {sameStatus && canBulkSendCourier && (
+            {STATUS_OPTIONS.filter((s) => allowedNext.includes(s)).map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* BULK DELETE */}
         <button
-          onClick={() =>
-            setConfirm({ type: "courier", orders: selectedOrders })
-          }
-          className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs"
-        >
-          Courier
-        </button>
-      )}
+          disabled={disabled}
+          onClick={() => {
+            if (!selected.length) {
+              showToast("Delete করার জন্য কোনো order select করা হয়নি");
+              return;
+            }
 
-      {/* BULK DELETE */}
-      <button
-        onClick={() => setConfirm({ type: "delete", orders: selectedOrders })}
-        className="bg-red-600 text-white px-3 py-1 rounded-full text-xs"
-      >
-        Delete
-      </button>
-    </div>
+            onBulkDelete(selected);
+            setSelected([]);
+            showToast("Order delete হয়েছে", "success");
+          }}
+          className={`px-3 py-1 rounded-full text-xs text-white ${
+            disabled ? "bg-red-300 cursor-not-allowed" : "bg-red-600"
+          }`}
+        >
+          Delete
+        </button>
+      </div>
+    </>
   );
 }

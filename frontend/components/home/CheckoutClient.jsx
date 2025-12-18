@@ -383,12 +383,6 @@ export default function CheckoutPage() {
                   loading={loading}
                   disabled={isOrderDisabled}
                 />
-
-                {isOrderDisabled && (
-                  <p className="text-xs text-red-500 mt-2">
-                    ⚠️ অর্ডার দিতে নাম, মোবাইল ও ঠিকানা সঠিকভাবে পূরণ করুন
-                  </p>
-                )}
               </div>
             </>
           )}

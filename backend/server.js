@@ -96,6 +96,7 @@ app.use((err, req, res, next) => {
     details: isProd ? undefined : String(err),
   });
 });
+app.use(express.static("public"));
 
 const startServer = async () => {
   try {

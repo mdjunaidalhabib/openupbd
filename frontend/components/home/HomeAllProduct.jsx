@@ -21,55 +21,39 @@ export default function CategoryTabsSection() {
   const rafRef = useRef(null);
 
   /* ================= DATA FETCH ================= */
-  useEffect(() => {
-    let cancelled = false;
-    let retryTimer = null;
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(false);
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(false);
+      const [pRes, cRes] = await Promise.all([
+        apiFetch("/products"),
+        apiFetch("/categories"),
+      ]);
 
-        const [pRes, cRes] = await Promise.all([
-          apiFetch("/products"),
-          apiFetch("/categories"),
-        ]);
+      let pArr = Array.isArray(pRes) ? pRes : [];
+      let cArr = Array.isArray(cRes) ? cRes : [];
 
-        if (cancelled) return;
+      cArr = cArr.filter((c) => c.isActive !== false);
+      cArr.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-        let pArr = Array.isArray(pRes) ? pRes : [];
-        let cArr = Array.isArray(cRes) ? cRes : [];
+      setProducts(pArr);
+      setCategories(cArr);
 
-        cArr = cArr.filter((c) => c.isActive !== false);
-        cArr.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-        setProducts(pArr);
-        setCategories(cArr);
-
-        if (
-          activeCat &&
-          !cArr.find((c) => String(c._id) === String(activeCat))
-        ) {
-          setActiveCat(null);
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.log("Error fetching data:", err);
-        if (cancelled) return;
-
-        setError(true);
-        setLoading(false);
-        retryTimer = setTimeout(fetchData, 3000);
+      if (activeCat && !cArr.find((c) => String(c._id) === String(activeCat))) {
+        setActiveCat(null);
       }
-    };
 
+      setLoading(false);
+    } catch (err) {
+      console.log("Error fetching data:", err);
+      setError(true);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
-
-    return () => {
-      cancelled = true;
-      if (retryTimer) clearTimeout(retryTimer);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -82,7 +66,7 @@ export default function CategoryTabsSection() {
   }, [activeCat, products]);
 
   const shouldShowSkeleton =
-    loading || error || products.length === 0 || categories.length === 0;
+    loading || (!error && (products.length === 0 || categories.length === 0));
 
   /* ================= DRAG LOGIC ================= */
   const startInertia = () => {
@@ -90,8 +74,7 @@ export default function CategoryTabsSection() {
     if (!el) return;
 
     const step = () => {
-      velocityRef.current *= 0.95; // friction
-
+      velocityRef.current *= 0.95;
       if (Math.abs(velocityRef.current) < 0.5) return;
 
       el.scrollLeft -= velocityRef.current;
@@ -119,27 +102,37 @@ export default function CategoryTabsSection() {
 
     e.preventDefault();
     const dx = e.pageX - startXRef.current;
-    const walk = dx * 1.1; // sensitivity
+    const walk = dx * 1.1;
 
     scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
     velocityRef.current = walk;
   };
 
-  const onMouseUp = () => {
+  const stopDrag = () => {
     if (!isDownRef.current) return;
-
     isDownRef.current = false;
     scrollRef.current.classList.remove("cursor-grabbing");
     startInertia();
   };
 
-  const onMouseLeave = () => {
-    if (!isDownRef.current) return;
-
-    isDownRef.current = false;
-    scrollRef.current.classList.remove("cursor-grabbing");
-    startInertia();
-  };
+  /* ================= ERROR UI ================= */
+  if (error && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4">
+        <p className="text-gray-500 text-sm mb-4 text-center">
+          ডেটা লোড করা যায়নি। ইন্টারনেট বা সার্ভার সমস্যা হতে পারে।
+        </p>
+        <button
+          onClick={fetchData}
+          className="px-4 py-2 rounded-md text-sm font-medium
+            bg-gradient-to-r from-blue-600 to-purple-600
+            text-white hover:opacity-90 transition"
+        >
+          🔄 আবার চেষ্টা করুন
+        </button>
+      </div>
+    );
+  }
 
   /* ================= SKELETON ================= */
   if (shouldShowSkeleton) {
@@ -149,9 +142,7 @@ export default function CategoryTabsSection() {
           <ProductCardSkeleton key={i} />
         ))}
         <p className="col-span-full text-center text-sm text-gray-500 mt-4">
-          {error
-            ? "ডেটা লোড হচ্ছে না—আবার চেষ্টা করা হচ্ছে..."
-            : "ডেটা লোড হচ্ছে..."}
+          ডেটা লোড হচ্ছে...
         </p>
       </div>
     );
@@ -165,20 +156,18 @@ export default function CategoryTabsSection() {
       transition={{ duration: 0.6 }}
       className="container mx-auto px-4 sm:px-6 lg:px-8 py-8"
     >
-      {/* Categories Heading */}
       <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
         <span className="bg-gradient-to-r from-blue-600 via-purple-500 to-pink-500 text-transparent bg-clip-text">
           🛍️ Categories
         </span>
       </h2>
 
-      {/* ================= CATEGORY SCROLL ================= */}
       <div
         ref={scrollRef}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseLeave}
+        onMouseUp={stopDrag}
+        onMouseLeave={stopDrag}
         className="
           px-1 mb-8 w-full
           overflow-x-auto overflow-y-hidden
@@ -187,13 +176,7 @@ export default function CategoryTabsSection() {
           select-none
         "
       >
-        <div
-          className="
-            grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem]
-            sm:flex sm:flex-nowrap sm:gap-3
-            sm:min-w-max
-          "
-        >
+        <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem] sm:flex sm:flex-nowrap sm:gap-3 sm:min-w-max">
           {categories.map((cat) => (
             <button
               key={cat._id}
@@ -201,8 +184,7 @@ export default function CategoryTabsSection() {
                 setActiveCat((prev) => (prev === cat._id ? null : cat._id))
               }
               className={`flex-none flex flex-col items-center justify-center
-                w-24 h-24 p-2 rounded-xl
-                transition-all duration-300
+                w-24 h-24 p-2 rounded-xl transition-all duration-300
                 border shadow-sm hover:shadow-md
                 ${
                   activeCat === cat._id
@@ -225,16 +207,14 @@ export default function CategoryTabsSection() {
         </div>
       </div>
 
-      {/* Products Heading */}
       <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
         <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text">
           {activeCat ? "📦 Selected Category Products" : "📦 All Products"}
         </span>
       </h2>
 
-      {/* Products Grid */}
       {filtered.length ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
           {filtered.map((prod) => (
             <ProductCard key={prod._id} product={prod} />
           ))}

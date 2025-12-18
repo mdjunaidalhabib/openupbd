@@ -14,7 +14,18 @@ export const STATUS_LABEL = {
   cancelled: "CANCELLED",
 };
 
-/* desktop badge */
+export const LOCKED_STATUSES = ["delivered", "cancelled"];
+
+export const STATUS_FLOW = {
+  pending: ["ready_to_delivery", "cancelled"],
+  ready_to_delivery: ["send_to_courier", "cancelled"],
+  send_to_courier: ["delivered", "cancelled"],
+  delivered: [],
+  cancelled: [],
+};
+
+export const READY_STATUS = "ready_to_delivery";
+
 export const STATUS_BADGE_COLOR = {
   pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
   ready_to_delivery: "bg-blue-100 text-blue-700 border-blue-200",
@@ -23,7 +34,9 @@ export const STATUS_BADGE_COLOR = {
   cancelled: "bg-red-100 text-red-700 border-red-200",
 };
 
-/* desktop tab text color ✅ ADD THIS */
+/* ===============================
+   DESKTOP TAB TEXT COLOR
+================================ */
 export const STATUS_TEXT_COLOR = {
   pending: "text-yellow-600",
   ready_to_delivery: "text-blue-600",
@@ -32,7 +45,9 @@ export const STATUS_TEXT_COLOR = {
   cancelled: "text-red-600",
 };
 
-/* mobile pill */
+/* ===============================
+   MOBILE STATUS PILL
+================================ */
 export const STATUS_COLORS = {
   pending: "text-yellow-700 bg-yellow-50 ring-yellow-200",
   ready_to_delivery: "text-blue-700 bg-blue-50 ring-blue-200",

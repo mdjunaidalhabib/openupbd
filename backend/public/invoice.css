@@ -1,0 +1,119 @@
+/* ================= PAGE SETUP ================= */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: url("invoice-template.png") no-repeat;
+  background-size: cover;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ================= HEADER ================= */
+.header {
+  height: 330px;
+  position: relative;
+}
+
+/* Order Info block */
+.order-info {
+  position: absolute;
+  top: 158px;
+  left: 90px;
+  text-align: left;
+  line-height: 1.6;
+}
+
+.order-id {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.order-date {
+  font-size: 14px;
+}
+
+.order-payment {
+  font-size: 14px;
+}
+
+/* ================= BILLING ================= */
+.billing {
+  position: absolute;
+  top: 255px;
+  left: 270px;
+  line-height: 2.1;
+}
+
+.billing-name {
+  font-size: 25px;
+  font-weight: bold;
+}
+
+.billing-address {
+  font-size: 20px;
+  max-width: 350px;
+}
+
+.billing-phone {
+  font-size: 20px;
+}
+
+.billing-note {
+  font-size: 12px;
+  color: #555;
+}
+
+/* ================= ITEMS ================= */
+.items {
+  margin-top: 150px;
+  margin-left: 60px;
+  padding: 0 90px;
+}
+
+/* Single item row */
+.row {
+  display: grid;
+  grid-template-columns: 5fr 1fr 1fr 1fr;
+  font-size: 16px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* ================= SUMMARY ================= */
+.summary {
+  margin-top: 224px;
+  margin-right: 120px;
+  margin-left: auto;
+  width: 200px;
+  font-size: 16px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.summary-subtotal {
+  color: #b91c1c;
+}
+.summary-delivery {
+  color: #b91c1c;
+}
+.summary-discount {
+  color: #b91c1c;
+}
+
+/* ================= TOTAL ================= */
+.total {
+  margin-top: 15px;
+  margin-right: 110px;
+  text-align: right;
+  font-size: 20px;
+  font-weight: bold;
+}

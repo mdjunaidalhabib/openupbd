@@ -1,3 +1,4 @@
+"use client";
 import { useMemo, useState } from "react";
 
 /**
@@ -8,7 +9,7 @@ export default function useOrdersManager({
   orders = [],
   tabStatus = "",
   search = "",
-  lockStatuses = ["delivered", "cancelled"],
+  lockStatuses = ["delivered", "cancelled"], // 🔒 status change only (not selection)
 }) {
   /* ===============================
      FILTER
@@ -34,16 +35,14 @@ export default function useOrdersManager({
   }, [orders, tabStatus, search]);
 
   /* ===============================
-     SELECTION
+     SELECTION (✅ NO STATUS BLOCK)
   =============================== */
   const [selected, setSelected] = useState([]);
 
+  // ✅ all filtered orders are selectable
   const selectableIds = useMemo(
-    () =>
-      filteredOrders
-        .filter((o) => !lockStatuses.includes(o.status))
-        .map((o) => o._id),
-    [filteredOrders, lockStatuses]
+    () => filteredOrders.map((o) => o._id),
+    [filteredOrders]
   );
 
   const toggleOne = (id) => {
@@ -59,8 +58,8 @@ export default function useOrdersManager({
   };
 
   const selectedOrders = useMemo(
-    () => filteredOrders.filter((o) => selected.includes(o._id)),
-    [filteredOrders, selected]
+    () => orders.filter((o) => selected.includes(o._id)),
+    [orders, selected]
   );
 
   const allSelected =

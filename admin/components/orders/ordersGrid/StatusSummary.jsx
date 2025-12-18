@@ -1,6 +1,6 @@
 "use client";
 
-import { STATUS_OPTIONS, STATUS_LABEL } from "../shared/constants";
+import { USER_STATUSES, STATUS_LABEL } from "../shared/constants";
 
 export default function StatusSummary({
   orders,
@@ -15,13 +15,10 @@ export default function StatusSummary({
         onChange={(e) => setTabStatus(e.target.value)}
         className="w-full border rounded px-3 py-2 text-sm"
       >
-        <option value="">ALL ({orders.length})</option>
-
-        {STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s}>
-            {STATUS_LABEL[s]} ({statusCount[s] ?? 0})
-          </option>
-        ))}
+        {/* ALL */}
+        <option value="" disabled={tabStatus === ""}>
+          ALL ({orders.length})
+        </option>
       </select>
     </div>
   );

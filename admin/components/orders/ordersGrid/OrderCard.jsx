@@ -5,6 +5,9 @@ import {
   STATUS_LABEL,
   STATUS_COLORS,
   STATUS_OPTIONS,
+  LOCKED_STATUSES,
+  STATUS_FLOW,
+  READY_STATUS,
 } from "../shared/constants";
 import { formatOrderTime } from "../shared/utils";
 
@@ -20,10 +23,11 @@ export default function OrderCard({
   updatingId,
   onStatusChange,
   onEdit,
-  setConfirm,
+  onDelete,
+  onSendCourier,
 }) {
-  const locked = o.status === "delivered" || o.status === "cancelled";
-  const canSendCourier = o.status === "ready_to_delivery" && !o.trackingId;
+  /* 🔒 locked status */
+  const locked = LOCKED_STATUSES.includes(o.status);
 
   const itemCount = o.items?.reduce((s, it) => s + (it.qty || 0), 0) || 0;
 
@@ -39,7 +43,6 @@ export default function OrderCard({
           className="mt-1"
           checked={selected.includes(o._id)}
           onChange={() => toggleOne(o._id)}
-          disabled={locked}
         />
 
         <button
@@ -109,6 +112,7 @@ export default function OrderCard({
                     <img
                       src={it.image || "/placeholder.png"}
                       className="w-9 h-9 rounded-md border"
+                      alt=""
                     />
                     <div className="min-w-0">
                       <p className="text-[11px] font-semibold truncate">
@@ -154,19 +158,28 @@ export default function OrderCard({
 
           {/* Actions */}
           <div className="flex items-center justify-between gap-2">
+            {/* STATUS CHANGE */}
             <select
               className="h-8 rounded-md border px-2 text-xs font-semibold"
               value={o.status}
-              onChange={(e) =>
-                onStatusChange(o._id, { status: e.target.value })
-              }
               disabled={locked || updatingId === o._id}
+              onChange={(e) =>
+                onStatusChange(o._id, { status: e.target.value }, o)
+              }
             >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABEL[s]}
-                </option>
-              ))}
+              {STATUS_OPTIONS.map((s) => {
+                const allowedNext = STATUS_FLOW[o.status] || [];
+
+                return (
+                  <option
+                    key={s}
+                    value={s}
+                    disabled={s === o.status || !allowedNext.includes(s)}
+                  >
+                    {STATUS_LABEL[s]}
+                  </option>
+                );
+              })}
             </select>
 
             <div className="flex gap-1">
@@ -178,23 +191,23 @@ export default function OrderCard({
               </IconBtn>
 
               <IconBtn
-                onClick={() => setConfirm({ type: "delete", orders: [o] })}
+                onClick={() => onDelete?.(o)}
                 className="bg-red-600 text-white"
               >
                 <Trash2 size={14} />
               </IconBtn>
 
-              <IconBtn
-                onClick={() => setConfirm({ type: "courier", orders: [o] })}
-                disabled={!canSendCourier}
-                className={
-                  canSendCourier
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-500"
-                }
-              >
-                <Send size={14} />
-              </IconBtn>
+              {/* SEND TO COURIER */}
+              {o.status === READY_STATUS && !o.trackingId && (
+                <IconBtn
+                  onClick={() =>
+                    onStatusChange(o._id, { status: "send_to_courier" }, o)
+                  }
+                  disabled={updatingId === o._id}
+                  className="bg-blue-600 text-white" >
+                  <Send size={14} />
+                </IconBtn>
+              )}
             </div>
           </div>
 
