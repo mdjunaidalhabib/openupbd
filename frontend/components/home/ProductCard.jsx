@@ -1,4 +1,5 @@
 "use client";
+
 import React, { memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -15,7 +16,12 @@ const ProductCard = memo(
   ({ product }) => {
     const { cart, updateCart, wishlist, toggleWishlist } = useCart();
 
-    const productId = product?._id || product?.id;
+    // ✅ FIX: Only MongoDB _id (NO fallback)
+    const productId = product?._id;
+
+    // 🛡️ Safety: product without _id should not render
+    if (!productId) return null;
+
     const quantity = cart[productId] || 0;
 
     const discount = product?.oldPrice
@@ -24,7 +30,9 @@ const ProductCard = memo(
         )
       : 0;
 
+    // ✅ Wishlist uses string id consistently
     const isInWishlist = wishlist.includes(String(productId));
+
     const totalPrice = product?.price * quantity;
 
     const mainImage =
@@ -34,7 +42,7 @@ const ProductCard = memo(
 
     return (
       <div className="relative bg-pink-100 shadow-md rounded-lg hover:shadow-lg transition flex flex-col group">
-        {/* 🖼️ Image Container — FIXED Aspect Ratio */}
+        {/* 🖼️ Image Container */}
         <Link
           href={`/products/${productId}`}
           className="relative w-full aspect-[4/4] mb-3 overflow-hidden rounded-lg"
@@ -53,7 +61,7 @@ const ProductCard = memo(
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleWishlist(productId);
+                toggleWishlist(String(productId));
               }}
               className={`px-1 py-1 rounded-full shadow-md ${
                 isInWishlist
@@ -65,12 +73,11 @@ const ProductCard = memo(
             </button>
           </div>
 
-          {/* ⭐ Optimized Image (Warning-Free) */}
+          {/* Product Image */}
           <Image
             src={mainImage}
             alt={product?.name || "Product"}
             fill
-            priority={false}
             loading="lazy"
             sizes="(max-width: 768px) 100vw,
                    (max-width: 1200px) 33vw,
@@ -102,7 +109,7 @@ const ProductCard = memo(
               <FaStar
                 key={i}
                 className={
-                  i < product?.rating
+                  i < (product?.rating || 0)
                     ? "text-yellow-500 w-3"
                     : "text-gray-300 w-3"
                 }
@@ -115,6 +122,7 @@ const ProductCard = memo(
             <p className="text-blue-600 font-bold text-sm sm:text-base">
               ৳{product?.price}
             </p>
+
             {product?.oldPrice && (
               <p className="text-gray-400 line-through text-xs sm:text-sm">
                 ৳{product.oldPrice}
@@ -128,7 +136,7 @@ const ProductCard = memo(
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                updateCart(productId, +1, true);
+                updateCart(productId, +1, product.stock);
               }}
               disabled={product?.stock <= 0}
               className={`sm:mt-4 sm:mb-2 w-full px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm sm:text-base ${
@@ -148,29 +156,26 @@ const ProductCard = memo(
                 </span>
 
                 <div className="flex items-center rounded-md px-1">
-                  {/* - Button */}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      updateCart(productId, -1, false);
+                      updateCart(productId, -1, product.stock);
                     }}
                     className="p-1.5 sm:p-1 bg-gray-200 hover:bg-gray-300 rounded-md transition"
                   >
                     <FaMinus className="text-[10px] sm:text-xs" />
                   </button>
 
-                  {/* Qty Display */}
                   <span className="text-xs sm:text-sm font-bold w-4 text-center select-none">
                     {quantity}
                   </span>
 
-                  {/* + Button */}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      updateCart(productId, +1, false);
+                      updateCart(productId, +1, product.stock);
                     }}
                     className="p-1.5 sm:p-1 bg-gray-200 hover:bg-gray-300 rounded-md transition"
                   >
@@ -192,15 +197,12 @@ const ProductCard = memo(
     );
   },
 
-  // 🔥 Smart Memo — No useless re-render
-  (prev, next) => {
-    return (
-      prev.product._id === next.product._id &&
-      prev.product.price === next.product.price &&
-      prev.product.stock === next.product.stock &&
-      prev.product.rating === next.product.rating
-    );
-  }
+  // 🔥 Memo optimization
+  (prev, next) =>
+    prev.product._id === next.product._id &&
+    prev.product.price === next.product.price &&
+    prev.product.stock === next.product.stock &&
+    prev.product.rating === next.product.rating
 );
 
 export default ProductCard;
