@@ -10,19 +10,17 @@ import {
   FaPlus,
   FaMinus,
 } from "react-icons/fa";
-import { useCart } from "../../context/CartContext";
+import { useCartUtils } from "../../hooks/useCartUtils";
 
 const ProductCard = memo(
   ({ product }) => {
-    const { cart, updateCart, wishlist, toggleWishlist } = useCart();
+    const { cart, updateCart, wishlist, toggleWishlist } = useCartUtils();
 
-    // ✅ FIX: Only MongoDB _id (NO fallback)
+    // ✅ ONLY MongoDB _id (critical fix)
     const productId = product?._id;
-
-    // 🛡️ Safety: product without _id should not render
     if (!productId) return null;
 
-    const quantity = cart[productId] || 0;
+    const quantity = cart[String(productId)] || 0;
 
     const discount = product?.oldPrice
       ? Math.round(
@@ -30,10 +28,8 @@ const ProductCard = memo(
         )
       : 0;
 
-    // ✅ Wishlist uses string id consistently
     const isInWishlist = wishlist.includes(String(productId));
-
-    const totalPrice = product?.price * quantity;
+    const totalPrice = Number(product?.price || 0) * quantity;
 
     const mainImage =
       product?.image && product.image.startsWith("http")
@@ -42,28 +38,26 @@ const ProductCard = memo(
 
     return (
       <div className="relative bg-pink-100 shadow-md rounded-lg hover:shadow-lg transition flex flex-col group">
-        {/* 🖼️ Image Container */}
+        {/* IMAGE */}
         <Link
           href={`/products/${productId}`}
           className="relative w-full aspect-[4/4] mb-3 overflow-hidden rounded-lg"
         >
-          {/* Top Badges */}
-          <div className="absolute top-1 left-1 right-1 flex justify-between items-center z-10">
-            {/* Discount Badge */}
+          {/* Top badges */}
+          <div className="absolute top-1 left-1 right-1 flex justify-between z-10">
             {product?.oldPrice && (
-              <div className="bg-red-500 text-white px-1 py-0.5 rounded-full text-xs font-semibold shadow-sm">
+              <span className="bg-red-500 text-white px-1 py-0.5 rounded-full text-xs font-semibold">
                 -{discount}%
-              </div>
+              </span>
             )}
 
-            {/* Wishlist Button */}
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleWishlist(String(productId));
+                toggleWishlist(productId);
               }}
-              className={`px-1 py-1 rounded-full shadow-md ${
+              className={`px-1 py-1 rounded-full shadow ${
                 isInWishlist
                   ? "bg-red-500 text-white"
                   : "bg-gray-200 text-gray-600"
@@ -73,7 +67,6 @@ const ProductCard = memo(
             </button>
           </div>
 
-          {/* Product Image */}
           <Image
             src={mainImage}
             alt={product?.name || "Product"}
@@ -82,17 +75,16 @@ const ProductCard = memo(
             sizes="(max-width: 768px) 100vw,
                    (max-width: 1200px) 33vw,
                    25vw"
-            className="object-cover rounded-lg transition-transform duration-500 ease-out group-hover:scale-110"
+            className="object-cover rounded-lg transition-transform duration-500 group-hover:scale-110"
           />
         </Link>
 
-        {/* 📋 Product Info */}
-        <div className="px-4 pb-2 transition-all duration-300">
+        {/* INFO */}
+        <div className="px-4 pb-3">
           <h4 className="font-semibold text-base sm:text-lg truncate">
             {product?.name}
           </h4>
 
-          {/* Stock Status */}
           <p
             className={`text-xs font-medium ${
               product?.stock > 0 ? "text-green-600" : "text-red-500"
@@ -103,7 +95,7 @@ const ProductCard = memo(
               : "Out of Stock"}
           </p>
 
-          {/* ⭐ Ratings */}
+          {/* Rating */}
           <div className="flex items-center mb-1">
             {[...Array(5)].map((_, i) => (
               <FaStar
@@ -117,12 +109,11 @@ const ProductCard = memo(
             ))}
           </div>
 
-          {/* 💰 Price */}
-          <div className="flex items-center space-x-2">
+          {/* Price */}
+          <div className="flex items-center gap-2 mb-2">
             <p className="text-blue-600 font-bold text-sm sm:text-base">
               ৳{product?.price}
             </p>
-
             {product?.oldPrice && (
               <p className="text-gray-400 line-through text-xs sm:text-sm">
                 ৳{product.oldPrice}
@@ -130,7 +121,7 @@ const ProductCard = memo(
             )}
           </div>
 
-          {/* 🛒 Cart Buttons */}
+          {/* CART */}
           {!quantity ? (
             <button
               onClick={(e) => {
@@ -139,7 +130,7 @@ const ProductCard = memo(
                 updateCart(productId, +1, product.stock);
               }}
               disabled={product?.stock <= 0}
-              className={`sm:mt-4 sm:mb-2 w-full px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm sm:text-base ${
+              className={`w-full px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm ${
                 product?.stock <= 0
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-pink-600 text-white hover:bg-pink-700"
@@ -148,26 +139,23 @@ const ProductCard = memo(
               <FaShoppingCart /> Add
             </button>
           ) : (
-            <div className="transition-all duration-300">
-              {/* Quantity Row */}
+            <div>
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-xs sm:text-sm">
-                  Quantity:
-                </span>
+                <span className="text-xs font-semibold">Qty</span>
 
-                <div className="flex items-center rounded-md px-1">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       updateCart(productId, -1, product.stock);
                     }}
-                    className="p-1.5 sm:p-1 bg-gray-200 hover:bg-gray-300 rounded-md transition"
+                    className="p-1 bg-gray-200 rounded"
                   >
-                    <FaMinus className="text-[10px] sm:text-xs" />
+                    <FaMinus className="text-xs" />
                   </button>
 
-                  <span className="text-xs sm:text-sm font-bold w-4 text-center select-none">
+                  <span className="text-xs font-bold w-4 text-center">
                     {quantity}
                   </span>
 
@@ -177,17 +165,14 @@ const ProductCard = memo(
                       e.stopPropagation();
                       updateCart(productId, +1, product.stock);
                     }}
-                    className="p-1.5 sm:p-1 bg-gray-200 hover:bg-gray-300 rounded-md transition"
+                    className="p-1 bg-gray-200 rounded"
                   >
-                    <FaPlus className="text-[10px] sm:text-xs" />
+                    <FaPlus className="text-xs" />
                   </button>
                 </div>
               </div>
 
-              <hr className="border-t border-gray-300 my-1" />
-
-              {/* Total Price */}
-              <p className="text-center font-semibold text-gray-700 text-xs sm:text-sm">
+              <p className="text-center text-xs font-semibold mt-1">
                 Total: <span className="text-blue-600">৳{totalPrice}</span>
               </p>
             </div>

@@ -12,14 +12,6 @@ export function useCartUtils() {
     toggleWishlist: contextToggleWishlist,
   } = useCart();
 
-  /**
-   * ✅ Cart update (100% consistent with ProductCard + CartContext)
-   * Signature: (id, change, isFromAddButton)
-   *
-   * - id always normalized to string key
-   * - stock guard supported as optional 3rd arg (number)
-   *   but if boolean provided, it behaves like isFromAddButton
-   */
   const updateCart = (id, change = 1, thirdArg = false) => {
     const key = String(id);
 
