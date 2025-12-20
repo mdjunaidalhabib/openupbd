@@ -120,8 +120,8 @@ export default function ProductDetailsClient({
               priority
               loading="eager"
               sizes="(max-width: 768px) 100vw,
-                     (max-width: 1200px) 50vw,
-                     600px"
+              (max-width: 1200px) 50vw,
+              600px"
               className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
             />
           </div>
