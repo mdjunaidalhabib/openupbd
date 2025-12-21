@@ -27,11 +27,6 @@ export default function OrdersGrid({
     tabStatus,
   });
 
-  /* ===============================
-     SINGLE ORDER STATUS CHANGE
-     READY → SEND_TO_COURIER হলে
-     auto courier create হবে
-  =============================== */
   const handleChange = async (id, payload, order) => {
     setUpdatingId(id);
     try {
@@ -86,7 +81,7 @@ export default function OrdersGrid({
         tabStatus={tabStatus}
         setTabStatus={(s) => {
           setTabStatus(s);
-          manager.setSelected([]); // clear selection on tab change
+          manager.setSelected([]); 
         }}
         statusCount={statusCount}
       />

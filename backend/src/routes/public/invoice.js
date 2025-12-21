@@ -6,61 +6,63 @@ import Order from "../../models/Order.js";
 import { fileURLToPath } from "url";
 
 const router = express.Router();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ================= DATE TIME FORMATTER ================= */
+// ব্রাউজারটি একবার লঞ্চ করে রেখে দিন (এটি ডাউনলোড স্পিড বাড়াবে)
+let browser;
+(async () => {
+  browser = await puppeteer.launch({
+    headless: "new",
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+    ],
+  });
+})();
+
 function formatDateTime(date) {
   const d = new Date(date);
-
-  const datePart = d.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-
-  const timePart = d.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  return { datePart, timePart };
+  return {
+    datePart: d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }),
+    timePart: d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }),
+  };
 }
 
-/* ================= INVOICE ROUTE ================= */
 router.get("/invoice/:id", async (req, res) => {
   try {
-    /* ---- FETCH ORDER ---- */
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).send("Order not found");
 
-    /* ---- FORMAT DATE & TIME (✅ CORRECT PLACE) ---- */
     const { datePart, timePart } = formatDateTime(order.createdAt);
-
-    /* ---- LOAD HTML TEMPLATE ---- */
-    let html = fs.readFileSync(
+    let htmlTemplate = fs.readFileSync(
       path.join(__dirname, "../../../templates/invoice.html"),
       "utf8"
     );
 
-    /* ---- BUILD ITEM ROWS ---- */
-    const rows = order.items
+    const itemRows = order.items
       .map(
         (item) => `
-        <div class="row">
-          <span>${item.name}</span>
-          <span>${item.price}</span>
-          <span>${item.qty}</span>
-          <span>${item.qty * item.price}</span>
-        </div>
-      `
+            <div class="row">
+                <span>${item.name}</span>
+                <span>${item.price}</span>
+                <span>${item.qty}</span>
+                <span>${item.qty * item.price}</span>
+            </div>
+        `
       )
       .join("");
 
-    /* ---- REPLACE PLACEHOLDERS ---- */
-    html = html
+    const finalHtml = htmlTemplate
       .replace("{{orderId}}", order._id.toString())
       .replace("{{date}}", datePart)
       .replace("{{time}}", timePart)
@@ -69,84 +71,50 @@ router.get("/invoice/:id", async (req, res) => {
       .replace("{{phone}}", order.billing.phone)
       .replace("{{address}}", order.billing.address)
       .replace("{{note}}", order.billing.note || "")
-      .replace("{{items}}", rows)
+      .replace("{{items}}", itemRows)
       .replace("{{subtotal}}", order.subtotal)
       .replace("{{delivery}}", order.deliveryCharge)
       .replace("{{discount}}", order.discount || 0)
       .replace("{{total}}", order.total);
 
-    /* ---- WRITE TEMP HTML ---- */
-    const tempHtmlPath = path.join(
-      __dirname,
-      "../../../public/invoice-temp.html"
-    );
-    fs.writeFileSync(tempHtmlPath, html);
-
-    /* ---- LAUNCH BROWSER ---- */
-    const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
     const page = await browser.newPage();
 
-    /* ---- LOAD HTML FILE ---- */
-    await page.goto(`file://${tempHtmlPath}`, {
-      waitUntil: "networkidle0",
-    });
+    // ইমেজ ও ফন্ট পাওয়ার জন্য সরাসরি ফাইল পাথ ব্যবহার করা হচ্ছে
+    const publicPath = path.join(__dirname, "../../../public");
 
-    /* ---- LOAD CSS ---- */
-    await page.addStyleTag({
-      path: path.join(__dirname, "../../../public/invoice.css"),
-    });
+    // HTML কন্টেন্ট লোড
+    await page.setContent(finalHtml, { waitUntil: "networkidle0" });
 
-    /* ---- GENERATE PDF (WITH PAGE NUMBER) ---- */
-    const pdf = await page.pdf({
+    // CSS লিঙ্ক করা
+    await page.addStyleTag({ path: path.join(publicPath, "invoice.css") });
+
+    // বাংলা ফন্ট পুরোপুরি লোড হওয়া পর্যন্ত অপেক্ষা
+    await page.evaluateHandle("document.fonts.ready");
+
+    const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
-
       displayHeaderFooter: true,
-
       headerTemplate: `<div></div>`,
-
       footerTemplate: `
-        <div style="
-          width: 100%;
-          font-size: 10px;
-          padding: 0 40px;
-          box-sizing: border-box;
-          color: #555;
-          display: flex;
-          justify-content: space-between;
-        ">
-          <span></span>
-          <span>
-            Page <span class="pageNumber"></span> of
-            <span class="totalPages"></span>
-          </span>
-        </div>
-      `,
-
-      margin: {
-        top: "0px",
-        bottom: "40px",
-        left: "0px",
-        right: "0px",
-      },
+                <div style="width: 100%; font-size: 10px; padding: 0 40px; color: #555; display: flex; justify-content: space-between;">
+                  <span></span>
+                  <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+                </div>`,
+      margin: { top: "0px", bottom: "40px", left: "0px", right: "0px" },
     });
 
-    await browser.close();
-    fs.unlinkSync(tempHtmlPath);
+    await page.close();
 
-    /* ---- RESPONSE ---- */
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=invoice-${order._id}.pdf`
     );
-    res.send(pdf);
+    res.send(pdfBuffer);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Invoice Error:", err);
+    res.status(500).send("Error generating invoice");
   }
 });
 

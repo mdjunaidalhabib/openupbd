@@ -1,6 +1,6 @@
 "use client";
 
-import { USER_STATUSES, STATUS_LABEL } from "../shared/constants";
+import { STATUS_OPTIONS, STATUS_LABEL } from "../shared/constants";
 
 export default function StatusSummary({
   orders,
@@ -13,12 +13,18 @@ export default function StatusSummary({
       <select
         value={tabStatus}
         onChange={(e) => setTabStatus(e.target.value)}
-        className="w-full border rounded px-3 py-2 text-sm"
+        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-bold bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        {/* ALL */}
-        <option value="" disabled={tabStatus === ""}>
-          ALL ({orders.length})
-        </option>
+        {/* 'All' অপশন যা সব অর্ডারের সংখ্যা দেখাবে */}
+        <option value="">ALL ({orders.length})</option>
+
+        {/* কনস্ট্যান্ট থেকে সব স্ট্যাটাস অপশনগুলো লুপ করে দেখানো হচ্ছে */}
+        {STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s}>
+            {STATUS_LABEL[s]}{" "}
+            {statusCount?.[s] !== undefined ? `(${statusCount[s]})` : ""}
+          </option>
+        ))}
       </select>
     </div>
   );

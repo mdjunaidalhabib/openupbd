@@ -1,12 +1,12 @@
 import express from "express";
 import Order from "../../models/Order.js";
-import Product from "../../models/Product.js"; // ✅ ইমপোর্ট নিশ্চিত করুন
+import Product from "../../models/Product.js";
 
 const router = express.Router();
 
 /**
- * POST /api/orders
- * Create new order and update product stock
+ * @route   POST /api/orders
+ * @desc    নতুন অর্ডার তৈরি করা এবং স্টক কমানো
  */
 router.post("/", async (req, res) => {
   try {
@@ -20,121 +20,139 @@ router.post("/", async (req, res) => {
       promoCode,
       userId,
       paymentMethod,
-      paymentStatus,
-      status,
-      trackingId,
-      cancelReason,
     } = req.body;
 
-    // Validation
-    if (!items?.length || subtotal == null || total == null || !billing?.name) {
-      return res.status(400).json({ error: "Missing required order fields" });
+    // ভ্যালিডেশন
+    if (
+      !items?.length ||
+      subtotal == null ||
+      !billing?.name ||
+      !billing?.phone
+    ) {
+      return res
+        .status(400)
+        .json({ error: "প্রয়োজনীয় তথ্য প্রদান করা হয়নি (Missing fields)" });
     }
 
     const order = new Order({
       items,
       subtotal,
-      deliveryCharge,
+      deliveryCharge: deliveryCharge || 0,
       discount: discount || 0,
       total,
       billing,
       promoCode: promoCode || "",
       userId: userId || null,
-      paymentMethod: paymentMethod || "cod",
-      paymentStatus: paymentStatus || "pending",
-      status: status || "pending",
-      trackingId: trackingId || "",
-      cancelReason: cancelReason || "",
+      paymentMethod: paymentMethod || "free",
+      status: "pending",
     });
 
-    // ✅ 1. Save the Order
-    await order.save();
+    // ১. অর্ডার সেভ করা
+    const savedOrder = await order.save();
 
-    // ✅ 2. Update Product Stock (Inventory management)
+    // ২. স্টক ম্যানেজমেন্ট (Inventory update)
     try {
       const stockUpdates = items.map((item) => {
         return Product.findByIdAndUpdate(item.productId, {
-          $inc: { stock: -item.qty }, // আইটেম পরিমাণ অনুযায়ী স্টক কমাবে
+          $inc: { stock: -item.qty },
         });
       });
       await Promise.all(stockUpdates);
     } catch (stockErr) {
       console.error("❌ Stock Update Error:", stockErr);
-      // স্টক আপডেট না হলেও অর্ডার হয়ে গেছে, তাই রেসপন্স পাঠানো যাবে
     }
 
-    return res.status(201).json(order);
+    return res.status(201).json(savedOrder);
   } catch (err) {
     console.error("❌ Failed to create order:", err);
-    return res.status(500).json({ error: "Failed to create order" });
+    return res.status(500).json({ error: "অর্ডার তৈরি করতে ব্যর্থ হয়েছে।" });
   }
 });
 
 /**
- * GET /api/orders?userId=xxx
- */
-router.get("/", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    if (!userId) return res.status(400).json({ error: "userId is required" });
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
-    return res.json(orders);
-  } catch (err) {
-    return res.status(500).json({ error: "Failed to fetch orders" });
-  }
-});
-
-/**
- * GET /api/orders/:id
+ * @route   GET /api/orders/:id
+ * @desc    ID দিয়ে নির্দিষ্ট অর্ডারের বিস্তারিত তথ্য দেখা (Order Summary)
  */
 router.get("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: "Order not found" });
-    return res.json(order);
+
+    if (!order) {
+      return res.status(404).json({ error: "অর্ডারটি খুঁজে পাওয়া যায়নি।" });
+    }
+
+    // ফ্রন্টএন্ড সামারির জন্য সব ডেটা রিটার্ন করা হচ্ছে
+    return res.status(200).json(order);
   } catch (err) {
-    return res.status(500).json({ error: "Failed to fetch order" });
+    console.error("❌ Error fetching order:", err);
+    // যদি আইডি ভুল ফরম্যাটে থাকে (CastError)
+    if (err.kind === "ObjectId") {
+      return res.status(400).json({ error: "অর্ডার আইডি সঠিক নয়।" });
+    }
+    return res
+      .status(500)
+      .json({ error: "সার্ভার এরর! অর্ডার লোড করা সম্ভব হয়নি।" });
   }
 });
 
 /**
- * PUT /api/orders/:id
+ * @route   GET /api/orders
+ * @desc    ইউজার আইডি দিয়ে সব অর্ডার লিস্ট দেখা (Order History)
+ */
+router.get("/", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: "userId প্রয়োজন।" });
+    }
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+    return res.json(orders);
+  } catch (err) {
+    return res.status(500).json({ error: "অর্ডার লিস্ট লোড করা সম্ভব হয়নি।" });
+  }
+});
+
+/**
+ * @route   PUT /api/orders/:id
+ * @desc    অর্ডার ক্যানসেল বা আপডেট করা
  */
 router.put("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (!order) return res.status(404).json({ error: "অর্ডার পাওয়া যায়নি।" });
 
-    if (order.status !== "pending") {
+    // শুধুমাত্র পেন্ডিং অর্ডার ক্যানসেল করা যাবে
+    if (order.status !== "pending" && req.body.status === "cancelled") {
       return res
         .status(403)
-        .json({ error: "Only pending orders can be updated" });
+        .json({
+          error: "অর্ডারটি ইতিমধ্যে প্রসেস হয়ে গেছে, ক্যানসেল করা সম্ভব নয়।",
+        });
     }
 
-    const { billing, status, cancelReason } = req.body;
+    const { status, cancelReason, billing } = req.body;
+
     if (billing) order.billing = billing;
 
     if (status === "cancelled") {
       order.status = "cancelled";
-      order.cancelReason = cancelReason || "Cancelled by customer";
+      order.cancelReason = cancelReason || "Cancelled by user";
 
-      // ✅ Optional: স্টক ফেরত দেওয়া (যদি অর্ডার ক্যানসেল হয়)
-      try {
-        const restockUpdates = order.items.map((item) => {
-          return Product.findByIdAndUpdate(item.productId, {
-            $inc: { stock: item.qty }, // ক্যানসেল হলে স্টক আবার বেড়ে যাবে
-          });
+      // স্টক ফেরত দেওয়া
+      const restockUpdates = order.items.map((item) => {
+        return Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: item.qty },
         });
-        await Promise.all(restockUpdates);
-      } catch (e) {
-        console.error("Restock failed", e);
-      }
+      });
+      await Promise.all(restockUpdates);
+    } else if (status) {
+      order.status = status;
     }
 
     await order.save();
     return res.json(order);
   } catch (err) {
-    return res.status(500).json({ error: "Failed to update order" });
+    return res.status(500).json({ error: "অর্ডার আপডেট ব্যর্থ হয়েছে।" });
   }
 });
 

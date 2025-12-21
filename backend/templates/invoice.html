@@ -2,15 +2,19 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      /* CSS ফাইলটি Node.js থেকে ইনজেক্ট করা হবে */
+    </style>
   </head>
   <body>
-    <!-- HEADER -->
     <div class="header">
       <div class="order-info">
         <div class="order-id">Order ID: {{orderId}}</div>
         <div class="order-date">Date: {{date}}</div>
         <div class="order-time">Time: {{time}}</div>
-
         <div class="order-payment">Payment: {{payment}}</div>
       </div>
 
@@ -22,10 +26,8 @@
       </div>
     </div>
 
-    <!-- ITEMS -->
     <div class="items">{{items}}</div>
 
-    <!-- SUMMARY -->
     <div class="summary">
       <div class="summary-row summary-subtotal">
         <span>Subtotal</span><span>{{subtotal}} tk</span>

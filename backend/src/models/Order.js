@@ -1,4 +1,3 @@
-// File: backend/models/Order.js
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
@@ -22,20 +21,21 @@ const orderSchema = new mongoose.Schema(
       name: { type: String, required: true },
       phone: { type: String, required: true },
       address: { type: String, required: true },
+      deliveryArea: { type: String, default: "inside" }, // 'inside' or 'outside'
       note: String,
     },
 
     promoCode: String,
-    userId: { type: Number },
+    userId: { type: String }, // User ID সাধারণত String হয় (MongoDB ID)
 
     // 💳 Payment
     paymentMethod: {
       type: String,
-      enum: ["cod", "bkash"],
-      default: "cod",
+      enum: ["cod", "free", "bkash"], // 'free' এবং 'cod' সাপোর্ট করবে
+      default: "free",
     },
 
-    // 📦 Order Status (SIMPLIFIED)
+    // 📦 Order Status
     status: {
       type: String,
       enum: [

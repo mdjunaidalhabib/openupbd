@@ -6,11 +6,15 @@
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  padding: 0;
+  /* বাংলা ফন্ট সেট করা হলো */
+  font-family: 'Hind Siliguri', Arial, sans-serif;
   background: url("invoice-template.png") no-repeat;
   background-size: cover;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+  width: 210mm;
+  height: 297mm;
 }
 
 /* ================= HEADER ================= */
@@ -19,7 +23,6 @@ body {
   position: relative;
 }
 
-/* Order Info block */
 .order-info {
   position: absolute;
   top: 158px;
@@ -28,18 +31,8 @@ body {
   line-height: 1.6;
 }
 
-.order-id {
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.order-date {
-  font-size: 14px;
-}
-
-.order-payment {
-  font-size: 14px;
-}
+.order-id { font-size: 14px; font-weight: bold; }
+.order-date, .order-time, .order-payment { font-size: 14px; }
 
 /* ================= BILLING ================= */
 .billing {
@@ -49,24 +42,10 @@ body {
   line-height: 2.1;
 }
 
-.billing-name {
-  font-size: 25px;
-  font-weight: bold;
-}
-
-.billing-address {
-  font-size: 20px;
-  max-width: 350px;
-}
-
-.billing-phone {
-  font-size: 20px;
-}
-
-.billing-note {
-  font-size: 12px;
-  color: #555;
-}
+.billing-name { font-size: 25px; font-weight: bold; }
+.billing-address { font-size: 20px; max-width: 350px; }
+.billing-phone { font-size: 20px; }
+.billing-note { font-size: 12px; color: #555; }
 
 /* ================= ITEMS ================= */
 .items {
@@ -75,11 +54,11 @@ body {
   padding: 0 90px;
 }
 
-/* Single item row */
 .row {
   display: grid;
   grid-template-columns: 5fr 1fr 1fr 1fr;
   font-size: 16px;
+  padding-bottom: 5px;
   page-break-inside: avoid;
   break-inside: avoid;
 }
@@ -99,13 +78,7 @@ body {
   margin-bottom: 15px;
 }
 
-.summary-subtotal {
-  color: #b91c1c;
-}
-.summary-delivery {
-  color: #b91c1c;
-}
-.summary-discount {
+.summary-subtotal, .summary-delivery, .summary-discount {
   color: #b91c1c;
 }
 

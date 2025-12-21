@@ -1,5 +1,6 @@
 "use client";
 import { Edit3, Trash2, Send, ChevronDown, ChevronUp } from "lucide-react";
+import Badge from "../Badge";
 
 import {
   STATUS_LABEL,
@@ -11,9 +12,6 @@ import {
 } from "../shared/constants";
 import { formatOrderTime } from "../shared/utils";
 
-/* ===============================
-   ORDER CARD
-================================ */
 export default function OrderCard({
   o,
   expanded,
@@ -26,221 +24,205 @@ export default function OrderCard({
   onDelete,
   onSendCourier,
 }) {
-  /* 🔒 locked status */
   const locked = LOCKED_STATUSES.includes(o.status);
-
   const itemCount = o.items?.reduce((s, it) => s + (it.qty || 0), 0) || 0;
-
   const firstTwo = o.items?.slice(0, 2) || [];
   const moreCount = (o.items?.length || 0) - firstTwo.length;
 
+  const handleStatusUpdate = async (id, newStatus, order) => {
+    try {
+      if (order?.status === READY_STATUS && newStatus === "send_to_courier") {
+        await onSendCourier(order);
+        return;
+      }
+      await onStatusChange(id, { status: newStatus });
+    } catch (error) {
+      console.error("Status update failed", error);
+    }
+  };
+
   return (
-    <div className="px-3 py-2">
-      {/* ===== HEADER ===== */}
-      <div className="flex gap-2 items-start">
+    <div
+      className={`border-b last:border-none transition-colors ${
+        expanded ? "bg-gray-50/50" : "bg-white"
+      }`}
+    >
+      {/* ===== COMPACT HEADER ===== */}
+      <div className="px-2 py-2 flex gap-2 items-center bg-white">
         <input
           type="checkbox"
-          className="mt-1"
+          className="h-3.5 w-3.5 rounded border-gray-300"
           checked={selected.includes(o._id)}
           onChange={() => toggleOne(o._id)}
         />
 
         <button
           onClick={() => setOpenId(expanded ? null : o._id)}
-          className="flex-1 flex gap-2 text-left"
+          className="flex-1 flex justify-between items-center text-left min-w-0"
         >
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${
-              STATUS_COLORS[o.status]
-            }`}
-          >
-            {STATUS_LABEL[o.status]}
-          </span>
+          {/* Left: Name, Badge, Date (All in one or two lines) */}
+          <div className="flex-1 min-w-0 pr-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[13px] font-bold text-gray-900 capitalize truncate">
+                {o.billing?.name || "Unknown"}
+              </span>
+              <Badge type={o.status}>{STATUS_LABEL[o.status]}</Badge>
+            </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="truncate text-xs font-semibold">
-              {o.billing?.name || "Unknown"}
-            </div>
-            <div className="text-[10px] text-gray-400 font-mono truncate">
-              #{o._id}
-            </div>
-            <div className="mt-0.5 flex gap-2 text-[11px] text-gray-600">
-              <span>{formatOrderTime(o)}</span>
-              <span>{itemCount} items</span>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+              <span className="font-mono">#{o._id.slice(-6)}</span>
+              <span>• {formatOrderTime(o)}</span>
+              <span>• {itemCount} items</span>
             </div>
           </div>
 
-          <div className="text-right">
-            <div className="text-sm font-extrabold">৳{o.total}</div>
-            <div className="text-[10px] text-gray-400">
-              {expanded ? "close" : "open"}
+          {/* Right: Price & Toggle (Smaller) */}
+          <div className="text-right shrink-0 flex flex-col items-end">
+            <div className="text-[14px] font-black text-gray-900 leading-tight">
+              ৳{o.total}
+            </div>
+            <div
+              className={`flex items-center gap-0.5 text-[9px] font-bold uppercase ${
+                expanded ? "text-blue-600" : "text-gray-400"
+              }`}
+            >
+              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </div>
           </div>
-
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       </div>
 
-      {/* ===== EXPANDED ===== */}
+      {/* ===== EXPANDED CONTENT ===== */}
       {expanded && (
-        <div className="mt-2 space-y-3 text-xs text-gray-700">
-          {/* Customer + Items */}
+        <div className="px-3 pb-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-5 rounded-md bg-gray-50 p-2 space-y-1">
-              <div className="text-[11px] font-bold">Customer</div>
-              <div className="font-semibold">{o.billing?.name}</div>
-              <div className="text-[11px]">{o.billing?.phone}</div>
-              <div className="text-[11px] text-gray-600 line-clamp-2">
+            <div className="col-span-5 rounded-lg bg-white border border-gray-100 p-2 shadow-sm">
+              <div className="text-[9px] font-bold text-gray-400 uppercase mb-1">
+                Customer
+              </div>
+              <div className="font-bold text-gray-800 text-[11px] truncate">
+                {o.billing?.name}
+              </div>
+              <div className="text-[10px] text-gray-600">
+                {o.billing?.phone}
+              </div>
+              <div className="text-[10px] text-gray-500 line-clamp-2 mt-1 italic">
                 {o.billing?.address}
               </div>
             </div>
 
-            <div className="col-span-7 rounded-md bg-gray-50 p-2">
-              <div className="flex justify-between text-[11px] font-bold mb-1">
+            <div className="col-span-7 rounded-lg bg-white border border-gray-100 p-2 shadow-sm">
+              <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase mb-1">
                 <span>Items</span>
-                <span className="text-gray-500">
-                  {firstTwo.length}/{o.items?.length || 0}
-                </span>
+                <span>{o.items?.length || 0} total</span>
               </div>
-
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {firstTwo.map((it, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2 rounded-lg border bg-white p-2"
-                  >
+                  <div key={idx} className="flex items-center gap-2">
                     <img
                       src={it.image || "/placeholder.png"}
-                      className="w-9 h-9 rounded-md border"
+                      className="w-7 h-7 rounded border object-cover"
                       alt=""
                     />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold truncate">
+                      <p className="text-[10px] font-bold truncate leading-tight">
                         {it.name}
                       </p>
-                      <p className="text-[10px] text-gray-500">
+                      <p className="text-[9px] text-gray-500">
                         Qty: {it.qty} • ৳{it.price}
                       </p>
                     </div>
                   </div>
                 ))}
+                {moreCount > 0 && (
+                  <p className="text-[9px] text-blue-500 font-medium">
+                    + {moreCount} more items
+                  </p>
+                )}
               </div>
-
-              {moreCount > 0 && (
-                <div className="mt-1 text-[10px] text-gray-500">
-                  +{moreCount} more items
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Totals */}
-          <div className="rounded-md bg-gray-50 p-2 space-y-1">
-            <div className="flex justify-between">
+          <div className="bg-gray-100/50 rounded-lg p-2 text-[11px] space-y-1">
+            <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
               <span>৳{o.subtotal}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-gray-600">
               <span>Delivery</span>
               <span>৳{o.deliveryCharge}</span>
             </div>
             {!!o.discount && (
-              <div className="flex justify-between text-red-600">
+              <div className="flex justify-between text-red-500 font-medium">
                 <span>Discount</span>
                 <span>-৳{o.discount}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold">
+            <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-1 mt-1 text-sm">
               <span>Total</span>
               <span>৳{o.total}</span>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between gap-2">
-            {/* STATUS CHANGE */}
+          <div className="flex gap-2">
             <select
-              className="h-8 rounded-md border px-2 text-xs font-semibold"
+              className="h-10 flex-1 rounded-lg border border-gray-200 px-3 text-[11px] font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
               value={o.status}
               disabled={locked || updatingId === o._id}
-              onChange={(e) =>
-                onStatusChange(o._id, { status: e.target.value }, o)
-              }
+              onChange={(e) => handleStatusUpdate(o._id, e.target.value, o)}
             >
-              {STATUS_OPTIONS.map((s) => {
-                const allowedNext = STATUS_FLOW[o.status] || [];
-
-                return (
-                  <option
-                    key={s}
-                    value={s}
-                    disabled={s === o.status || !allowedNext.includes(s)}
-                  >
-                    {STATUS_LABEL[s]}
-                  </option>
-                );
-              })}
+              <option value={o.status} disabled>
+                {STATUS_LABEL[o.status]} (Current)
+              </option>
+              {STATUS_OPTIONS.filter(
+                (s) =>
+                  (STATUS_FLOW[o.status] || []).includes(s) && s !== o.status
+              ).map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABEL[s]}
+                </option>
+              ))}
             </select>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               <IconBtn
                 onClick={() => onEdit(o)}
-                className="bg-yellow-500 text-white"
+                className="bg-amber-400 text-white"
               >
-                <Edit3 size={14} />
+                <Edit3 size={16} />
               </IconBtn>
-
               <IconBtn
                 onClick={() => onDelete?.(o)}
-                className="bg-red-600 text-white"
+                className="bg-red-500 text-white"
               >
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </IconBtn>
-
-              {/* SEND TO COURIER */}
               {o.status === READY_STATUS && !o.trackingId && (
                 <IconBtn
                   onClick={() =>
-                    onStatusChange(o._id, { status: "send_to_courier" }, o)
+                    handleStatusUpdate(o._id, "send_to_courier", o)
                   }
                   disabled={updatingId === o._id}
-                  className="bg-blue-600 text-white" >
-                  <Send size={14} />
+                  className="bg-indigo-600 text-white"
+                >
+                  <Send size={16} />
                 </IconBtn>
               )}
             </div>
           </div>
-
-          {/* Cancel reason */}
-          {o.status === "cancelled" && o.cancelReason && (
-            <div className="text-red-700 text-[11px]">
-              <span className="font-semibold">Reason:</span> {o.cancelReason}
-            </div>
-          )}
-
-          {/* Tracking */}
-          {o.trackingId && (
-            <div className="text-[11px]">
-              <span className="font-semibold">Tracking:</span>{" "}
-              <span className="text-indigo-600">{o.trackingId}</span>
-            </div>
-          )}
         </div>
       )}
     </div>
   );
 }
 
-/* ===============================
-   SMALL UI
-================================ */
 function IconBtn({ children, className = "", disabled, ...props }) {
   return (
     <button
       disabled={disabled}
       {...props}
-      className={`h-8 w-8 grid place-items-center rounded-md shadow-sm transition active:scale-95 ${
-        disabled ? "cursor-not-allowed" : ""
+      className={`h-10 w-10 grid place-items-center rounded-lg shadow-sm transition active:scale-95 ${
+        disabled ? "opacity-40 cursor-not-allowed" : "hover:brightness-95"
       } ${className}`}
     >
       {children}
