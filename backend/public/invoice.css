@@ -7,34 +7,28 @@
 body {
   margin: 0;
   padding: 0;
-  /* বাংলা ফন্ট সেট করা হলো */
-  font-family: 'Hind Siliguri', Arial, sans-serif;
-  background: url("invoice-template.png") no-repeat;
-  background-size: cover;
+  font-family: "Hind Siliguri", Arial, sans-serif;
+  background-image: url("{{backgroundImage}}");
+  background-repeat: repeat-y;
+  background-size: 100% 297mm;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
-  width: 210mm;
-  height: 297mm;
 }
 
 /* ================= HEADER ================= */
 .header {
   height: 330px;
   position: relative;
+  page-break-after: avoid;
 }
 
 .order-info {
   position: absolute;
-  top: 158px;
+  top: 153px;
   left: 90px;
-  text-align: left;
   line-height: 1.6;
 }
 
-.order-id { font-size: 14px; font-weight: bold; }
-.order-date, .order-time, .order-payment { font-size: 14px; }
-
-/* ================= BILLING ================= */
 .billing {
   position: absolute;
   top: 255px;
@@ -44,12 +38,10 @@ body {
 
 .billing-name { font-size: 25px; font-weight: bold; }
 .billing-address { font-size: 20px; max-width: 350px; }
-.billing-phone { font-size: 20px; }
-.billing-note { font-size: 12px; color: #555; }
 
 /* ================= ITEMS ================= */
 .items {
-  margin-top: 150px;
+  margin-top: 120px;
   margin-left: 60px;
   padding: 0 90px;
 }
@@ -58,35 +50,33 @@ body {
   display: grid;
   grid-template-columns: 5fr 1fr 1fr 1fr;
   font-size: 16px;
-  padding-bottom: 5px;
+  padding: 10px 0;
   page-break-inside: avoid;
-  break-inside: avoid;
 }
 
-/* ================= SUMMARY ================= */
+/* ================= SUMMARY & TOTAL ================= */
 .summary {
-  margin-top: 224px;
+  margin-top: 215px;
   margin-right: 120px;
   margin-left: auto;
   width: 200px;
   font-size: 16px;
+  page-break-inside: avoid;
 }
 
 .summary-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 15px;
-}
-
-.summary-subtotal, .summary-delivery, .summary-discount {
   color: #b91c1c;
 }
 
-/* ================= TOTAL ================= */
 .total {
-  margin-top: 15px;
+  margin-top: -5px;
   margin-right: 110px;
   text-align: right;
   font-size: 20px;
   font-weight: bold;
+  color: hsl(266, 100%, 52%);
+  page-break-inside: avoid;
 }

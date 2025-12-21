@@ -9,7 +9,6 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ব্রাউজারটি একবার লঞ্চ করে রেখে দিন (এটি ডাউনলোড স্পিড বাড়াবে)
 let browser;
 (async () => {
   browser = await puppeteer.launch({
@@ -44,21 +43,31 @@ router.get("/invoice/:id", async (req, res) => {
     if (!order) return res.status(404).send("Order not found");
 
     const { datePart, timePart } = formatDateTime(order.createdAt);
-    let htmlTemplate = fs.readFileSync(
-      path.join(__dirname, "../../../templates/invoice.html"),
-      "utf8"
+    const publicPath = path.join(__dirname, "../../../public");
+    const templatePath = path.join(
+      __dirname,
+      "../../../templates/invoice.html"
     );
+    const cssPath = path.join(publicPath, "invoice.css");
+    const imagePath = path.join(publicPath, "invoice-template.png");
+
+    // ব্যাকগ্রাউন্ড ইমেজকে Base64 এ কনভার্ট করা
+    const base64Image = `data:image/png;base64,${fs
+      .readFileSync(imagePath)
+      .toString("base64")}`;
+
+    let htmlTemplate = fs.readFileSync(templatePath, "utf8");
 
     const itemRows = order.items
       .map(
         (item) => `
-            <div class="row">
-                <span>${item.name}</span>
-                <span>${item.price}</span>
-                <span>${item.qty}</span>
-                <span>${item.qty * item.price}</span>
-            </div>
-        `
+        <div class="row">
+            <span>${item.name}</span>
+            <span>${item.price}</span>
+            <span>${item.qty}</span>
+            <span>${item.qty * item.price}</span>
+        </div>
+    `
       )
       .join("");
 
@@ -79,33 +88,29 @@ router.get("/invoice/:id", async (req, res) => {
 
     const page = await browser.newPage();
 
-    // ইমেজ ও ফন্ট পাওয়ার জন্য সরাসরি ফাইল পাথ ব্যবহার করা হচ্ছে
-    const publicPath = path.join(__dirname, "../../../public");
-
-    // HTML কন্টেন্ট লোড
+    // গুরুত্বপূর্ণ: ব্যাকগ্রাউন্ড ইমেজ স্টাইলটি সরাসরি এখানে ইনজেক্ট করা হচ্ছে
     await page.setContent(finalHtml, { waitUntil: "networkidle0" });
+    await page.addStyleTag({ path: cssPath }); // এক্সটার্নাল সিএসএস লোড
+    await page.addStyleTag({
+      content: `body { background-image: url("${base64Image}"); }`,
+    }); // ইমেজ লোড
 
-    // CSS লিঙ্ক করা
-    await page.addStyleTag({ path: path.join(publicPath, "invoice.css") });
-
-    // বাংলা ফন্ট পুরোপুরি লোড হওয়া পর্যন্ত অপেক্ষা
     await page.evaluateHandle("document.fonts.ready");
 
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate: `<div></div>`,
+      headerTemplate: "<div></div>",
       footerTemplate: `
-                <div style="width: 100%; font-size: 10px; padding: 0 40px; color: #555; display: flex; justify-content: space-between;">
-                  <span></span>
-                  <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
-                </div>`,
-      margin: { top: "0px", bottom: "40px", left: "0px", right: "0px" },
+        <div style="width: 100%; font-family: 'Arial'; font-size: 10px; padding: 0 50px 10px; display: flex; justify-content: space-between; color: #888;">
+          <span>Invoice #${order._id.toString().slice(-6)}</span>
+          <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+        </div>`,
+      margin: { top: "20px", bottom: "60px", left: "0px", right: "0px" },
     });
 
     await page.close();
-
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
