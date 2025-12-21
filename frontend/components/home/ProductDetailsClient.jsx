@@ -19,13 +19,14 @@ export default function ProductDetailsClient({
   const { cart, wishlist, toggleWishlist, updateCart } = useCartUtils();
   const router = useRouter();
 
+  // ✅ আপনার অরিজিনাল কন্ডিশন: loading হলে skeleton দেখাবে
   if (loading || !product?._id) return <ProductDetailsSkeleton />;
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [tab, setTab] = useState("desc");
 
   // ===========================
-  // IMAGE GALLERY
+  // IMAGE GALLERY (আপনার লজিক)
   // ===========================
   const images = useMemo(() => {
     const gallery = Array.isArray(product.images) ? product.images : [];
@@ -38,7 +39,7 @@ export default function ProductDetailsClient({
     return ["/no-image.png"];
   }, [product]);
 
-  // Auto Slide
+  // Auto Slide (আপনার লজিক)
   useEffect(() => {
     if (!images || images.length <= 1) return;
 
@@ -58,6 +59,7 @@ export default function ProductDetailsClient({
 
   const isInWishlist = wishlist.includes(product._id);
 
+  // ট্যাব বাটন লজিক (আপনার লজিক)
   const tabBtn = (key, label) => (
     <button
       onClick={() => setTab(key)}
@@ -72,7 +74,7 @@ export default function ProductDetailsClient({
   );
 
   // ===========================
-  // CHECKOUT HANDLING
+  // CHECKOUT HANDLING (আপনার লজিক)
   // ===========================
   const handleCheckout = async () => {
     if (product.stock <= 0) return;
@@ -119,9 +121,7 @@ export default function ProductDetailsClient({
               fill
               priority
               loading="eager"
-              sizes="(max-width: 768px) 100vw,
-              (max-width: 1200px) 50vw,
-              600px"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
               className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-110"
             />
           </div>
@@ -154,7 +154,7 @@ export default function ProductDetailsClient({
         </div>
 
         {/* PRODUCT INFO */}
-        <div className="flex flex-col justify-between px-4">
+        <div className="flex flex-col justify-between px-4 py-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold mb-2">
               {product.name}
@@ -287,7 +287,7 @@ export default function ProductDetailsClient({
         </div>
       </section>
 
-      {/* TABS */}
+      {/* TABS SECTION */}
       <section className="mt-6 ">
         <div className="flex justify-center">
           <div className="inline-flex bg-pink-100 rounded-xl">
@@ -297,41 +297,17 @@ export default function ProductDetailsClient({
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl bg-pink-50 border border-pink-200 shadow-sm px-2 py-2 md:px-7 text-gray-800 max-w-full">
+        <div className="mt-4 rounded-2xl bg-pink-50 border border-pink-200 shadow-sm px-2 py-4 md:px-7 text-gray-800 max-w-full">
           {tab === "desc" && (
-            <div
-              className="whitespace-pre-line text-justify text-[14px] md:text-sm font-light leading-[1.45] break-normal hyphens-none"
-              style={{
-                overflowWrap: "normal",
-                wordBreak: "normal",
-                textAlignLast: "left",
-              }}
-            >
+            <div className="whitespace-pre-line text-justify text-[14px] md:text-sm font-light leading-[1.45]">
               {product.description || "No description available."}
             </div>
           )}
-
           {tab === "info" && (
-            <div
-              className="
-        whitespace-pre-line
-        text-justify
-        text-[14px] md:text-sm
-        font-light
-        leading-[1.45]
-        break-normal
-        hyphens-none
-      "
-              style={{
-                overflowWrap: "normal",
-                wordBreak: "normal",
-                textAlignLast: "left",
-              }}
-            >
+            <div className="whitespace-pre-line text-justify text-[14px] md:text-sm font-light leading-[1.45]">
               {product.additionalInfo || "No additional information provided."}
             </div>
           )}
-
           {tab === "reviews" && (
             <div className="text-sm leading-relaxed">
               {product.reviews?.length ? (
@@ -344,9 +320,7 @@ export default function ProductDetailsClient({
                       </span>{" "}
                       <span className="text-gray-500">{r.rating}/5</span>
                     </p>
-                    <p className="mt-1 text-gray-700 leading-relaxed">
-                      {r.comment}
-                    </p>
+                    <p className="mt-1 text-gray-700">{r.comment}</p>
                   </div>
                 ))
               ) : (
@@ -360,19 +334,9 @@ export default function ProductDetailsClient({
       {/* RELATED PRODUCTS */}
       {related?.length > 0 && (
         <section className="mt-10">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg sm:text-xl font-semibold">
-              Related products
-            </h3>
-
-            {category && (
-              <Link
-                href={`/categories/${category._id}`}
-                className="text-blue-600 hover:underline text-sm"
-              ></Link>
-            )}
-          </div>
-
+          <h3 className="text-lg sm:text-xl font-semibold mb-4">
+            Related products
+          </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {related.map((p) => (
               <ProductCard key={p._id} product={p} />
