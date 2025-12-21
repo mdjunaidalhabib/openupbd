@@ -22,7 +22,7 @@ export default function CheckoutPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
 
-  // Toast
+  // Toast setup
   const [toast, setToast] = useState({ message: "", type: "" });
   const showToast = (message, type = "info") => {
     setToast({ message, type });
@@ -38,7 +38,6 @@ export default function CheckoutPage() {
 
   const cartItems = useMemo(() => {
     if (!allProducts.length) return [];
-
     if (productId) {
       const p = allProducts.find((x) => String(x._id) === String(productId));
       if (!p) return [];
@@ -53,7 +52,6 @@ export default function CheckoutPage() {
         },
       ];
     }
-
     return Object.keys(cart)
       .map((id) => {
         const p = allProducts.find((x) => String(x._id) === String(id));
@@ -83,7 +81,6 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Validation UI state
   const [touched, setTouched] = useState({
     name: false,
     phone: false,
@@ -92,7 +89,6 @@ export default function CheckoutPage() {
   const [submitted, setSubmitted] = useState(false);
 
   const phoneValid = /^(01[3-9]\d{8})$/.test(phone);
-
   const errors = {
     name: !name.trim(),
     phone: !phone.trim() || !phoneValid,
@@ -100,12 +96,11 @@ export default function CheckoutPage() {
   };
 
   const fieldClass = (hasError) =>
-    `mt-1 w-full p-2 border rounded-md outline-none transition
-     ${
-       hasError
-         ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
-         : "border-gray-300 focus:ring-2 focus:ring-green-200"
-     }`;
+    `mt-1 w-full p-2 border rounded-md outline-none transition ${
+      hasError
+        ? "border-red-500 bg-red-50 focus:ring-2 focus:ring-red-200"
+        : "border-gray-300 focus:ring-2 focus:ring-green-200"
+    }`;
 
   const labelClass = (hasError) =>
     `text-sm font-medium ${hasError ? "text-red-600" : "text-gray-900"}`;
@@ -113,15 +108,12 @@ export default function CheckoutPage() {
   const applyPromo = () => {
     if (promoCode.toLowerCase() === "habib10") {
       setDiscount(subtotal * 0.1);
-      showToast("🎉 Promo code applied! 10% discount", "success");
-    } else if (!promoCode) {
-      showToast("⚠️ Promo code লিখুন!", "error");
+      showToast("🎉 Promo code applied!", "success");
     } else {
       showToast("🚫 Invalid promo code!", "error");
     }
   };
 
-  // ✅ Button disable rule (required + loading + empty cart)
   const isOrderDisabled =
     productsLoading ||
     loading ||
@@ -130,29 +122,15 @@ export default function CheckoutPage() {
     errors.address ||
     !cartItems.length;
 
+  // ✅ Updated Place Order Function
   async function placeOrder() {
     setSubmitted(true);
-
-    // ✅ products loading guard
-    if (productsLoading) {
-      showToast("⏳ প্রোডাক্ট লোড হচ্ছে... একটু অপেক্ষা করুন", "error");
-      return;
-    }
-
-    // ✅ validation guard
-    if (errors.name || errors.phone || errors.address) {
-      showToast("⚠️ সব ঘর ঠিকমতো পূরণ করতে হবে!", "error");
-      return;
-    }
-
-    // ✅ empty cart guard
-    if (!cartItems.length) {
-      showToast("🛒 আপনার প্রোডাক্ট খালি", "error");
+    if (errors.name || errors.phone || errors.address || !cartItems.length) {
+      showToast("⚠️ সঠিক তথ্য প্রদান করুন!", "error");
       return;
     }
 
     setLoading(true);
-
     const orderData = {
       items: cartItems,
       subtotal,
@@ -177,15 +155,18 @@ export default function CheckoutPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Order failed");
 
-      if (!productId) setCart({});
+      // ✅ SUCCESS: CLEAR CART/ITEM
+      if (productId) {
+        removeFromCart(String(productId));
+      } else {
+        setCart({});
+      }
 
       const orderId = data._id || data.id || data.order?._id;
-      if (!orderId) throw new Error("Order created but orderId missing");
-
       window.location.href = `/order-summary/${orderId}`;
     } catch (err) {
       console.error(err);
-      showToast("🚨 সার্ভারে সংযোগ ব্যর্থ হয়েছে!", "error");
+      showToast("🚨 অর্ডার সম্পন্ন হয়নি!", "error");
       setLoading(false);
     }
   }
@@ -193,13 +174,10 @@ export default function CheckoutPage() {
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white shadow-md rounded-lg mt-6">
       <h2 className="text-xl font-bold text-green-700 text-center mb-6">
-        অর্ডারটি সম্পন্ন করতে আপনার নাম, মোবাইল নাম্বার ও ঠিকানা লিখুন
+        অর্ডার সম্পন্ন করতে ফর্মটি পূরণ করুন
       </h2>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* ✅ Billing Info (always visible) */}
         <div>
-          {/* ✅ Name */}
           <label className="block mb-3">
             <span
               className={labelClass((submitted || touched.name) && errors.name)}
@@ -213,12 +191,7 @@ export default function CheckoutPage() {
               onChange={(e) => setName(e.target.value)}
               className={fieldClass((submitted || touched.name) && errors.name)}
             />
-            {(submitted || touched.name) && errors.name && (
-              <p className="text-xs text-red-600 mt-1">নাম লিখুন</p>
-            )}
           </label>
-
-          {/* ✅ Phone */}
           <label className="block mb-3">
             <span
               className={labelClass(
@@ -236,14 +209,7 @@ export default function CheckoutPage() {
                 (submitted || touched.phone) && errors.phone
               )}
             />
-            {(submitted || touched.phone) && errors.phone && (
-              <p className="text-xs text-red-600 mt-1">
-                সঠিক ১১ সংখ্যার নাম্বার দিন (01XXXXXXXXX)
-              </p>
-            )}
           </label>
-
-          {/* ✅ Address */}
           <label className="block mb-3">
             <span
               className={labelClass(
@@ -261,29 +227,22 @@ export default function CheckoutPage() {
                 (submitted || touched.address) && errors.address
               )}
             />
-            {(submitted || touched.address) && errors.address && (
-              <p className="text-xs text-red-600 mt-1">ঠিকানা লিখুন</p>
-            )}
           </label>
-
-          {/* Note */}
           <label className="block mb-3">
             <span className="text-sm font-medium">নোট (ঐচ্ছিক)</span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="mt-1 w-full p-2 border rounded-md border-gray-300"
-              rows="2"
+              rows="1"
             />
           </label>
-
-          {/* Payment */}
           <label className="block mb-3">
-            <span className="text-sm font-medium">পেমেন্ট মেথড *</span>
+            <span className="text-sm font-medium">পেমেন্ট মেথড</span>
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-md border-gray-300"
+              className="mt-1 w-full p-2 border rounded-md"
             >
               <option value="cod">Cash on Delivery</option>
               <option value="bkash">Bkash</option>
@@ -291,12 +250,9 @@ export default function CheckoutPage() {
           </label>
         </div>
 
-        {/* ✅ Right Side Summary */}
         <div>
           {productsLoading ? (
             <CheckoutSummarySkeleton />
-          ) : !cartItems.length ? (
-            <p className="text-center text-gray-600">🛒 আপনার প্রোডাক্ট খালি</p>
           ) : (
             <>
               {cartItems.map((it) => (
@@ -308,10 +264,10 @@ export default function CheckoutPage() {
                     <img
                       src={it.image}
                       alt={it.name}
-                      className="w-16 h-16 rounded-md object-cover"
+                      className="w-12 h-12 rounded object-cover"
                     />
                     <div>
-                      <p className="font-medium">{it.name}</p>
+                      <p className="font-medium text-sm">{it.name}</p>
                       <QuantityController
                         qty={it.qty}
                         stock={it.stock}
@@ -325,57 +281,15 @@ export default function CheckoutPage() {
                       />
                     </div>
                   </div>
-
-                  <div className="text-right">
-                    <p className="font-semibold">৳{it.price * it.qty}</p>
-                    {!productId && (
-                      <button
-                        onClick={() => removeFromCart(it.productId)}
-                        className="text-red-500 text-sm mt-1"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
+                  <p className="font-semibold">৳{it.price * it.qty}</p>
                 </div>
               ))}
-
-              <div className="flex justify-between mt-4 text-lg font-semibold">
-                <span>Subtotal</span>
-                <span>৳{subtotal}</span>
-              </div>
-              <div className="flex justify-between mt-2 text-lg font-semibold">
-                <span>Delivery Charge</span>
-                <span>৳{deliveryCharge}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between mt-2 text-lg font-semibold text-red-600">
-                  <span>Discount</span>
-                  <span>-৳{discount}</span>
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex justify-between font-bold text-green-700 text-lg">
+                  <span>মোট খরচ:</span>
+                  <span>৳{total}</span>
                 </div>
-              )}
-              <div className="flex justify-between mt-2 text-lg font-bold text-green-700">
-                <span>Total</span>
-                <span>৳{total}</span>
               </div>
-
-              <div className="flex items-center mt-4 gap-2">
-                <input
-                  type="text"
-                  placeholder="Promo Code"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  className="flex-1 border rounded-md p-2 border-gray-300"
-                />
-                <button
-                  onClick={applyPromo}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md"
-                >
-                  Apply
-                </button>
-              </div>
-
-              {/* ✅ Button */}
               <div className="mt-6">
                 <CheckoutButton
                   fullWidth
@@ -388,7 +302,6 @@ export default function CheckoutPage() {
           )}
         </div>
       </div>
-
       <Toast
         message={toast.message}
         type={toast.type}

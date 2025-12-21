@@ -1,14 +1,12 @@
 import express from "express";
 import Order from "../../models/Order.js";
-// import { protect } from "../../middlewares/authMiddleware.js";
+import Product from "../../models/Product.js"; // ✅ ইমপোর্ট নিশ্চিত করুন
 
 const router = express.Router();
 
 /**
- * ================================
  * POST /api/orders
- * Create new order
- * ================================
+ * Create new order and update product stock
  */
 router.post("/", async (req, res) => {
   try {
@@ -28,13 +26,8 @@ router.post("/", async (req, res) => {
       cancelReason,
     } = req.body;
 
-    if (
-      !items?.length ||
-      subtotal == null ||
-      deliveryCharge == null ||
-      total == null ||
-      !billing?.name
-    ) {
+    // Validation
+    if (!items?.length || subtotal == null || total == null || !billing?.name) {
       return res.status(400).json({ error: "Missing required order fields" });
     }
 
@@ -54,7 +47,22 @@ router.post("/", async (req, res) => {
       cancelReason: cancelReason || "",
     });
 
+    // ✅ 1. Save the Order
     await order.save();
+
+    // ✅ 2. Update Product Stock (Inventory management)
+    try {
+      const stockUpdates = items.map((item) => {
+        return Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: -item.qty }, // আইটেম পরিমাণ অনুযায়ী স্টক কমাবে
+        });
+      });
+      await Promise.all(stockUpdates);
+    } catch (stockErr) {
+      console.error("❌ Stock Update Error:", stockErr);
+      // স্টক আপডেট না হলেও অর্ডার হয়ে গেছে, তাই রেসপন্স পাঠানো যাবে
+    }
+
     return res.status(201).json(order);
   } catch (err) {
     console.error("❌ Failed to create order:", err);
@@ -63,118 +71,71 @@ router.post("/", async (req, res) => {
 });
 
 /**
- * ================================
  * GET /api/orders?userId=xxx
- * User order list
- * ================================
  */
 router.get("/", async (req, res) => {
   try {
     const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
-    }
-
+    if (!userId) return res.status(400).json({ error: "userId is required" });
     const orders = await Order.find({ userId }).sort({ createdAt: -1 });
     return res.json(orders);
   } catch (err) {
-    console.error("❌ Failed to fetch orders:", err);
     return res.status(500).json({ error: "Failed to fetch orders" });
   }
 });
 
 /**
- * ================================
  * GET /api/orders/:id
- * Single order detail
- * ================================
  */
 router.get("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-
-    if (!order) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-
+    if (!order) return res.status(404).json({ error: "Order not found" });
     return res.json(order);
   } catch (err) {
-    console.error("❌ Failed to fetch order:", err);
     return res.status(500).json({ error: "Failed to fetch order" });
   }
 });
 
 /**
- * ================================
  * PUT /api/orders/:id
- * ✅ Update order (ONLY pending)
- * ✅ Cancel order (status=cancelled) (ONLY pending)
- * ================================
  */
 router.put("/:id", async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
 
-    if (!order) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-
-    // 🔒 Only pending orders can be changed/cancelled
     if (order.status !== "pending") {
       return res
         .status(403)
-        .json({ error: "Only pending orders can be updated/cancelled" });
+        .json({ error: "Only pending orders can be updated" });
     }
 
-    const {
-      billing,
-      items,
-      trackingId,
-      paymentMethod,
-      paymentStatus,
-      status,
-      cancelReason,
-    } = req.body;
-
-    // ✅ Update billing
+    const { billing, status, cancelReason } = req.body;
     if (billing) order.billing = billing;
 
-    // ✅ Optional updates (if needed)
-    if (items) order.items = items;
-    if (trackingId !== undefined) order.trackingId = trackingId;
-    if (paymentMethod) order.paymentMethod = paymentMethod;
-    if (paymentStatus) order.paymentStatus = paymentStatus;
+    if (status === "cancelled") {
+      order.status = "cancelled";
+      order.cancelReason = cancelReason || "Cancelled by customer";
 
-    // ✅ Cancel order
-    if (status) {
-      // only allow cancelling from frontend
-      if (status === "cancelled") {
-        order.status = "cancelled";
-        order.cancelReason = cancelReason || "Cancelled by customer";
-      } else {
-        return res.status(400).json({
-          error: "Only 'cancelled' status is allowed from this endpoint",
+      // ✅ Optional: স্টক ফেরত দেওয়া (যদি অর্ডার ক্যানসেল হয়)
+      try {
+        const restockUpdates = order.items.map((item) => {
+          return Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: item.qty }, // ক্যানসেল হলে স্টক আবার বেড়ে যাবে
+          });
         });
+        await Promise.all(restockUpdates);
+      } catch (e) {
+        console.error("Restock failed", e);
       }
     }
-
-    // cancelReason alone (optional)
-    if (cancelReason && !status) order.cancelReason = cancelReason;
 
     await order.save();
     return res.json(order);
   } catch (err) {
-    console.error("❌ Failed to update order:", err);
     return res.status(500).json({ error: "Failed to update order" });
   }
 });
-
-/**
- * ================================
- * ❌ DELETE route removed (because now we cancel, not delete)
- * If you still want to keep delete, tell me.
- * ================================
- */
 
 export default router;
