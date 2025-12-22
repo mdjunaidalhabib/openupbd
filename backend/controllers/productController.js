@@ -5,20 +5,15 @@ import fs from "fs";
 import { deleteFromCloudinary } from "../utils/cloudinaryHelpers.js";
 
 // =================== ORDER HELPERS ===================
-
-// Slider-style serial shift on insert/move
 const shiftOrdersForInsert = async (newOrder, excludeId = null) => {
   const filter = excludeId
     ? { _id: { $ne: excludeId }, order: { $gte: newOrder } }
     : { order: { $gte: newOrder } };
-
   await Product.updateMany(filter, { $inc: { order: 1 } });
 };
 
-// normalize sequence to 1..n (safe after insert/update/delete)
 const normalizeOrders = async () => {
   const items = await Product.find().sort({ order: 1, createdAt: 1 });
-
   for (let i = 0; i < items.length; i++) {
     const expected = i + 1;
     if (items[i].order !== expected) {
@@ -28,11 +23,7 @@ const normalizeOrders = async () => {
   }
 };
 
-// =====================================================
-// =================== ADMIN APIs =======================
-// =====================================================
-
-// =================== CREATE PRODUCT (ADMIN) ===================
+// =================== CREATE PRODUCT ===================
 export const createProduct = async (req, res) => {
   try {
     const {
@@ -40,325 +31,322 @@ export const createProduct = async (req, res) => {
       price,
       oldPrice,
       stock,
+      sold,
+      isSoldOut,
       rating,
       description,
       additionalInfo,
       category,
       order,
       isActive,
+      colors,
     } = req.body;
 
-    if (!name || !price || !category) {
-      return res.status(400).json({
-        error: "Name, Price & Category required",
-      });
-    }
+    if (!name || !price || !category)
+      return res.status(400).json({ error: "Name, Price & Category required" });
 
-    // ✅ serial default last
     const total = await Product.countDocuments();
     const serial = Number(order) > 0 ? Number(order) : total + 1;
-
-    // ✅ serial conflict shift
     await shiftOrdersForInsert(serial);
 
+    let parsedColors = colors ? JSON.parse(colors) : [];
+    const hasVariants = parsedColors.length > 0;
     let primaryImage = "";
     let galleryImages = [];
-    let reviews = [];
 
-    // ---- Primary Image ----
-    if (req.files?.image?.[0]) {
-      const uploaded = await cloudinary.uploader.upload(
-        req.files.image[0].path,
-        { folder: "products" }
-      );
-      fs.unlinkSync(req.files.image[0].path);
-      primaryImage = uploaded.secure_url;
-    }
+    // upload.any() এর কারণে req.files থেকে ডাটা খুঁজে বের করা
+    const allFiles = req.files || [];
 
-    // ---- Gallery Images ----
-    if (req.files?.images) {
-      for (let file of req.files.images) {
+    if (!hasVariants) {
+      // ১. মেইন ইমেজ ফিল্টার
+      const mainImgFile = allFiles.find((f) => f.fieldname === "image");
+      if (mainImgFile) {
+        const uploaded = await cloudinary.uploader.upload(mainImgFile.path, {
+          folder: "products",
+        });
+        fs.unlinkSync(mainImgFile.path);
+        primaryImage = uploaded.secure_url;
+      }
+
+      // ২. গ্যালারি ইমেজ ফিল্টার
+      const galleryFiles = allFiles.filter((f) => f.fieldname === "images");
+      for (let file of galleryFiles) {
         const uploaded = await cloudinary.uploader.upload(file.path, {
           folder: "products/gallery",
         });
         fs.unlinkSync(file.path);
         galleryImages.push(uploaded.secure_url);
       }
-    }
+    } else {
+      // ৩. কালার ভেরিয়েন্ট ইমেজ ফিল্টার
+      for (let i = 0; i < parsedColors.length; i++) {
+        const fieldName = `color_images_${i}`;
+        const colorFiles = allFiles.filter((f) => f.fieldname === fieldName);
 
-    // ---- Reviews ----
-    if (req.body.reviews) {
-      reviews = Array.isArray(req.body.reviews)
-        ? req.body.reviews
-        : JSON.parse(req.body.reviews);
+        if (colorFiles.length > 0) {
+          const urls = [];
+          for (let file of colorFiles) {
+            const uploaded = await cloudinary.uploader.upload(file.path, {
+              folder: "products/variants",
+            });
+            fs.unlinkSync(file.path);
+            urls.push(uploaded.secure_url);
+          }
+          parsedColors[i].images = urls;
+        }
+      }
     }
 
     const product = new Product({
       name,
-      price: Number(price) || 0,
-      oldPrice: Number(oldPrice) || 0,
-      stock: Number(stock) || 0,
-      rating: Number(rating) || 0,
-      description: description || "",
-      additionalInfo: additionalInfo || "",
+      price: Number(price),
+      oldPrice: Number(oldPrice),
+      stock: Number(stock),
+      sold: Number(sold),
+      isSoldOut: isSoldOut === "true" || Number(stock) <= 0,
+      rating: Number(rating),
+      description,
+      additionalInfo,
       category,
-
       image: primaryImage,
       images: galleryImages,
-      reviews,
-
-      // ✅ NEW
+      colors: parsedColors,
+      reviews: req.body.reviews ? JSON.parse(req.body.reviews) : [],
       order: serial,
-      isActive:
-        isActive !== undefined
-          ? isActive === "true" || isActive === true
-          : true,
+      isActive: isActive === "true",
     });
 
     await product.save();
     await normalizeOrders();
-
     res.status(201).json(product);
   } catch (err) {
-    console.error("❌ Error creating product:", err);
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// =================== UPDATE PRODUCT (ADMIN) ===================
+// =================== UPDATE PRODUCT ===================
 export const updateProduct = async (req, res) => {
   try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
     const {
       name,
       price,
       oldPrice,
       stock,
+      sold,
+      isSoldOut,
       rating,
       description,
       additionalInfo,
       category,
       order,
       isActive,
-
-      // ✅ NEW from frontend
       existingImages,
       removedImages,
+      colors,
+      existingMainImage,
     } = req.body;
 
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ error: "Product not found" });
-
-    // ✅ serial update + shift (ignore invalid/0)
     const newOrder = Number(order);
     if (newOrder > 0 && newOrder !== product.order) {
       await shiftOrdersForInsert(newOrder, product._id);
       product.order = newOrder;
     }
 
-    // ---- Primary Image ----
-    if (req.files?.image?.[0]) {
+    let incomingColors = colors ? JSON.parse(colors) : [];
+    const hasVariants = incomingColors.length > 0;
+    const allFiles = req.files || [];
+
+    if (hasVariants) {
+      // ভেরিয়েন্ট থাকলে পুরনো মেইন ইমেজ ডিলিট
       if (product.image) await deleteFromCloudinary(product.image, "products");
-
-      const uploaded = await cloudinary.uploader.upload(
-        req.files.image[0].path,
-        { folder: "products" }
-      );
-
-      product.image = uploaded.secure_url;
-      fs.unlinkSync(req.files.image[0].path);
-    }
-
-    // ======================================================
-    // ✅ Gallery Images Proper Update (KEEP + DELETE + ADD)
-    // ======================================================
-
-    // Parse keep list
-    let keepImages = [];
-    if (existingImages) {
-      keepImages = Array.isArray(existingImages)
-        ? existingImages
-        : JSON.parse(existingImages);
-    } else {
-      keepImages = product.images || [];
-    }
-
-    // Parse remove list
-    let removeList = [];
-    if (removedImages) {
-      removeList = Array.isArray(removedImages)
-        ? removedImages
-        : JSON.parse(removedImages);
-    }
-
-    // ✅ delete removed urls from cloudinary
-    if (removeList.length > 0) {
-      for (let url of removeList) {
+      for (let url of product.images)
         await deleteFromCloudinary(url, "products/gallery");
-      }
-    }
 
-    // ✅ upload new gallery files
-    let newUploaded = [];
-    if (req.files?.images?.length) {
-      for (let file of req.files.images) {
+      product.image = "";
+      product.images = [];
+
+      for (let i = 0; i < incomingColors.length; i++) {
+        const fieldName = `color_images_${i}`;
+        const colorFiles = allFiles.filter((f) => f.fieldname === fieldName);
+
+        if (colorFiles.length > 0) {
+          // নতুন ফাইল থাকলে পুরনো ভেরিয়েন্ট ইমেজ ডিলিট (ঐচ্ছিক, আপনার লজিক অনুযায়ী)
+          const urls = [];
+          for (let file of colorFiles) {
+            const uploaded = await cloudinary.uploader.upload(file.path, {
+              folder: "products/variants",
+            });
+            fs.unlinkSync(file.path);
+            urls.push(uploaded.secure_url);
+          }
+          incomingColors[i].images = [
+            ...(incomingColors[i].images || []),
+            ...urls,
+          ];
+        }
+      }
+      product.colors = incomingColors;
+    } else {
+      // ভেরিয়েন্ট না থাকলে ভেরিয়েন্ট ইমেজ ডিলিট
+      if (product.colors.length > 0) {
+        for (let color of product.colors) {
+          for (let url of color.images)
+            await deleteFromCloudinary(url, "products/variants");
+        }
+        product.colors = [];
+      }
+
+      // ১. মেইন ইমেজ আপডেট
+      const mainImgFile = allFiles.find((f) => f.fieldname === "image");
+      if (mainImgFile) {
+        if (product.image)
+          await deleteFromCloudinary(product.image, "products");
+        const uploaded = await cloudinary.uploader.upload(mainImgFile.path, {
+          folder: "products",
+        });
+        fs.unlinkSync(mainImgFile.path);
+        product.image = uploaded.secure_url;
+      } else {
+        product.image = existingMainImage || product.image;
+      }
+
+      // ২. গ্যালারি ইমেজ আপডেট
+      let keepImages = existingImages
+        ? JSON.parse(existingImages)
+        : product.images;
+      let toRemove = removedImages ? JSON.parse(removedImages) : [];
+      for (let url of toRemove)
+        await deleteFromCloudinary(url, "products/gallery");
+
+      const galleryFiles = allFiles.filter((f) => f.fieldname === "images");
+      let newGallery = [];
+      for (let file of galleryFiles) {
         const uploaded = await cloudinary.uploader.upload(file.path, {
           folder: "products/gallery",
         });
-        newUploaded.push(uploaded.secure_url);
         fs.unlinkSync(file.path);
+        newGallery.push(uploaded.secure_url);
       }
+      product.images = [...keepImages, ...newGallery];
     }
 
-    // ✅ final gallery list
-    product.images = [...keepImages, ...newUploaded];
-
-    // ---- Reviews ----
-    if (req.body.reviews) {
-      product.reviews = Array.isArray(req.body.reviews)
-        ? req.body.reviews
-        : JSON.parse(req.body.reviews);
-    }
-
-    // ---- Other fields ----
+    // বাকি ফিল্ড আপডেট
+    if (req.body.reviews) product.reviews = JSON.parse(req.body.reviews);
     product.name = name || product.name;
-    if (price !== undefined) product.price = Number(price) || 0;
-    if (oldPrice !== undefined) product.oldPrice = Number(oldPrice) || 0;
-    if (stock !== undefined) product.stock = Number(stock) || 0;
-    if (rating !== undefined) product.rating = Number(rating) || 0;
-
+    product.price = price !== undefined ? Number(price) : product.price;
+    product.oldPrice =
+      oldPrice !== undefined ? Number(oldPrice) : product.oldPrice;
+    product.stock = stock !== undefined ? Number(stock) : product.stock;
+    product.sold = sold !== undefined ? Number(sold) : product.sold;
+    product.isSoldOut =
+      isSoldOut !== undefined ? isSoldOut === "true" : product.stock <= 0;
+    product.rating = rating !== undefined ? Number(rating) : product.rating;
     product.description = description ?? product.description;
     product.additionalInfo = additionalInfo ?? product.additionalInfo;
     product.category = category || product.category;
-
-    // ✅ active/hidden update
-    if (isActive !== undefined) {
-      product.isActive = isActive === "true" || isActive === true;
-    }
+    product.isActive =
+      isActive !== undefined ? isActive === "true" : product.isActive;
 
     await product.save();
     await normalizeOrders();
-
     res.json(product);
   } catch (err) {
-    console.error("❌ Error updating product:", err);
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// =================== DELETE PRODUCT (ADMIN) ===================
+// =================== DELETE PRODUCT ===================
 export const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
 
     if (product.image) await deleteFromCloudinary(product.image, "products");
-
-    for (let url of product.images || [])
+    for (let url of product.images)
       await deleteFromCloudinary(url, "products/gallery");
+    for (let color of product.colors) {
+      for (let url of color.images)
+        await deleteFromCloudinary(url, "products/variants");
+    }
 
     await product.deleteOne();
     await normalizeOrders();
-
     res.json({ message: "🗑️ Product deleted successfully" });
   } catch (err) {
-    console.error("❌ Error deleting product:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// ✅ Admin: সব পণ্য (hidden category ও product সহ)
+// =================== GET APIs ===================
 export const getProductsAdmin = async (req, res) => {
   try {
     const products = await Product.find()
       .populate("category")
       .sort({ order: 1, createdAt: 1 });
-
     res.json(products);
   } catch (err) {
-    console.error("❌ Admin getProducts error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// ✅ Admin: single product (hidden হলেও দেখাবে)
 export const getProductByIdAdmin = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).populate("category");
     if (!product) return res.status(404).json({ error: "Product not found" });
     res.json(product);
   } catch (err) {
-    console.error("❌ Admin getProductById error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// =====================================================
-// =================== PUBLIC APIs ======================
-// =====================================================
-
-// ✅ Public: শুধু active category + active product, serial wise
 export const getProductsPublic = async (req, res) => {
   try {
-    const activeCategories = await Category.find({ isActive: true }).select(
-      "_id"
-    );
-    const activeIds = activeCategories.map((c) => c._id);
-
+    const activeCats = await Category.find({ isActive: true }).select("_id");
     const products = await Product.find({
-      category: { $in: activeIds },
+      category: { $in: activeCats.map((c) => c._id) },
       isActive: true,
     })
       .populate("category")
       .sort({ order: 1, createdAt: 1 });
-
     res.json(products);
   } catch (err) {
-    console.error("❌ Public getProducts error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// ✅ Public: single product (hidden product/category হলে block)
 export const getProductByIdPublic = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).populate("category");
-    if (!product) return res.status(404).json({ error: "Product not found" });
-
-    if (product.isActive === false) {
-      return res.status(403).json({ error: "Product is hidden" });
-    }
-
-    if (product.category && product.category.isActive === false) {
-      return res.status(403).json({ error: "Category is hidden" });
-    }
-
+    if (
+      !product ||
+      !product.isActive ||
+      (product.category && !product.category.isActive)
+    )
+      return res.status(403).json({ error: "Hidden" });
     res.json(product);
   } catch (err) {
-    console.error("❌ Public getProductById error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
 
-// ✅ Public: category wise products (hidden category/product হলে block)
 export const getProductsByCategoryPublic = async (req, res) => {
   try {
-    const { categoryId } = req.params;
-
-    const category = await Category.findById(categoryId);
-    if (!category || category.isActive === false) {
-      return res.status(403).json({ error: "This category is hidden" });
-    }
-
+    const category = await Category.findById(req.params.categoryId);
+    if (!category || !category.isActive)
+      return res.status(403).json({ error: "Hidden" });
     const products = await Product.find({
-      category: categoryId,
+      category: category._id,
       isActive: true,
     })
       .populate("category")
       .sort({ order: 1, createdAt: 1 });
-
     res.json(products);
   } catch (err) {
-    console.error("❌ Public getProductsByCategory error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };

@@ -13,7 +13,6 @@ export default function CourierSettingsPage() {
     merchantName: "",
     apiKey: "",
     secretKey: "",
-    baseUrl: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -53,8 +52,7 @@ export default function CourierSettingsPage() {
     if (
       !form.merchantName ||
       !form.apiKey ||
-      !form.secretKey ||
-      !form.baseUrl
+      !form.secretKey
     ) {
       setToast({ message: "⚠️ সব ফিল্ড পূরণ করুন!", type: "error" });
       return;
@@ -84,7 +82,6 @@ export default function CourierSettingsPage() {
         merchantName: "",
         apiKey: "",
         secretKey: "",
-        baseUrl: "",
       });
     } catch (err) {
       console.error(err);
@@ -234,16 +231,6 @@ export default function CourierSettingsPage() {
               onChange={(e) => setForm({ ...form, secretKey: e.target.value })}
             />
           </div>
-
-          <div className="sm:col-span-2">
-            <label className="text-sm font-medium">Base URL</label>
-            <input
-              className="w-full border rounded p-2"
-              placeholder="https://portal.packzy.com/api/v1"
-              value={form.baseUrl}
-              onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-            />
-          </div>
         </div>
 
         <button
@@ -265,7 +252,6 @@ export default function CourierSettingsPage() {
             <tr>
               <th className="p-2 text-left">Courier</th>
               <th className="p-2 text-left">Merchant</th>
-              <th className="p-2 text-left">Base URL</th>
               <th className="p-2 text-center">Active</th>
               <th className="p-2 text-center">Actions</th>
             </tr>
@@ -286,7 +272,6 @@ export default function CourierSettingsPage() {
                 >
                   <td className="p-2 font-medium">{c.courier}</td>
                   <td className="p-2">{c.merchantName}</td>
-                  <td className="p-2 text-gray-600">{c.baseUrl}</td>
                   <td className="p-2 text-center">
                     {isActive ? (
                       <span className="text-green-600 font-semibold">

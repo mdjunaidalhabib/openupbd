@@ -10,7 +10,6 @@ const courierSettingSchema = new mongoose.Schema(
     merchantName: String,
     apiKey: String,
     secretKey: String,
-    baseUrl: String,
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

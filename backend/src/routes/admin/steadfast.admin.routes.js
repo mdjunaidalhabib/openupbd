@@ -59,12 +59,15 @@ router.post("/send-order", async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    /* ---------- LOAD COURIER ---------- */
+    /* ---------- LOAD COURIER (KEYS FROM DB) ---------- */
     const courier = await getActiveCourier("steadfast");
 
-    if (!courier.baseUrl || !/^https?:\/\//i.test(courier.baseUrl)) {
+    /* ---------- LOAD BASE URL FROM ENV ---------- */
+    const baseUrl = process.env.STEADFAST_BASE_URL;
+
+    if (!baseUrl || !/^https?:\/\//i.test(baseUrl)) {
       return res.status(500).json({
-        error: "Courier service URL invalid",
+        error: "Courier service URL not configured in env",
       });
     }
 
@@ -81,7 +84,7 @@ router.post("/send-order", async (req, res) => {
     };
 
     /* ---------- STEADFAST API CALL ---------- */
-    const resp = await fetch(`${courier.baseUrl}/create_order`, {
+    const resp = await fetch(`${baseUrl}/create_order`, {
       method: "POST",
       headers: {
         "Api-Key": courier.apiKey,

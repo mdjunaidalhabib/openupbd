@@ -7,10 +7,9 @@ const router = express.Router();
 // FINAL path: POST /api/v1/admin/courier-settings
 router.post("/courier-settings", async (req, res) => {
   try {
-    const { courier, merchantName, apiKey, secretKey, baseUrl, isActive } =
-      req.body;
+    const { courier, merchantName, apiKey, secretKey, isActive } = req.body;
 
-    if (!courier || !merchantName || !apiKey || !secretKey || !baseUrl) {
+    if (!courier || !merchantName || !apiKey || !secretKey) {
       return res.status(400).json({
         success: false,
         message: "All required fields must be filled",
@@ -23,7 +22,7 @@ router.post("/courier-settings", async (req, res) => {
     // যদি courier-merchant জোড়া আগেই থাকে → update, না থাকলে create
     const setting = await CourierSetting.findOneAndUpdate(
       filter,
-      { courier, merchantName, apiKey, secretKey, baseUrl, isActive },
+      { courier, merchantName, apiKey, secretKey, isActive },
       { upsert: true, new: true }
     );
 

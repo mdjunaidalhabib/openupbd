@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -31,22 +31,38 @@ const ProductCard = memo(
     const isInWishlist = wishlist.includes(String(productId));
     const totalPrice = Number(product?.price || 0) * quantity;
 
-    const mainImage =
-      product?.image && product.image.startsWith("http")
-        ? product.image
-        : product?.images?.[0] || "/no-image.png";
+    // ✅ ইমেজ লজিক আপডেট: মেইন ইমেজ -> গ্যালারি -> কালার ভেরিয়েন্ট ইমেজ
+    const mainImage = useMemo(() => {
+      // ১. যদি মেইন ইমেজ থাকে
+      if (product?.image && product.image.startsWith("http")) {
+        return product.image;
+      }
+      // ২. যদি গ্যালারি (images array) তে ইমেজ থাকে
+      if (product?.images && product.images.length > 0) {
+        return product.images[0];
+      }
+      // ৩. যদি কালার ভেরিয়েন্টের ভিতরে ইমেজ থাকে
+      if (product?.colors && product.colors.length > 0) {
+        const firstColorWithImage = product.colors.find(
+          (c) => c.images && c.images.length > 0
+        );
+        if (firstColorWithImage) return firstColorWithImage.images[0];
+      }
+
+      return "/no-image.png";
+    }, [product]);
 
     return (
       <div className="relative bg-pink-100 shadow-md rounded-lg hover:shadow-lg transition flex flex-col group">
         {/* IMAGE */}
         <Link
           href={`/products/${productId}`}
-          className="relative w-full aspect-[4/4] mb-3 overflow-hidden rounded-lg"
+          className="relative w-full aspect-[4/4] mb-3 overflow-hidden rounded-lg bg-white"
         >
           {/* Top badges */}
           <div className="absolute top-1 left-1 right-1 flex justify-between z-10">
             {product?.oldPrice && (
-              <span className="bg-red-500 text-white px-1 py-0.5 rounded-full text-xs font-semibold">
+              <span className="bg-red-500 text-white px-1 py-0.5 rounded-full text-[10px] font-semibold">
                 -{discount}%
               </span>
             )}
@@ -57,13 +73,13 @@ const ProductCard = memo(
                 e.stopPropagation();
                 toggleWishlist(productId);
               }}
-              className={`px-1 py-1 rounded-full shadow ${
+              className={`p-1.5 rounded-full shadow transition-colors ${
                 isInWishlist
                   ? "bg-red-500 text-white"
-                  : "bg-gray-200 text-gray-600"
+                  : "bg-white/80 text-gray-600 hover:bg-red-100"
               }`}
             >
-              <FaHeart className="w-4 h-4" />
+              <FaHeart className="w-3 h-3" />
             </button>
           </div>
 
@@ -72,50 +88,54 @@ const ProductCard = memo(
             alt={product?.name || "Product"}
             fill
             loading="lazy"
-            sizes="(max-width: 768px) 100vw,
-                   (max-width: 1200px) 33vw,
-                   25vw"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
             className="object-cover rounded-lg transition-transform duration-500 group-hover:scale-110"
           />
         </Link>
 
         {/* INFO */}
-        <div className="px-4 pb-3">
-          <h4 className="font-semibold text-base sm:text-lg truncate">
+        <div className="px-3 pb-3">
+          <h4 className="font-semibold text-sm sm:text-base truncate text-gray-800">
             {product?.name}
           </h4>
 
-          <p
-            className={`text-xs font-medium ${
-              product?.stock > 0 ? "text-green-600" : "text-red-500"
-            }`}
-          >
-            {product?.stock > 0
-              ? `In Stock (${product.stock})`
-              : "Out of Stock"}
-          </p>
+          <div className="flex items-center justify-between mb-1">
+            <p
+              className={`text-[10px] font-bold ${
+                product?.stock > 0 ? "text-green-600" : "text-red-500"
+              }`}
+            >
+              {product?.stock > 0
+                ? `In Stock (${product.stock})`
+                : "Out of Stock"}
+            </p>
+
+            <span className="text-[10px] text-gray-500">
+              Sold: {product.sold || 0}
+            </span>
+          </div>
 
           {/* Rating */}
           <div className="flex items-center mb-1">
             {[...Array(5)].map((_, i) => (
               <FaStar
                 key={i}
-                className={
+                className={`w-3 h-3 ${
                   i < (product?.rating || 0)
-                    ? "text-yellow-500 w-3"
-                    : "text-gray-300 w-3"
-                }
+                    ? "text-yellow-500"
+                    : "text-gray-300"
+                }`}
               />
             ))}
           </div>
 
           {/* Price */}
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <p className="text-blue-600 font-bold text-sm sm:text-base">
               ৳{product?.price}
             </p>
             {product?.oldPrice && (
-              <p className="text-gray-400 line-through text-xs sm:text-sm">
+              <p className="text-gray-400 line-through text-[10px] sm:text-xs">
                 ৳{product.oldPrice}
               </p>
             )}
@@ -130,7 +150,7 @@ const ProductCard = memo(
                 updateCart(productId, +1, product.stock);
               }}
               disabled={product?.stock <= 0}
-              className={`w-full px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-sm ${
+              className={`w-full px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition ${
                 product?.stock <= 0
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-pink-600 text-white hover:bg-pink-700"
@@ -140,40 +160,36 @@ const ProductCard = memo(
             </button>
           ) : (
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold">Qty</span>
+              <div className="flex items-center justify-between bg-white/50 rounded-lg p-1">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    updateCart(productId, -1, product.stock);
+                  }}
+                  className="p-1 bg-white shadow-sm rounded text-pink-600"
+                >
+                  <FaMinus className="text-[10px]" />
+                </button>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      updateCart(productId, -1, product.stock);
-                    }}
-                    className="p-1 bg-gray-200 rounded"
-                  >
-                    <FaMinus className="text-xs" />
-                  </button>
+                <span className="text-sm font-bold text-gray-800">
+                  {quantity}
+                </span>
 
-                  <span className="text-xs font-bold w-4 text-center">
-                    {quantity}
-                  </span>
-
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      updateCart(productId, +1, product.stock);
-                    }}
-                    className="p-1 bg-gray-200 rounded"
-                  >
-                    <FaPlus className="text-xs" />
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    updateCart(productId, +1, product.stock);
+                  }}
+                  className="p-1 bg-white shadow-sm rounded text-pink-600"
+                >
+                  <FaPlus className="text-[10px]" />
+                </button>
               </div>
 
-              <p className="text-center text-xs font-semibold mt-1">
-                Total: <span className="text-blue-600">৳{totalPrice}</span>
+              <p className="text-center text-[10px] font-bold text-blue-600 mt-1">
+                Total: ৳{totalPrice}
               </p>
             </div>
           )}
@@ -187,7 +203,10 @@ const ProductCard = memo(
     prev.product._id === next.product._id &&
     prev.product.price === next.product.price &&
     prev.product.stock === next.product.stock &&
-    prev.product.rating === next.product.rating
+    prev.product.rating === next.product.rating &&
+    JSON.stringify(prev.product.colors) ===
+      JSON.stringify(next.product.colors) &&
+    JSON.stringify(prev.product.images) === JSON.stringify(next.product.images)
 );
 
 export default ProductCard;

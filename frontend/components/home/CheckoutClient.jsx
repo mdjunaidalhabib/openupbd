@@ -17,6 +17,7 @@ export default function CheckoutPage() {
 
   const productId = searchParams.get("productId");
   const initialQty = Number(searchParams.get("qty")) || 1;
+  const selectedColorName = searchParams.get("color"); // ✅ URL থেকে কালার নেওয়া হচ্ছে
   const [checkoutQty, setCheckoutQty] = useState(initialQty);
 
   const [allProducts, setAllProducts] = useState([]);
@@ -28,12 +29,12 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
 
-  // ✅ ডিফল্টভাবে 'free' সেট করা হয়েছে
+  // ✅ ডিফল্টভাবে 'free' সেট করা হয়েছে
   const [paymentMethod, setPaymentMethod] = useState("free");
 
   // Delivery States
   const [deliveryArea, setDeliveryArea] = useState("inside");
-  // ✅ ডিফল্টভাবে চার্জ 0 সেট করা হয়েছে (যেহেতু ডিফল্ট free)
+  // ✅ ডিফল্টভাবে চার্জ 0 সেট করা হয়েছে (যেহেতু ডিফল্ট free)
   const [deliveryCharge, setDeliveryCharge] = useState(0);
 
   const [toast, setToast] = useState({ message: "", type: "" });
@@ -57,7 +58,7 @@ export default function CheckoutPage() {
       .finally(() => setProductsLoading(false));
   }, []);
 
-  // ✅ লজিক: পেমেন্ট মেথড বা এরিয়া পরিবর্তন হলে চার্জ আপডেট
+  // ✅ লজিক: পেমেন্ট মেথড বা এরিয়া পরিবর্তন হলে চার্জ আপডেট
   useEffect(() => {
     if (paymentMethod === "free") {
       setDeliveryCharge(0);
@@ -68,20 +69,29 @@ export default function CheckoutPage() {
 
   const cartItems = useMemo(() => {
     if (!allProducts.length) return [];
+
+    // ১. যদি সিঙ্গেল প্রোডাক্ট চেকআউট হয় (Buy Now)
     if (productId) {
       const p = allProducts.find((x) => String(x._id) === String(productId));
       if (!p) return [];
+
+      // কালার অবজেক্ট খুঁজে বের করা
+      const variant = p.colors?.find((c) => c.name === selectedColorName);
+
       return [
         {
           productId: p._id,
           name: p.name,
           price: p.price,
           qty: checkoutQty,
-          image: p.image,
-          stock: p.stock,
+          image: variant?.images?.[0] || p.image || p.images?.[0], // কালারের ছবি থাকলে সেটা দেখাবে
+          stock: variant ? variant.stock : p.stock,
+          color: selectedColorName || null, // কালার সেভ হচ্ছে
         },
       ];
     }
+
+    // ২. যদি কার্ট থেকে চেকআউট হয়
     return Object.keys(cart)
       .map((id) => {
         const p = allProducts.find((x) => String(x._id) === String(id));
@@ -91,12 +101,13 @@ export default function CheckoutPage() {
           name: p.name,
           price: p.price,
           qty: cart[id],
-          image: p.image,
+          image: p.image || p.images?.[0],
           stock: p.stock,
+          color: null, // কার্টে সাধারণত ডিফল্ট থাকে
         };
       })
       .filter(Boolean);
-  }, [cart, productId, checkoutQty, allProducts]);
+  }, [cart, productId, checkoutQty, allProducts, selectedColorName]);
 
   const subtotal = calcSubtotal(cartItems);
   const total = subtotal + deliveryCharge;
@@ -216,7 +227,7 @@ export default function CheckoutPage() {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="mt-1 w-full p-2 border rounded-md border-gray-300 outline-none text-sm focus:border-pink-300"
-              placeholder="যেমন: ডেলিভারি সময় বা অন্য কিছু..."
+              placeholder="যেমন: ডেলিভারি সময় বা অন্য কিছু..."
             />
           </label>
 
@@ -251,11 +262,11 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* ✅ শর্তাধীন ডেলিভারি এরিয়া (শুধুমাত্র COD হলে দেখাবে) */}
+          {/* ✅ শর্তাধীন ডেলিভারি এরিয়া (শুধুমাত্র COD হলে দেখাবে) */}
           {paymentMethod === "cod" && (
             <div className="p-4 bg-pink-50 border border-pink-100 rounded-xl animate-in fade-in zoom-in duration-300">
               <p className="text-xs font-bold mb-3 text-pink-700 uppercase tracking-wider">
-                শিপিং এরিয়া (কুরিয়ার চার্জ) *
+                শিপিং এরিয়া (কুরিয়ার চার্জ) *
               </p>
               <div className="flex gap-3">
                 <button
@@ -315,18 +326,22 @@ export default function CheckoutPage() {
                           className="w-14 h-14 object-cover rounded-md border"
                           alt={it.name}
                         />
-                        {/* প্রোডাক্টের উপরে ছোট কোয়ান্টিটি ব্যাজ */}
                         <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-bold">
                           {it.qty}
                         </span>
                       </div>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-0.5">
                         <span className="text-xs font-semibold text-gray-700 line-clamp-1 leading-tight">
                           {it.name}
                         </span>
+                        {/* ✅ কালার ট্যাগ প্রদর্শন */}
+                        {it.color && (
+                          <span className="text-[10px] bg-pink-50 text-pink-600 px-1.5 py-0.5 rounded w-fit border border-pink-100 font-bold uppercase">
+                            Color: {it.color}
+                          </span>
+                        )}
 
-                        {/* ✅ QuantityController যোগ করা হয়েছে */}
-                        <div className="transform scale-90 origin-left">
+                        <div className="transform scale-90 origin-left mt-1">
                           <QuantityController
                             qty={it.qty}
                             stock={it.stock}

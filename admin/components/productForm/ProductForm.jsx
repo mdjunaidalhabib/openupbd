@@ -7,6 +7,7 @@ import MainImageSection from "./MainImageSection";
 import GallerySection from "./GallerySection";
 import ReviewsSection from "./ReviewsSection";
 import FormButtons from "./FormButtons";
+import ColorVariantSection from "./ColorVariantSection";
 
 export default function ProductForm({
   product,
@@ -17,36 +18,33 @@ export default function ProductForm({
   const [categories, setCategories] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState(null);
-
-  const [errors, setErrors] = useState({}); // ✅ NEW
+  const [errors, setErrors] = useState({});
 
   const [form, setForm] = useState({
     name: "",
     price: "",
     oldPrice: "",
     stock: 0,
+    sold: 0,
     rating: "",
     description: "",
     additionalInfo: "",
     category: "",
     image: null,
     images: [],
+    colors: [],
     reviews: [],
     order: 1,
     isActive: true,
+    isSoldOut: false,
   });
 
   const [previewImage, setPreviewImage] = useState("");
-  const [mainPreviewBlob, setMainPreviewBlob] = useState("");
-
   const [removedImages, setRemovedImages] = useState([]);
 
   const mainDropRef = useRef(null);
   const galleryDropRef = useRef(null);
 
-  // =========================
-  // Load Categories
-  // =========================
   const loadCategories = async () => {
     try {
       const res = await fetch(
@@ -54,25 +52,19 @@ export default function ProductForm({
       );
       if (!res.ok) throw new Error();
       const data = await res.json();
-
       let arr = Array.isArray(data) ? data : [];
       arr.sort((a, b) => (a.order || 0) - (b.order || 0));
       setCategories(arr);
     } catch (err) {
       console.error("Category load error:", err);
-      setCategories([]);
-      setToast({ message: "❌ ক্যাটাগরি লোড করা যায়নি!", type: "error" });
     }
   };
 
-  // =========================
-  // Init when product changes
-  // =========================
   useEffect(() => {
     const init = async () => {
       await loadCategories();
       setRemovedImages([]);
-      setErrors({}); // ✅ reset errors on init
+      setErrors({});
 
       if (product) {
         setForm({
@@ -80,337 +72,262 @@ export default function ProductForm({
           price: Number(product.price) || 0,
           oldPrice: Number(product.oldPrice) || 0,
           stock: Number(product.stock) || 0,
+          sold: Number(product.sold) || 0,
           rating: Number(product.rating) || 0,
           description: product.description || "",
           additionalInfo: product.additionalInfo || "",
           category: product.category?._id || "",
           image: null,
           images: product.images || [],
+          colors: product.colors?.map((c) => ({ ...c, files: [] })) || [],
           reviews: product.reviews || [],
           order: product.order || 1,
           isActive: product.isActive ?? true,
+          isSoldOut: product.isSoldOut ?? false,
         });
         setPreviewImage(product.image || "");
-        setMainPreviewBlob("");
       } else {
-        setForm({
-          name: "",
-          price: "",
-          oldPrice: "",
-          stock: 0,
-          rating: "",
-          description: "",
-          additionalInfo: "",
-          category: "",
-          image: null,
-          images: [],
-          reviews: [],
-          order: productsLength + 1,
-          isActive: true,
-        });
-        setPreviewImage("");
-        setMainPreviewBlob("");
+        setForm((prev) => ({ ...prev, order: productsLength + 1 }));
       }
     };
-
     init();
   }, [product, productsLength]);
 
-  // cleanup main preview blob
-  useEffect(() => {
-    return () => {
-      if (mainPreviewBlob?.startsWith("blob:")) {
-        URL.revokeObjectURL(mainPreviewBlob);
-      }
-    };
-  }, [mainPreviewBlob]);
-
-  // =========================
-  // Main Image select + preview
-  // =========================
-  const setMainImage = (file) => {
-    if (!file || !file.type?.startsWith("image/")) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      setToast({
-        message: "⚠️ প্রধান ছবির সাইজ 5MB এর বেশি হতে পারবে না!",
-        type: "error",
-      });
-      return;
-    }
-
-    if (mainPreviewBlob?.startsWith("blob:")) {
-      URL.revokeObjectURL(mainPreviewBlob);
-    }
-
-    const blobUrl = URL.createObjectURL(file);
-    setMainPreviewBlob(blobUrl);
-    setPreviewImage(blobUrl);
-
-    setErrors((prev) => ({ ...prev, image: false })); // ✅ error clear on select
-    setForm((prev) => ({ ...prev, image: file }));
-  };
-
   const handleSingleImage = (e) => {
     const file = e.target.files?.[0];
-    setMainImage(file);
-  };
-
-  const handleMainDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    setMainImage(file);
+    if (file) {
+      setPreviewImage(URL.createObjectURL(file));
+      setForm((prev) => ({ ...prev, image: file }));
+    }
   };
 
   const removeMainImage = () => {
-    if (mainPreviewBlob?.startsWith("blob:")) {
-      URL.revokeObjectURL(mainPreviewBlob);
-    }
-    setMainPreviewBlob("");
     setPreviewImage("");
     setForm((p) => ({ ...p, image: null }));
   };
 
-  // =========================
-  // Gallery Logic
-  // =========================
   const galleryPreviews = useMemo(() => {
     return form.images.map((img) =>
       typeof img === "string" ? img : URL.createObjectURL(img)
     );
   }, [form.images]);
 
-  useEffect(() => {
-    return () => {
-      galleryPreviews.forEach((src) => {
-        if (src?.startsWith("blob:")) URL.revokeObjectURL(src);
-      });
-    };
-  }, [galleryPreviews]);
-
   const handleGalleryFiles = (files) => {
-    const incoming = Array.from(files || []).filter((f) =>
-      f.type.startsWith("image/")
+    const incoming = Array.from(files || []).filter(
+      (f) => f.size <= 5 * 1024 * 1024
     );
-    if (!incoming.length) return;
-
-    const valid = incoming.filter((f) => f.size <= 5 * 1024 * 1024);
-    const invalidCount = incoming.length - valid.length;
-
-    if (invalidCount > 0) {
-      setToast({
-        message: `⚠️ ${invalidCount}টি ছবি 5MB এর বেশি ছিল, তাই যোগ করা হয় নাই!`,
-        type: "error",
-      });
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      images: [...prev.images, ...valid],
-    }));
-  };
-
-  const handleGalleryDrop = (e) => {
-    e.preventDefault();
-    handleGalleryFiles(e.dataTransfer.files);
+    setForm((prev) => ({ ...prev, images: [...prev.images, ...incoming] }));
   };
 
   const removeGalleryImage = (idx) => {
     setForm((prev) => {
       const img = prev.images[idx];
-
-      if (typeof img === "string") {
-        setRemovedImages((old) => [...old, img]);
-      }
-
-      return {
-        ...prev,
-        images: prev.images.filter((_, i) => i !== idx),
-      };
+      if (typeof img === "string") setRemovedImages((old) => [...old, img]);
+      return { ...prev, images: prev.images.filter((_, i) => i !== idx) };
     });
   };
 
-  const moveGalleryImage = (from, to) => {
-    if (to < 0 || to >= form.images.length) return;
-    setForm((prev) => {
-      const arr = [...prev.images];
-      const [item] = arr.splice(from, 1);
-      arr.splice(to, 0, item);
-      return { ...prev, images: arr };
-    });
-  };
-
-  const clearAllGallery = () => {
-    setForm((prev) => ({ ...prev, images: [] }));
-
-    const oldStrings = form.images.filter((x) => typeof x === "string");
-    if (oldStrings.length) {
-      setRemovedImages((old) => [...old, ...oldStrings]);
-    }
-  };
-
-  // =========================
-  // Reviews + avg rating
-  // =========================
-  const addReview = () => {
+  const addColor = () => {
     setForm((prev) => ({
       ...prev,
-      reviews: [...prev.reviews, { user: "", rating: 0, comment: "" }],
+      colors: [...prev.colors, { name: "", stock: 0, images: [], files: [] }],
     }));
   };
 
-  const recalcAvg = (reviews) => {
-    const valid = reviews
-      .map((r) => Number(r.rating))
-      .filter((r) => !isNaN(r) && r > 0);
-    return valid.length
-      ? (valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)
-      : 0;
+  const handleColorChange = (index, field, value) => {
+    setForm((prev) => {
+      const updatedColors = [...prev.colors];
+      updatedColors[index] = { ...updatedColors[index], [field]: value };
+      return { ...prev, colors: updatedColors };
+    });
+  };
+
+  const removeColor = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      colors: prev.colors.filter((_, i) => i !== index),
+    }));
   };
 
   const handleReviewChange = (idx, field, value) => {
     setForm((prev) => {
       const next = [...prev.reviews];
       next[idx] = { ...next[idx], [field]: value };
-      return { ...prev, reviews: next, rating: recalcAvg(next) };
+      return { ...prev, reviews: next };
     });
   };
 
-  const removeReview = (idx) => {
-    setForm((prev) => {
-      const next = prev.reviews.filter((_, i) => i !== idx);
-      return { ...prev, reviews: next, rating: recalcAvg(next) };
-    });
-  };
+  // ... (অন্যান্য ইমপোর্ট এবং স্টেট ঠিক আছে)
 
-  // =========================
-  // Submit
-  // =========================
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    let newErrors = {};
-    if (!form.name?.trim()) newErrors.name = true;
-    if (!form.price || Number(form.price) <= 0) newErrors.price = true;
-    if (!form.category) newErrors.category = true;
-
-    const hasMainImage = !!form.image || !!previewImage;
-    if (!hasMainImage) newErrors.image = true;
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) {
-      setToast({
-        message: "⚠️ নাম, দাম, ক্যাটাগরি ও প্রধান ছবি দেওয়া জরুরি!",
-        type: "error",
-      });
-      return;
-    }
-
     setProcessing(true);
-
     try {
-      const data = new FormData();
+      const formData = new FormData();
 
-      for (let key in form) {
-        if (["image", "images", "reviews"].includes(key)) continue;
-        data.append(key, form[key]);
+      // ১. সাধারণ ফিল্ডগুলো অ্যাপেন্ড করা
+      Object.keys(form).forEach((key) => {
+        if (!["image", "images", "reviews", "colors"].includes(key)) {
+          formData.append(key, form[key]);
+        }
+      });
+
+      const hasVariants = form.colors.length > 0;
+
+      if (!hasVariants) {
+        // সাধারণ মোড
+        if (form.image) formData.append("image", form.image);
+        const existingGallery = [];
+        form.images.forEach((img) => {
+          if (img instanceof File) formData.append("images", img);
+          else existingGallery.push(img);
+        });
+        formData.append("existingImages", JSON.stringify(existingGallery));
+      } else {
+        // ২. কালার ভেরিয়েন্ট মোড (সবচেয়ে গুরুত্বপূর্ণ অংশ)
+        const colorsMeta = form.colors.map((color, idx) => {
+          if (color.files && color.files.length > 0) {
+            color.files.forEach((file) => {
+              formData.append(`color_images_${idx}`, file); // ডাইনামিক ফিল্ড নেম
+            });
+          }
+          return {
+            name: color.name,
+            stock: color.stock,
+            images: color.images || [], // পুরনো ইমেজ ইউআরএল
+          };
+        });
+        formData.append("colors", JSON.stringify(colorsMeta));
       }
 
-      if (form.image) data.append("image", form.image);
-
-      form.images.forEach((img) => {
-        if (img instanceof File) data.append("images", img);
-      });
-
-      const existingUrls = form.images.filter((img) => typeof img === "string");
-      data.append("existingImages", JSON.stringify(existingUrls));
-
-      data.append("removedImages", JSON.stringify(removedImages));
-      data.append("reviews", JSON.stringify(form.reviews));
+      formData.append("removedImages", JSON.stringify(removedImages));
+      formData.append("reviews", JSON.stringify(form.reviews));
 
       const url = product
         ? `${process.env.NEXT_PUBLIC_API_URL}/admin/products/${product._id}`
         : `${process.env.NEXT_PUBLIC_API_URL}/admin/products`;
 
-      const method = product ? "PUT" : "POST";
-
-      const res = await fetch(url, { method, body: data });
+      const res = await fetch(url, {
+        method: product ? "PUT" : "POST",
+        body: formData, // JSON headers লাগবে না
+      });
 
       if (res.ok) {
-        setToast({
-          message: product
-            ? "✅ প্রোডাক্ট আপডেট হয়েছে!"
-            : "✅ প্রোডাক্ট সংরক্ষণ হয়েছে!",
-          type: "success",
-        });
+        setToast({ message: "সফলভাবে সেভ হয়েছে!", type: "success" });
         onSaved?.();
         onClose?.();
       } else {
-        setToast({
-          message: "❌ ইমেজের সাইজ ঠিক নাই বা ইমেজ আপলোড হচ্ছে!",
-          type: "error",
-        });
+        throw new Error("Failed");
       }
     } catch (err) {
-      console.error(err);
-      setToast({ message: "⚠️ কিছু ভুল হয়েছে!", type: "error" });
+      setToast({ message: "ভুল হয়েছে!", type: "error" });
     } finally {
       setProcessing(false);
     }
   };
 
-  const selectedCatObj = categories.find((c) => c._id === form.category);
-  const maxSerial = product ? productsLength : productsLength + 1;
-
   return (
     <>
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-xl border p-5 sm:p-7 space-y-6"
+        className="bg-white rounded-2xl shadow-xl border p-5 sm:p-7 space-y-6 max-h-[90vh] overflow-y-auto"
       >
         <HeaderSerialStatus
           product={product}
           form={form}
           setForm={setForm}
-          maxSerial={maxSerial}
+          maxSerial={product ? productsLength : productsLength + 1}
         />
+
+        <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border">
+          <div>
+            <label className="block text-sm font-bold mb-1">
+              Total Sold Count
+            </label>
+            <input
+              type="number"
+              value={form.sold}
+              onChange={(e) => setForm({ ...form, sold: e.target.value })}
+              className="w-full border p-2 rounded"
+            />
+          </div>
+          <div className="flex items-center gap-2 mt-6">
+            <input
+              type="checkbox"
+              id="soldOut"
+              checked={form.isSoldOut}
+              onChange={(e) =>
+                setForm({ ...form, isSoldOut: e.target.checked })
+              }
+              className="w-5 h-5 accent-red-600"
+            />
+            <label
+              htmlFor="soldOut"
+              className="font-bold text-red-600 cursor-pointer"
+            >
+              Manual Sold Out
+            </label>
+          </div>
+        </div>
 
         <BasicInfoCategory
           form={form}
           setForm={setForm}
           categories={categories}
-          selectedCatObj={selectedCatObj}
           errors={errors}
-          setErrors={setErrors} // ✅ NEW: pass setter
+          setErrors={setErrors}
         />
 
-        <MainImageSection
-          form={form}
-          previewImage={previewImage}
-          mainDropRef={mainDropRef}
-          handleMainDrop={handleMainDrop}
-          handleSingleImage={handleSingleImage}
-          removeMainImage={removeMainImage}
-          errors={errors}
-        />
+        {form.colors.length === 0 ? (
+          <>
+            <MainImageSection
+              form={form}
+              previewImage={previewImage}
+              handleSingleImage={handleSingleImage}
+              removeMainImage={removeMainImage}
+              errors={errors}
+              mainDropRef={mainDropRef}
+            />
+            <GallerySection
+              form={form}
+              handleGalleryFiles={handleGalleryFiles}
+              galleryPreviews={galleryPreviews}
+              removeGalleryImage={removeGalleryImage}
+              clearAllGallery={() => setForm({ ...form, images: [] })}
+              galleryDropRef={galleryDropRef}
+            />
+          </>
+        ) : (
+          <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-center">
+            <p className="text-purple-700 text-sm font-bold">
+              ⚠️ কালার ভেরিয়েন্ট মোড অ্যাক্টিভ। নিচের ভেরিয়েন্ট অপশনে ইমেজ আপলোড
+              করুন।
+            </p>
+          </div>
+        )}
 
-        <GallerySection
+        <ColorVariantSection
           form={form}
-          galleryDropRef={galleryDropRef}
-          handleGalleryDrop={handleGalleryDrop}
-          handleGalleryFiles={handleGalleryFiles}
-          galleryPreviews={galleryPreviews}
-          removeGalleryImage={removeGalleryImage}
-          moveGalleryImage={moveGalleryImage}
-          clearAllGallery={clearAllGallery}
+          addColor={addColor}
+          handleColorChange={handleColorChange}
+          removeColor={removeColor}
         />
 
         <ReviewsSection
           form={form}
-          addReview={addReview}
           handleReviewChange={handleReviewChange}
-          removeReview={removeReview}
+          addReview={() =>
+            setForm((p) => ({
+              ...p,
+              reviews: [...p.reviews, { user: "", rating: 0, comment: "" }],
+            }))
+          }
+          removeReview={(idx) =>
+            setForm({
+              ...form,
+              reviews: form.reviews.filter((_, i) => i !== idx),
+            })
+          }
         />
 
         <FormButtons
@@ -419,7 +336,6 @@ export default function ProductForm({
           onClose={onClose}
         />
       </form>
-
       {toast && (
         <Toast
           message={toast.message}

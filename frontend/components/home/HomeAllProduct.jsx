@@ -86,24 +86,19 @@ export default function CategoryTabsSection() {
 
   const onMouseDown = (e) => {
     if (window.innerWidth < 640) return;
-
     isDownRef.current = true;
     scrollRef.current.classList.add("cursor-grabbing");
-
     startXRef.current = e.pageX;
     scrollLeftRef.current = scrollRef.current.scrollLeft;
     velocityRef.current = 0;
-
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   };
 
   const onMouseMove = (e) => {
     if (!isDownRef.current) return;
-
     e.preventDefault();
     const dx = e.pageX - startXRef.current;
     const walk = dx * 1.1;
-
     scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
     velocityRef.current = walk;
   };
@@ -141,9 +136,6 @@ export default function CategoryTabsSection() {
         {Array.from({ length: 8 }).map((_, i) => (
           <ProductCardSkeleton key={i} />
         ))}
-        <p className="col-span-full text-center text-sm text-gray-500 mt-4">
-          ডেটা লোড হচ্ছে...
-        </p>
       </div>
     );
   }
@@ -162,6 +154,7 @@ export default function CategoryTabsSection() {
         </span>
       </h2>
 
+      {/* ================= CATEGORY TABS ================= */}
       <div
         ref={scrollRef}
         onMouseDown={onMouseDown}
@@ -176,7 +169,15 @@ export default function CategoryTabsSection() {
           select-none
         "
       >
-        <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[6rem] sm:flex sm:flex-nowrap sm:gap-3 sm:min-w-max">
+        <div
+          className="
+            /* 📱 MOBILE (same as before) */
+            grid grid-rows-2 grid-flow-col gap-2 auto-cols-[6rem]
+
+            /* 🖥 DESKTOP (updated) */
+            sm:flex sm:flex-wrap sm:justify-center sm:gap-2
+          "
+        >
           {categories.map((cat) => (
             <button
               key={cat._id}
