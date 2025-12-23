@@ -76,8 +76,9 @@ export default function ProductDetailsClient({
 
   const tabBtn = (key, label) => (
     <button
+      key={key}
       onClick={() => setTab(key)}
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+      className={`px-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
         tab === key
           ? "bg-pink-500 text-white shadow"
           : "text-gray-600 hover:bg-gray-200"
@@ -270,7 +271,7 @@ export default function ProductDetailsClient({
                 <button
                   disabled={isOutOfStock}
                   onClick={() => updateCart(product._id, +1, currentStock)}
-                  className={`flex-1 px-4 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+                  className={`flex-1 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
                     isOutOfStock
                       ? "bg-gray-200 cursor-not-allowed text-gray-400"
                       : "bg-pink-600 text-white hover:bg-pink-700 hover:shadow-lg shadow-pink-200"
@@ -337,12 +338,12 @@ export default function ProductDetailsClient({
 
       {/* TABS SECTION */}
       <section className="mt-12">
-        <div className="flex justify-start gap-4 border-b border-gray-100 mb-8">
+        <div className="flex justify-center gap-4 border-b border-gray-100 mb-8">
           {tabBtn("desc", "Description")}
           {tabBtn("info", "Information")}
           {tabBtn("reviews", `Reviews (${product.reviews?.length || 0})`)}
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-10 shadow-sm min-h-[200px]">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-10 shadow-sm min-h-[200px]">
           {tab === "desc" && (
             <div className="whitespace-pre-line text-gray-600 leading-relaxed text-base">
               {product.description || "No description available."}
@@ -359,7 +360,7 @@ export default function ProductDetailsClient({
                 product.reviews.map((r, i) => (
                   <div
                     key={i}
-                    className="bg-gray-50 p-5 rounded-2xl border border-gray-100"
+                    className="bg-gray-50 p-6 rounded-2xl border border-gray-100"
                   >
                     <div className="flex justify-between items-center mb-3">
                       <span className="font-bold text-gray-800">{r.user}</span>
