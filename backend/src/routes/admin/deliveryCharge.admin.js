@@ -1,13 +1,13 @@
 import express from "express";
-import DeliveryFee from "../../models/DeliveryFee.js";
+import DeliveryCharge from "../../models/DeliveryCharge.js";
 
 const router = express.Router();
 
 // ✅ Admin Read
 router.get("/", async (req, res) => {
   try {
-    let data = await DeliveryFee.findOne();
-    if (!data) data = await DeliveryFee.create({ fee: 120 });
+    let data = await DeliveryCharge.findOne();
+    if (!data) data = await DeliveryCharge.create({ fee: 120 });
 
     res.json(data);
   } catch (err) {
@@ -24,8 +24,8 @@ router.patch("/", async (req, res) => {
       return res.status(400).json({ error: "Invalid fee" });
     }
 
-    let data = await DeliveryFee.findOne();
-    if (!data) data = await DeliveryFee.create({ fee: 120 });
+    let data = await DeliveryCharge.findOne();
+    if (!data) data = await DeliveryCharge.create({ fee: 120 });
 
     data.fee = Number(fee);
     await data.save();

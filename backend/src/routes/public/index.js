@@ -9,7 +9,7 @@ import footerRoutes from "./footer.routes.js";
 import receiptRoutes from "./receipt.routes.js";
 import sliderRoutes from "./slider.routes.js";
 import invoiceRoute from "./invoice.js";
-import deliveryFee from "./deliveryFee.js";
+import deliveryCharge from "./deliveryCharge.js";
 
 
 
@@ -24,7 +24,7 @@ router.use("/footer", footerRoutes);
 router.use("/receipts", receiptRoutes);
 router.use("/slider-images", sliderRoutes);
 router.use("/api", invoiceRoute);
-router.use("/delivery-fee", deliveryFee);
+router.use("/deliveryCharge", deliveryCharge);
 
 
 

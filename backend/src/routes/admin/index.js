@@ -10,7 +10,7 @@ import courierSettingsAdminRoutes from "./courierSettings.admin.routes.js";
 import categoryAdminRoutes from "./category.admin.routes.js";
 import slidersAdminRoutes from "./slider.admin.routes.js";
 import steadfastRoutes from "./steadfast.admin.routes.js";
-import deliveryFeeAdmin from "./deliveryFee.admin.js";
+import deliveryChargeAdmin from "./deliveryCharge.admin.js";
 import orderMailSend from "./order-mail-send.js";
 
 
@@ -27,7 +27,7 @@ router.use("/sliders", slidersAdminRoutes);
 router.use("/", courierSettingsAdminRoutes);
 router.use("/categories", categoryAdminRoutes);
 router.use("/api", steadfastRoutes);
-router.use("/delivery-fee", deliveryFeeAdmin);
+router.use("/DeliveryCharge", deliveryChargeAdmin);
 router.use("/order-mail-send", orderMailSend);
 
 

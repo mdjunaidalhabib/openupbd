@@ -74,7 +74,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState("cod");
 
   // ✅ Delivery Charge from DB (public api)
-  const [deliveryCharge, setDeliveryCharge] = useState(120);
+  const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [deliveryLoading, setDeliveryLoading] = useState(true);
 
   const [toast, setToast] = useState({ message: "", type: "" });
@@ -110,14 +110,14 @@ export default function CheckoutPage() {
 
   // ✅ Delivery charge load from DB
   useEffect(() => {
-    apiFetch("/delivery-fee")
+    apiFetch("/deliveryCharge")
       .then((data) => {
         const fee = Number(data?.fee);
-        setDeliveryCharge(Number.isFinite(fee) ? fee : 120);
+        setDeliveryCharge(Number.isFinite(fee) ? fee : 0);
       })
       .catch((err) => {
         console.error("❌ Failed to load delivery fee", err);
-        setDeliveryCharge(120); // fallback
+        setDeliveryCharge(0); // fallback
       })
       .finally(() => setDeliveryLoading(false));
   }, []);
@@ -328,11 +328,10 @@ export default function CheckoutPage() {
 
     setLoadingOrder(true);
 
+    // ✅ ✅ deliveryCharge + total backend calculate করবে
     const orderData = {
       items: cartItems,
       subtotal,
-      deliveryCharge,
-      total,
       billing: { name, phone, address, note },
       paymentMethod,
       paymentStatus: "pending",
@@ -361,9 +360,9 @@ export default function CheckoutPage() {
 
       const orderId = data._id || data.id;
 
-      // ✅ Pay Now → bKash Redirect
+      // ✅ Pay Now → bKash Redirect (use backend total ✅)
       if (paymentMethod === "paynow") {
-        window.location.href = `/bkash-payment?orderId=${orderId}&amount=${total}`;
+        window.location.href = `/bkash-payment?orderId=${orderId}&amount=${data.total}`;
         return;
       }
 

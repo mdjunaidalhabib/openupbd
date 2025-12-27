@@ -52,8 +52,8 @@ export const settingsChildren = [
   },
   {
     icon: <LayoutDashboard size={16} />,
-    label: "delivery-fee",
-    href: "/admin/delivery-fee",
+    label: "deliveryCharge",
+    href: "/admin/deliveryCharge",
   },
   {
     icon: <LayoutDashboard size={16} />,

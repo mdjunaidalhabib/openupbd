@@ -14,9 +14,9 @@ function Skeleton() {
   );
 }
 
-export default function AdminDeliveryFeePage() {
-  const [fee, setFee] = useState(120);
-  const [originalFee, setOriginalFee] = useState(120);
+export default function AdminDeliveryChargePage() {
+  const [fee, setFee] = useState(0);
+  const [originalFee, setOriginalFee] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,21 +27,24 @@ export default function AdminDeliveryFeePage() {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    apiFetch("/admin/delivery-fee")
+    apiFetch("/admin/deliveryCharge")
       .then((data) => {
-        const loadedFee = Number(data?.fee || 120);
-        setFee(loadedFee);
-        setOriginalFee(loadedFee);
+        const loadedFee = Number(data?.fee ?? 0);
+        setFee(Number.isFinite(loadedFee) ? loadedFee : 0);
+        setOriginalFee(Number.isFinite(loadedFee) ? loadedFee : 0);
       })
       .catch(() =>
-        setToast({ message: "❌ Failed to load delivery fee!", type: "error" })
+        setToast({
+          message: "❌ Failed to load delivery charge!",
+          type: "error",
+        })
       )
       .finally(() => setLoading(false));
   }, []);
 
   async function saveFee() {
     if (fee < 0) {
-      setToast({ message: "❌ Fee cannot be negative!", type: "error" });
+      setToast({ message: "❌ Charge cannot be negative!", type: "error" });
       return;
     }
 
@@ -49,7 +52,7 @@ export default function AdminDeliveryFeePage() {
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/delivery-fee`,
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/deliveryCharge`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -62,7 +65,7 @@ export default function AdminDeliveryFeePage() {
 
       setOriginalFee(fee);
       setIsEditing(false); // ✅ back to read mode after save
-      setToast({ message: "✅ Delivery fee updated!", type: "success" });
+      setToast({ message: "✅ Delivery charge updated!", type: "success" });
     } catch (err) {
       setToast({ message: "❌ Update failed!", type: "error" });
     } finally {
@@ -93,9 +96,9 @@ export default function AdminDeliveryFeePage() {
         <div className="max-w-md mx-auto p-6 bg-white shadow rounded-xl mt-10">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold mb-1">🚚 Delivery Fee</h2>
+              <h2 className="text-lg font-bold mb-1">🚚 Delivery Charge</h2>
               <p className="text-sm text-gray-500">
-                Update the delivery fee for all customers.
+                Update the delivery charge for all customers.
               </p>
             </div>
 
@@ -122,7 +125,9 @@ export default function AdminDeliveryFeePage() {
           {!isEditing ? (
             <div className="mt-6">
               <div className="flex items-center justify-between bg-gray-50 border rounded-lg p-2">
-                <span className="text-sm font-medium text-gray-700">Fee</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Charge
+                </span>
                 <span className="text-lg font-bold text-gray-900">৳ {fee}</span>
               </div>
               <p className="mt-3 text-xs text-gray-400">
@@ -134,7 +139,7 @@ export default function AdminDeliveryFeePage() {
             <div className="mt-6">
               <label className="block mb-4">
                 <span className="text-sm font-medium text-gray-700">
-                  Fee (৳)
+                  Charge (৳)
                 </span>
                 <input
                   type="number"

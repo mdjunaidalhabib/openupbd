@@ -1,6 +1,7 @@
 import express from "express";
 import Order from "../../models/Order.js";
 import Product from "../../models/Product.js";
+import DeliveryCharge from "../../models/DeliveryCharge.js"; 
 
 // ✅ FIX: correct relative path (routes/public থেকে utils)
 import { getOrderMailSendSettings } from "../../../utils/order-mail-send.js";
@@ -38,6 +39,20 @@ const computeSoldOut = (product) => {
 };
 
 /**
+ * ✅ DB থেকে Latest delivery fee fetch
+ */
+const getDeliveryFeeFromDB = async () => {
+  try {
+    const charge = await DeliveryCharge.findOne().sort({ createdAt: -1 });
+    const fee = toNumber(charge?.fee, 0);
+    return fee;
+  } catch (err) {
+    console.error("❌ DeliveryCharge DB Fetch Error:", err);
+    return 0;
+  }
+};
+
+/**
  * ✅ Inventory update (stock & sold) for a single item
  * item: { productId, qty, color }
  * mode: "decrease" | "increase"
@@ -59,6 +74,7 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
     const idx = product.colors.findIndex(
       (c) => String(c?.name) === String(color)
     );
+
     if (idx === -1) {
       throw new Error(
         `Variant not found: ${color} for product: ${product.name}`
@@ -76,11 +92,9 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
 
       product.colors[idx].stock = currentVariantStock - qty;
       product.colors[idx].sold = toNumber(product.colors[idx]?.sold, 0) + qty;
-
       product.sold = toNumber(product.sold, 0) + qty;
     } else {
       product.colors[idx].stock = currentVariantStock + qty;
-
       product.colors[idx].sold = toNumber(product.colors[idx]?.sold, 0) - qty;
       if (product.colors[idx].sold < 0) product.colors[idx].sold = 0;
 
@@ -111,7 +125,6 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
     if (product.stock <= 0) product.stock = 0;
   } else {
     product.stock = baseStock + qty;
-
     product.sold = toNumber(product.sold, 0) - qty;
     if (product.sold < 0) product.sold = 0;
   }
@@ -125,15 +138,14 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
 
 /**
  * @route   POST /api/orders
- * @desc    নতুন অর্ডার তৈরি করা এবং স্টক কমানো + সোল্ড আপডেট (Variant Wise ✅)
- *          ✅ Admin Email Notify Added (DB driven)
+ * @desc    ✅ Create new order + stock update + Admin Email
+ *          ✅ DeliveryCharge DB driven
  */
 router.post("/", async (req, res) => {
   try {
     const {
       items,
       subtotal,
-      total,
       billing,
       discount,
       promoCode,
@@ -143,7 +155,7 @@ router.post("/", async (req, res) => {
     } = req.body;
 
     // ✅ Validation
-    if (!items?.length || subtotal == null || total == null) {
+    if (!items?.length || subtotal == null) {
       return res.status(400).json({
         error: "প্রয়োজনীয় তথ্য প্রদান করা হয়নি (Missing fields)",
       });
@@ -157,16 +169,23 @@ router.post("/", async (req, res) => {
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    // ✅ delivery charge ALWAYS 120 (enforced)
-    const DELIVERY_CHARGE = 120;
+    // ✅ ✅ DeliveryCharge DB থেকে আসবে
+    const DELIVERY_CHARGE = await getDeliveryFeeFromDB();
 
-    // ✅ SAVE ORDER FIRST
+    // ✅ ✅ Backend-safe total calculation
+    const calculatedSubtotal = toNumber(subtotal, 0);
+    const calculatedDiscount = toNumber(discount, 0);
+
+    const calculatedTotal =
+      calculatedSubtotal + DELIVERY_CHARGE - calculatedDiscount;
+
+    // ✅ SAVE ORDER
     const order = new Order({
       items,
-      subtotal,
+      subtotal: calculatedSubtotal,
       deliveryCharge: DELIVERY_CHARGE,
-      discount: toNumber(discount, 0),
-      total,
+      discount: calculatedDiscount,
+      total: calculatedTotal,
       billing: {
         name: billing.name,
         phone: billing.phone,
@@ -190,7 +209,7 @@ router.post("/", async (req, res) => {
       await Promise.all(updates);
     } catch (stockErr) {
       console.error("❌ Stock/Sold Update Error:", stockErr);
-      // Optional rollback if you want strict stock check
+      // Optional rollback strict stock mode:
       // await Order.findByIdAndDelete(savedOrder._id);
       // return res.status(400).json({ error: stockErr.message || "Stock not available" });
     }
@@ -220,7 +239,6 @@ router.post("/", async (req, res) => {
       }
     } catch (mailErr) {
       console.error("❌ Admin Email Send Failed:", mailErr);
-      // ✅ Do not fail order because mail failed
     }
 
     return res.status(201).json(savedOrder);
@@ -232,7 +250,6 @@ router.post("/", async (req, res) => {
 
 /**
  * @route   GET /api/orders/:id
- * @desc    ID দিয়ে নির্দিষ্ট অর্ডারের বিস্তারিত তথ্য দেখা
  */
 router.get("/:id", async (req, res) => {
   try {
@@ -253,8 +270,7 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
- * @route   GET /api/orders
- * @desc    ইউজার আইডি দিয়ে সব অর্ডার লিস্ট দেখা
+ * @route   GET /api/orders?userId=xxx
  */
 router.get("/", async (req, res) => {
   try {
@@ -271,7 +287,7 @@ router.get("/", async (req, res) => {
 
 /**
  * @route   PUT /api/orders/:id
- * @desc    অর্ডার ক্যানসেল বা আপডেট করা (Variant Restock ✅)
+ * ✅ Cancel = Restock
  */
 router.put("/:id", async (req, res) => {
   try {
