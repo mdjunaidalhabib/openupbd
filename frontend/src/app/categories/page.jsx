@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import Image from "next/image";
@@ -138,19 +139,17 @@ export default function CategoryPage() {
                     : "hover:bg-pink-300"
                 }`}
               >
-                {cat.image && (
-                  <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
-                    <Image
-                      src={cat.image}
-                      alt={cat.name}
-                      fill
-                      sizes="(max-width: 768px) 8vw,
-                             (max-width: 1200px) 6vw,
-                             4vw"
-                      className="rounded-md object-cover border"
-                    />
-                  </div>
-                )}
+                <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0 rounded-md overflow-hidden border bg-white">
+                  <Image
+                    src={cat.image || "/no-image.png"}
+                    alt={cat.name}
+                    fill
+                    sizes="40px"
+                    loading="lazy"
+                    className="object-cover"
+                  />
+                </div>
+
                 <span className="truncate">{cat.name}</span>
               </li>
             ))}
@@ -176,8 +175,9 @@ export default function CategoryPage() {
             </div>
           ) : products.length ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {products.map((p) => (
-                <ProductCard key={p._id} product={p} />
+              {products.map((p, i) => (
+                // ✅ first row gets priority (LCP fix if needed)
+                <ProductCard key={p._id} product={p} priority={i < 4} />
               ))}
             </div>
           ) : (

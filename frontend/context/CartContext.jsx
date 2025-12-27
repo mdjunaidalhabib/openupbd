@@ -8,26 +8,53 @@ export const CartProvider = ({ children }) => {
   const [wishlist, setWishlist] = useState([]);
   const [uniqueCount, setUniqueCount] = useState(0); // 🔹 আলাদা প্রোডাক্ট সংখ্যা ট্র্যাক
 
-  const updateCart = (id, change = 1, isFromAddButton = false) => {
+  // ✅ Helper: key normalize (for backward compatibility)
+  const normalizeCartKey = (id) => {
+    if (id === null || id === undefined) return "";
+    return String(id);
+  };
+
+  // ✅ Helper: get productId from key (productId|color)
+  const getProductIdFromKey = (key) => {
+    const [productId] = String(key).split("|");
+    return String(productId);
+  };
+
+  const updateCart = (
+    id,
+    change = 1,
+    stockLimit = Infinity, // ✅ NEW: stock limit support
+    isFromAddButton = false
+  ) => {
+    const key = normalizeCartKey(id);
+    if (!key) return;
+
     setCart((prev) => {
-      const exists = prev[id] || 0;
+      const exists = prev[key] || 0;
       let newCart = { ...prev };
 
-      // ✅ শুধু প্রথমবার Add করলে unique count বাড়াবে
+      // ✅ শুধু প্রথমবার Add করলে unique count বাড়াবে (key based)
       if (isFromAddButton && !exists) {
         setUniqueCount((prevCount) => prevCount + 1);
       }
 
-      const newQty = exists + change;
+      let newQty = exists + change;
+
+      // ✅ stock limit enforce (only when increasing)
+      if (change > 0 && Number.isFinite(Number(stockLimit))) {
+        newQty = Math.min(newQty, Number(stockLimit));
+      }
 
       // ❌ Quantity শূন্য হলে প্রোডাক্ট রিমুভ করো
       if (newQty <= 0) {
-        delete newCart[id];
-        setUniqueCount((prevCount) => Math.max(0, prevCount - 1)); // প্রোডাক্ট রিমুভ হলে কাউন্ট কমাও
+        if (newCart[key]) {
+          delete newCart[key];
+          setUniqueCount((prevCount) => Math.max(0, prevCount - 1)); // প্রোডাক্ট রিমুভ হলে কাউন্ট কমাও
+        }
       }
       // ✅ Quantity থাকলে শুধু আপডেট করো
       else {
-        newCart[id] = newQty;
+        newCart[key] = newQty;
       }
 
       return newCart;
@@ -35,10 +62,13 @@ export const CartProvider = ({ children }) => {
   };
 
   const removeFromCart = (id) => {
+    const key = normalizeCartKey(id);
+    if (!key) return;
+
     setCart((prev) => {
       const copy = { ...prev };
-      if (copy[id]) {
-        delete copy[id];
+      if (copy[key]) {
+        delete copy[key];
         setUniqueCount((prevCount) => Math.max(0, prevCount - 1)); // 🔹 রিমুভে কাউন্ট কমাও
       }
       return copy;
@@ -57,7 +87,23 @@ export const CartProvider = ({ children }) => {
       const savedWishlist = localStorage.getItem("wishlist");
       const savedCount = localStorage.getItem("uniqueCount");
 
-      if (savedCart) setCart(JSON.parse(savedCart));
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+
+        // ✅ Ensure cart is object (fix variants.map is not a function type bugs)
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          setCart(parsed);
+
+          // ✅ If uniqueCount missing or invalid, recalc safely
+          if (!savedCount) {
+            setUniqueCount(Object.keys(parsed).length);
+          }
+        } else {
+          setCart({});
+          setUniqueCount(0);
+        }
+      }
+
       if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
       if (savedCount) setUniqueCount(Number(savedCount));
     }

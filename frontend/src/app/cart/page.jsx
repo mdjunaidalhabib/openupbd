@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState, useMemo, memo } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,24 +9,56 @@ import { apiFetch } from "../../../utils/api";
 import CheckoutButton from "../../../components/home/CheckoutButton";
 import CartSkeleton from "../../../components/skeletons/CartSkeleton";
 
+// ✅ Helper: cart key parse (productId|Color)
+const parseCartKey = (key) => {
+  const [productId, color] = String(key).split("|");
+  return { productId, color: color || null };
+};
+
 // ✅ Memoized single Cart Item component
 const CartItem = memo(
-  ({ p, updateCart, removeFromCart, toggleWishlist, wishlist }) => {
+  ({
+    p,
+    updateCart,
+    removeFromCart,
+    toggleWishlist,
+    wishlist,
+    selected,
+    toggleSelect,
+  }) => {
     const discount =
       p.oldPrice && (((p.oldPrice - p.price) / p.oldPrice) * 100).toFixed(1);
-    const isInWishlist = wishlist.includes(p._id);
+
+    const isInWishlist = wishlist.includes(String(p._id));
+
+    // ✅ stock & soldout aware (variant > product)
+    const currentStock = p.colorVariant
+      ? Number(p.colorVariant.stock || 0)
+      : Number(p.stock || 0);
+
+    const isOutOfStock = currentStock <= 0 || p.isSoldOut;
 
     return (
-      <div className="bg-pink-100 rounded-lg shadow-sm p-3 flex items-center gap-3 hover:shadow-md transition-all duration-300">
+      <div className="bg-pink-100 rounded-md shadow-sm p-2 flex items-center gap-2 hover:shadow transition-all duration-300">
+        {/* ✅ Select Checkbox */}
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => toggleSelect(p.cartKey)}
+          className="w-4 h-4 accent-pink-600 cursor-pointer"
+        />
+
         {/* ✅ Image Left */}
         <Link
           href={`/products/${p._id}`}
-          className="relative w-20 h-20 flex-shrink-0"
+          className="relative w-14 h-14 flex-shrink-0"
         >
           <Image
-            src={p.image}
-            alt={p.name}
+            src={p.image || "/no-image.png"}
+            alt={p.name || "Product"}
             fill
+            sizes="56px"
+            loading="lazy"
             className="object-contain rounded"
           />
         </Link>
@@ -35,74 +68,105 @@ const CartItem = memo(
           <div>
             <Link
               href={`/products/${p._id}`}
-              className="font-semibold text-sm sm:text-base text-gray-800 hover:underline"
+              className="font-semibold text-[12px] sm:text-sm text-gray-800 hover:underline leading-tight"
             >
               {p.name}
             </Link>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span className="text-blue-600 font-bold text-sm">
+
+            {/* ✅ Show selected variant */}
+            {p.selectedColor && (
+              <p className="text-[10px] font-bold text-pink-600 mt-0.5">
+                Variant: {p.selectedColor}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+              <span className="text-blue-600 font-bold text-[12px]">
                 ৳{p.price}
               </span>
               {p.oldPrice && (
-                <span className="line-through text-gray-400 text-xs">
+                <span className="line-through text-gray-400 text-[10px]">
                   ৳{p.oldPrice}
                 </span>
               )}
               {discount && (
-                <span className="text-red-500 text-xs font-medium">
+                <span className="text-red-500 text-[10px] font-medium">
                   {discount}% OFF
                 </span>
               )}
             </div>
+
+            {/* ✅ Stock badge */}
+            <p
+              className={`text-[10px] font-bold mt-0.5 ${
+                isOutOfStock ? "text-red-500" : "text-green-600"
+              }`}
+            >
+              {isOutOfStock ? "Out of Stock" : `In Stock (${currentStock})`}
+            </p>
           </div>
 
           {/* ✅ Quantity + Buttons Row */}
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-1">
             {/* Qty Control */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => p.qty > 1 && updateCart(p._id, -1)}
-                className={`p-2 rounded text-white text-xs ${
+                type="button"
+                onClick={() =>
+                  p.qty > 1 && updateCart(p.cartKey, -1, currentStock)
+                }
+                className={`p-1.5 rounded text-white text-[10px] ${
                   p.qty > 1
                     ? "bg-red-500 hover:bg-red-600"
                     : "bg-gray-400 cursor-not-allowed"
                 }`}
               >
-                <FaMinus />
+                <FaMinus size={10} />
               </button>
-              <span className="font-bold text-sm">{p.qty}</span>
+
+              <span className="font-bold text-[12px]">{p.qty}</span>
+
               <button
-                onClick={() => updateCart(p._id, +1)}
-                className="bg-green-500 text-white p-2 rounded text-xs hover:bg-green-600"
+                type="button"
+                onClick={() => updateCart(p.cartKey, +1, currentStock)}
+                disabled={isOutOfStock || p.qty >= currentStock}
+                className={`text-white p-1.5 rounded text-[10px] ${
+                  isOutOfStock || p.qty >= currentStock
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-500 hover:bg-green-600"
+                }`}
               >
-                <FaPlus />
+                <FaPlus size={10} />
               </button>
             </div>
 
             {/* Remove / Wishlist */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
-                onClick={() => removeFromCart(p._id)}
-                className="bg-red-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-700"
+                type="button"
+                onClick={() => removeFromCart(p.cartKey)}
+                className="bg-red-600 text-white px-2 py-1 rounded text-[10px] flex items-center gap-1 hover:bg-red-700"
               >
-                <FaTrash /> <span>রিমুভ</span>
+                <FaTrash size={10} /> <span>রিমুভ</span>
               </button>
+
               <button
+                type="button"
                 onClick={() => toggleWishlist(p._id)}
-                className={`p-2 rounded-full ${
+                className={`p-1.5 rounded-full ${
                   isInWishlist
                     ? "bg-red-500 text-white"
                     : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                 }`}
               >
-                <FaHeart size={12} />
+                <FaHeart size={10} />
               </button>
             </div>
           </div>
 
           {/* ✅ Total */}
-          <div className="text-blue-600 font-semibold text-sm mt-2 text-right">
-            মোট: ৳{p.price * p.qty}
+          <div className="text-blue-600 font-semibold text-[12px] mt-1 text-right">
+            মোট: ৳{Number(p.price || 0) * Number(p.qty || 0)}
           </div>
         </div>
       </div>
@@ -110,9 +174,10 @@ const CartItem = memo(
   },
   (prevProps, nextProps) => {
     return (
-      prevProps.p._id === nextProps.p._id &&
+      prevProps.p.cartKey === nextProps.p.cartKey &&
       prevProps.p.qty === nextProps.p.qty &&
-      prevProps.wishlist === nextProps.wishlist
+      prevProps.wishlist === nextProps.wishlist &&
+      prevProps.selected === nextProps.selected
     );
   }
 );
@@ -130,10 +195,13 @@ export default function CartPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ selected cart keys
+  const [selectedKeys, setSelectedKeys] = useState([]);
+
   useEffect(() => {
     apiFetch("/products")
       .then((data) => {
-        setAllProducts(data);
+        setAllProducts(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
@@ -144,40 +212,131 @@ export default function CartPage() {
 
   const items = useMemo(() => {
     if (!allProducts.length) return [];
+
     return Object.keys(cart)
-      .map((id) => {
-        const p = allProducts.find((x) => String(x._id) === id);
+      .map((key) => {
+        const { productId, color } = parseCartKey(key);
+
+        const p = allProducts.find((x) => String(x._id) === String(productId));
         if (!p) return null;
-        return { ...p, qty: cart[id] };
+
+        // ✅ robust variant match (case insensitive)
+        const variant = color
+          ? p.colors?.find(
+              (c) =>
+                String(c?.name || "")
+                  .trim()
+                  .toLowerCase() ===
+                String(color || "")
+                  .trim()
+                  .toLowerCase()
+            )
+          : null;
+
+        // ✅ use variant image first
+        const image =
+          variant?.images?.[0] ||
+          p.image ||
+          (Array.isArray(p.images) && p.images.length > 0
+            ? p.images[0]
+            : "/no-image.png");
+
+        return {
+          ...p,
+          cartKey: key,
+          selectedColor: color,
+          colorVariant: variant,
+          qty: cart[key],
+          image,
+        };
       })
       .filter(Boolean);
   }, [cart, allProducts]);
 
-  const grandTotal = items.reduce((sum, p) => sum + p.price * p.qty, 0);
-  const handleClearCart = () => setCart({});
+  // ✅ Auto select all when cart changes (first time)
+  useEffect(() => {
+    const keys = items.map((x) => x.cartKey);
+    setSelectedKeys((prev) => (prev.length ? prev : keys));
+  }, [items]);
+
+  const toggleSelect = (cartKey) => {
+    setSelectedKeys((prev) =>
+      prev.includes(cartKey)
+        ? prev.filter((k) => k !== cartKey)
+        : [...prev, cartKey]
+    );
+  };
+
+  const handleSelectAll = () => setSelectedKeys(items.map((x) => x.cartKey));
+  const handleUnselectAll = () => setSelectedKeys([]);
+
+  const selectedItems = useMemo(() => {
+    return items.filter((p) => selectedKeys.includes(p.cartKey));
+  }, [items, selectedKeys]);
+
+  const grandTotal = selectedItems.reduce((sum, p) => sum + p.price * p.qty, 0);
+
+  const handleClearCart = () => {
+    setCart({});
+    setSelectedKeys([]);
+  };
+
+  const hasOutOfStock = selectedItems.some((p) => {
+    const currentStock = p.colorVariant
+      ? Number(p.colorVariant.stock || 0)
+      : Number(p.stock || 0);
+    return currentStock <= 0 || p.isSoldOut || p.qty > currentStock;
+  });
+
+  const checkoutItems = useMemo(() => {
+    return selectedItems
+      .map((p) => {
+        const stock = p.colorVariant
+          ? Number(p.colorVariant.stock || 0)
+          : Number(p.stock || 0);
+
+        return {
+          productId: String(p._id),
+          qty: Number(p.qty || 0),
+          color: p.selectedColor || null,
+          stock: Number(stock || 0),
+        };
+      })
+      .filter((it) => it.productId && it.qty > 0);
+  }, [selectedItems]);
 
   return (
-    <main className="bg-pink-50 ">
-      <div className="container mx-auto px-3 sm:px-6 py-6">
+    <main className="bg-pink-50">
+      <div className="container mx-auto px-3 sm:px-6 py-5">
         {/* ✅ Header */}
         <div className="mb-2">
-          {/* টাইটেল — সবসময় প্রথম লাইনে */}
-          <h2 className="text-center text-xl sm:text-2xl font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text mb-3">
+          <h2 className="text-center text-lg sm:text-xl font-semibold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text mb-2">
             🛒 আপনার কার্ট
           </h2>
 
-          {/* বাটন — সবসময় দ্বিতীয় লাইনে */}
           {items.length > 0 && !loading && (
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="bg-pink-500 text-white px-3 py-1 rounded text-xs hover:bg-pink-600"
+                >
+                  সব সিলেক্ট
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnselectAll}
+                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-xs hover:bg-gray-300"
+                >
+                  আনসিলেক্ট
+                </button>
+              </div>
+
               <button
+                type="button"
                 onClick={handleClearCart}
-                className="
-                  bg-red-500 text-white 
-                  px-3 py-1.5 sm:px-4 sm:py-2
-                  text-xs sm:text-sm font-medium
-                  rounded-md sm:rounded-lg
-                  hover:bg-red-600 transition
-                "
+                className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 transition"
               >
                 সব মুছে ফেলুন
               </button>
@@ -185,9 +344,8 @@ export default function CartPage() {
           )}
         </div>
 
-        {/* Loader */}
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <CartSkeleton key={i} />
             ))}
@@ -203,26 +361,39 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {items.map((p) => (
               <CartItem
-                key={p._id}
+                key={p.cartKey}
                 p={p}
                 updateCart={updateCart}
                 removeFromCart={removeFromCart}
                 toggleWishlist={toggleWishlist}
                 wishlist={wishlist}
+                selected={selectedKeys.includes(p.cartKey)}
+                toggleSelect={toggleSelect}
               />
             ))}
 
-            {/* ✅ Grand Total */}
-            <div className="text-right font-bold text-lg mt-6 border-t pt-4">
-              মোট মূল্য: <span className="text-blue-600">৳{grandTotal}</span>
+            <div className="text-right font-bold text-base mt-4 border-t pt-3">
+              সিলেক্টেড মোট:{" "}
+              <span className="text-blue-600">৳{grandTotal}</span>
             </div>
 
-            {/* ✅ Checkout Button */}
-            <div className="pb-8 flex justify-end">
-              <CheckoutButton label="চেকআউট করুন" fullWidth={false} />
+            {hasOutOfStock && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-bold p-2 rounded-lg text-right">
+                ⚠️ সিলেক্টেড আইটেমে Out of Stock আছে! আগে সেগুলো সরান বা qty
+                কমান।
+              </div>
+            )}
+
+            <div className="pb-6 flex justify-end">
+              <CheckoutButton
+                label="চেকআউট করুন"
+                fullWidth={false}
+                disabled={hasOutOfStock || checkoutItems.length === 0}
+                checkoutItems={checkoutItems}
+              />
             </div>
           </div>
         )}

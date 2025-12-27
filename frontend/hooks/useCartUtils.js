@@ -12,33 +12,30 @@ export function useCartUtils() {
     toggleWishlist: contextToggleWishlist,
   } = useCart();
 
+  // ✅ Helper: normalize key (supports productId|color)
+  const normalizeCartKey = (id) => {
+    if (id === null || id === undefined) return "";
+    return String(id);
+  };
+
   const updateCart = (id, change = 1, thirdArg = false) => {
-    const key = String(id);
+    const key = normalizeCartKey(id);
+    if (!key) return;
 
-    // If thirdArg is a number => treat as stock limit (legacy support)
+    // ✅ If thirdArg is a number => treat as stock limit (legacy support)
     if (typeof thirdArg === "number") {
-      const stock = thirdArg;
+      const stockLimit = thirdArg;
 
-      setCart((prev) => {
-        const currentQty = prev[key] || 0;
-        const newQty = currentQty + change;
-
-        if (newQty <= 0) {
-          const copy = { ...prev };
-          delete copy[key];
-          return copy;
-        }
-
-        if (stock && newQty > stock) return prev;
-        return { ...prev, [key]: newQty };
-      });
-
+      // ✅ Now handled by contextUpdateCart directly (keeps uniqueCount consistent)
+      contextUpdateCart(key, change, stockLimit, false);
       return;
     }
 
-    // Otherwise thirdArg is boolean => isFromAddButton (new consistent way)
+    // ✅ Otherwise thirdArg is boolean => isFromAddButton
     const isFromAddButton = !!thirdArg;
-    contextUpdateCart(key, change, isFromAddButton);
+
+    // ✅ contextUpdateCart signature: (id, change, stockLimit, isFromAddButton)
+    contextUpdateCart(key, change, Infinity, isFromAddButton);
   };
 
   /**

@@ -4,12 +4,16 @@ export default function ProductCard({ product, onEdit, onDelete }) {
   const cat = product?.category;
   const isHidden = product?.isActive === false;
 
-  // ১. ইমেজ লজিক: মেইন ইমেজ না থাকলে প্রথম কালারের প্রথম ছবি নিবে
+  // ১. ইমেজ লজিক আপডেট: মেইন ইমেজ না থাকলে গ্যালারি বা ভেরিয়েন্ট চেক করবে
   const displayImage =
     product.image ||
+    (product.images && product.images.length > 0 ? product.images[0] : null) || // গ্যালারির প্রথম ছবি
     (product.colors &&
       product.colors.length > 0 &&
-      product.colors[0].images?.[0]);
+      product.colors[0].images?.[0]) || // ভেরিয়েন্ট ছবি
+    (product.variants &&
+      product.variants.length > 0 &&
+      product.variants[0].images?.[0]);
 
   return (
     <div
@@ -17,7 +21,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
         ${isHidden ? "bg-gray-100 opacity-80" : "bg-white hover:shadow-lg"}
       `}
     >
-      {/* 🖼️ প্রোডাক্ট ছবি (মেইন অথবা ভেরিয়েন্ট থেকে) */}
+      {/* 🖼️ প্রোডাক্ট ছবি (মেইন অথবা ভেরিয়েন্ট থেকে) */}
       <div className="w-full h-40 overflow-hidden rounded-lg mb-3 relative bg-gray-50">
         {displayImage ? (
           <img
@@ -42,14 +46,14 @@ export default function ProductCard({ product, onEdit, onDelete }) {
           </div>
         )}
 
-        {/* 🎨 কালার ডট প্রিভিউ (যদি ভেরিয়েন্ট থাকে) */}
+        {/* 🎨 কালার ডট প্রিভিউ */}
         {product.colors?.length > 0 && (
           <div className="absolute bottom-2 left-2 flex gap-1 bg-white/70 p-1 rounded-full backdrop-blur-sm">
             {product.colors.slice(0, 4).map((c, i) => (
               <div
                 key={i}
                 className="w-2 h-2 rounded-full border border-gray-300"
-                style={{ backgroundColor: c.name.toLowerCase() }}
+                style={{ backgroundColor: c.name?.toLowerCase() }}
                 title={c.name}
               />
             ))}
@@ -87,9 +91,9 @@ export default function ProductCard({ product, onEdit, onDelete }) {
           Serial: {product.order || 0}
         </span>
 
-        {product.colors?.length > 0 && (
+        {(product.colors?.length > 0 || product.variants?.length > 1) && (
           <span className="px-2 py-0.5 rounded bg-purple-100 border border-purple-200 text-purple-700 font-medium">
-            {product.colors.length} Colors
+            {product.colors?.length || product.variants?.length} Variants
           </span>
         )}
 
@@ -127,14 +131,22 @@ export default function ProductCard({ product, onEdit, onDelete }) {
       {/* 🎯 বাটন */}
       <div className="mt-auto pt-4 flex gap-2">
         <button
-          onClick={onEdit}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
           className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
         >
           ✏ সম্পাদনা
         </button>
 
         <button
-          onClick={onDelete}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
           className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
         >
           🗑 মুছুন

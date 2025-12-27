@@ -1,6 +1,25 @@
 import mongoose from "mongoose";
 
-// --- রিভিউ স্কিমা ---
+// --- Variant/Color Schema ---
+const colorSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+
+    // ✅ Variant price (per color)
+    price: { type: Number, default: 0, min: 0 },
+
+    // ✅ Optional oldPrice (per color)
+    oldPrice: { type: Number, default: null, min: 0 },
+
+    images: { type: [String], default: [] },
+
+    stock: { type: Number, default: 0, min: 0 },
+    sold: { type: Number, default: 0, min: 0 },
+  },
+  { _id: true }
+);
+
+// --- Review Schema ---
 const reviewSchema = new mongoose.Schema(
   {
     user: { type: String, default: "" },
@@ -10,30 +29,18 @@ const reviewSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// --- কালার ভেরিয়েন্ট স্কিমা ---
-const colorSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    images: { type: [String], default: [] }, // নির্দিষ্ট কালারের ছবিগুলো
-    stock: { type: Number, default: 0, min: 0 },
-  },
-  { _id: true } // আইডি থাকলে ভবিষ্যতে নির্দিষ্ট ভেরিয়েন্ট আপডেট করা সহজ হয়
-);
-
-// --- মেইন প্রোডাক্ট স্কিমা ---
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     price: { type: Number, required: true, min: 0 },
-    oldPrice: { type: Number, default: 0, min: 0 },
 
-    // মেইন ইমেজ (কালার ভেরিয়েন্ট না থাকলে এটি ব্যবহৃত হবে)
-    image: { type: String, default: "" },
+    // ✅ default null
+    oldPrice: { type: Number, default: null, min: 0 },
 
-    // গ্যালারি ইমেজ (কালার ভেরিয়েন্ট না থাকলে এটি ব্যবহৃত হবে)
-    images: { type: [String], default: [] },
+    image: { type: String, default: "" }, // Main Image
+    images: { type: [String], default: [] }, // Gallery Images
 
-    // কালার ভেরিয়েন্ট ডাটা
+    // ✅ variants
     colors: { type: [colorSchema], default: [] },
 
     rating: { type: Number, default: 0, min: 0, max: 5 },
@@ -41,8 +48,9 @@ const productSchema = new mongoose.Schema(
     additionalInfo: { type: String, default: "" },
     reviews: [reviewSchema],
 
-    stock: { type: Number, default: 0, min: 0 }, // টোটাল স্টক (বা ডিফল্ট স্টক)
+    stock: { type: Number, default: 0, min: 0 },
     sold: { type: Number, default: 0, min: 0 },
+
     isSoldOut: { type: Boolean, default: false },
 
     category: {
@@ -50,13 +58,13 @@ const productSchema = new mongoose.Schema(
       ref: "Category",
       required: true,
     },
+
     order: { type: Number, default: 1 },
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true } // createdAt এবং updatedAt অটো তৈরি হবে
+  { timestamps: true }
 );
 
-// ইডেক্সিং (সার্চ পারফরম্যান্স বাড়ানোর জন্য)
 productSchema.index({ name: "text", category: 1 });
 
 export default mongoose.models.Product ||

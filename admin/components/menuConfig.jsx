@@ -52,7 +52,17 @@ export const settingsChildren = [
   },
   {
     icon: <LayoutDashboard size={16} />,
-    label: "courier",
-    href: "/admin/courier-settings",
+    label: "delivery-fee",
+    href: "/admin/delivery-fee",
+  },
+  {
+    icon: <LayoutDashboard size={16} />,
+    label: "order-mail-send",
+    href: "/admin/order-mail-send",
+  },
+  {
+    icon: <LayoutDashboard size={16} />,
+    label: "courier-setup",
+    href: "/admin/courier-setup",
   },
 ];

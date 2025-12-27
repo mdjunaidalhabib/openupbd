@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -51,9 +52,9 @@ export default function ImageSlider({
   }, [API_BASE, images]);
 
   const count = slides.length;
-
   const shouldShowSkeleton = loading || count === 0;
 
+  // ✅ ghost-first duplicate for smooth loop
   const extended = useMemo(() => {
     return count > 1 ? [...slides, slides[0]] : slides;
   }, [slides, count]);
@@ -159,46 +160,45 @@ export default function ImageSlider({
           onPointerCancel={onPointerUp}
           onPointerLeave={onPointerUp}
         >
-          {extended.map((img, i) => (
-            <div key={i} className="w-full shrink-0">
-              {img.href ? (
-                <Link href={img.href} className="block">
-                  <div
-                    className={`relative w-full ${ratioClass} overflow-hidden rounded-2xl bg-gray-100`}
-                  >
-                    <Image
-                      src={img.src}
-                      alt={img.alt || "slide"}
-                      fill
-                      className="object-cover"
-                      sizes="100vw"
-                      priority={true}
-                      loading="eager"
-                    />
-                  </div>
-                </Link>
-              ) : (
-                <div
-                  className={`relative w-full ${ratioClass} overflow-hidden rounded-2xl bg-gray-100`}
-                >
-                  <Image
-                    src={img.src}
-                    alt={img.alt || "slide"}
-                    fill
-                    className="object-cover"
-                    sizes="100vw"
-                    priority={true}
-                    loading="eager"
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+          {extended.map((img, i) => {
+            // ✅ only first real slide is LCP (priority + eager)
+            const isGhostDuplicate = count > 1 && i === count;
+            const isPriority = i === 0 && !isGhostDuplicate;
+
+            const imageEl = (
+              <div
+                className={`relative w-full ${ratioClass} overflow-hidden rounded-2xl bg-gray-100`}
+              >
+                <Image
+                  src={img.src}
+                  alt={img.alt || "slide"}
+                  fill
+                  className="object-cover"
+                  sizes="100vw"
+                  priority={isPriority}
+                  loading={isPriority ? "eager" : "lazy"}
+                />
+              </div>
+            );
+
+            return (
+              <div key={i} className="w-full shrink-0">
+                {img.href ? (
+                  <Link href={img.href} className="block">
+                    {imageEl}
+                  </Link>
+                ) : (
+                  imageEl
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {shouldShowArrowsCalc && (
           <>
             <button
+              type="button"
               onClick={() => setIndex((i) => (i > 0 ? i - 1 : 0))}
               aria-label="Prev"
               className="hidden sm:grid absolute left-2 top-1/2 -translate-y-1/2 place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur shadow hover:bg-white"
@@ -206,6 +206,7 @@ export default function ImageSlider({
               <FaChevronLeft />
             </button>
             <button
+              type="button"
               onClick={() => setIndex((i) => i + 1)}
               aria-label="Next"
               className="hidden sm:grid absolute right-2 top-1/2 -translate-y-1/2 place-items-center w-10 h-10 rounded-full bg-white/80 backdrop-blur shadow hover:bg-white"
@@ -220,6 +221,7 @@ export default function ImageSlider({
         <div className="mt-3 flex items-center justify-center gap-2">
           {slides.map((_, i) => (
             <button
+              type="button"
               key={i}
               onClick={() => setIndex(i)}
               className={`h-2.5 w-2.5 rounded-full transition ${

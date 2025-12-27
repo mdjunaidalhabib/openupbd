@@ -1,9 +1,11 @@
 "use client";
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ProductCard from "./ProductCard";
 import ProductCardSkeleton from "../skeletons/ProductCardSkeleton";
 import { apiFetch } from "../../utils/api";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 export default function CategoryTabsSection() {
   const [products, setProducts] = useState([]);
@@ -118,6 +120,7 @@ export default function CategoryTabsSection() {
           ডেটা লোড করা যায়নি। ইন্টারনেট বা সার্ভার সমস্যা হতে পারে।
         </p>
         <button
+          type="button"
           onClick={fetchData}
           className="px-4 py-2 rounded-md text-sm font-medium
             bg-gradient-to-r from-blue-600 to-purple-600
@@ -171,15 +174,16 @@ export default function CategoryTabsSection() {
       >
         <div
           className="
-            /* 📱 MOBILE (same as before) */
+            /* 📱 MOBILE */
             grid grid-rows-2 grid-flow-col gap-2 auto-cols-[6rem]
 
-            /* 🖥 DESKTOP (updated) */
+            /* 🖥 DESKTOP */
             sm:flex sm:flex-wrap sm:justify-center sm:gap-2
           "
         >
           {categories.map((cat) => (
             <button
+              type="button"
               key={cat._id}
               onClick={() =>
                 setActiveCat((prev) => (prev === cat._id ? null : cat._id))
@@ -193,13 +197,18 @@ export default function CategoryTabsSection() {
                     : "bg-pink-100 hover:bg-pink-200 border-pink-300"
                 }`}
             >
-              <div className="overflow-hidden rounded-full border border-gray-300 mb-1">
-                <img
+              {/* ✅ FIX: next/image for better perf + sizes */}
+              <div className="relative w-10 h-10 overflow-hidden rounded-full border border-gray-300 mb-1 bg-white">
+                <Image
                   src={cat.image || "/no-image.png"}
                   alt={cat.name}
-                  className="w-10 h-10 object-cover transition-transform duration-300 hover:scale-110"
+                  fill
+                  sizes="40px"
+                  loading="lazy"
+                  className="object-cover transition-transform duration-300 hover:scale-110"
                 />
               </div>
+
               <span className="text-xs font-medium text-center line-clamp-2">
                 {cat.name}
               </span>
@@ -216,8 +225,9 @@ export default function CategoryTabsSection() {
 
       {filtered.length ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-          {filtered.map((prod) => (
-            <ProductCard key={prod._id} product={prod} />
+          {filtered.map((prod, i) => (
+            // ✅ FIX: first row (above fold) cards get priority to avoid LCP warning
+            <ProductCard key={prod._id} product={prod} priority={i < 5} />
           ))}
         </div>
       ) : (

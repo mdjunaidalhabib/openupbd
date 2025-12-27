@@ -5,12 +5,19 @@ import Footer from "../../components/home/footer";
 import { UserProvider } from "../../context/UserContext";
 import PWARegister from "../../components/pwa/pwa-register";
 import FloatingActionButton from "../../components/home/FloatingActionButton";
-import { rootMetadata } from "../../components/seo/RootMetadata";
 
-// তোমার আগের themeColor এখন আলাদা করে এখানে declare করতে পারো
+// তোমার থিম কালার
 const themeColor = "#f472b6";
 
-export const metadata = rootMetadata;
+// ✅ এখানে তুমি চাইলে নিজের metadata সরাসরি লিখতে পারো
+export const metadata = {
+  title: "OpenUpBD | Trusted Online Shopping Platform in Bangladesh",
+  description:
+    "OpenUpBD is a reliable e-commerce platform in Bangladesh offering quality products at competitive prices. Shop online with secure payment, fast delivery, and excellent customer support.",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
 
 export function generateViewportMetadata() {
   return {

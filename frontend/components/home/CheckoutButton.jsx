@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useUser } from "../../context/UserContext";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 export default function CheckoutButton({
   product,
@@ -11,49 +11,139 @@ export default function CheckoutButton({
   fullWidth,
   onClick,
   label,
+
+  // ✅ pass actual stock from product details (variant stock)
+  stock,
+
+  // ✅ pass color name (for single product checkout)
+  color,
+
+  // ✅ cart checkout support (items array)
+  checkoutItems,
+
+  // ✅ external control
+  disabled,
+  loading: externalLoading,
 }) {
   const router = useRouter();
   const { me } = useUser();
   const [loading, setLoading] = useState(false);
 
+  const mergedLoading = Boolean(externalLoading || loading);
+
+  // ✅ Always normalize stock as number
+  const currentStock = useMemo(() => {
+    const s =
+      stock !== undefined && stock !== null ? stock : product?.stock ?? 0;
+
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }, [stock, product?.stock]);
+
+  const isOutOfStock = currentStock <= 0;
+
+  // ✅ cart mode out-of-stock check
+  const cartHasOutOfStock = useMemo(() => {
+    if (!Array.isArray(checkoutItems) || checkoutItems.length === 0)
+      return false;
+
+    return checkoutItems.some((it) => {
+      const st = Number(it?.stock ?? Infinity);
+      const q = Number(it?.qty ?? 0);
+      return st <= 0 || q <= 0 || q > st;
+    });
+  }, [checkoutItems]);
+
   const handleClick = useCallback(async () => {
-    if (loading) return;
-    if (product && product.stock <= 0) return;
+    if (mergedLoading) return;
+
+    if (disabled) return;
+
+    // ✅ prevent checkout if cart contains out-of-stock
+    if (cartHasOutOfStock) return;
+
+    // ✅ single product out-of-stock block
+    if (!checkoutItems && isOutOfStock) return;
 
     setLoading(true);
 
     try {
+      // ✅ build checkout url (product OR cart)
+      const checkoutUrl = (() => {
+        // ✅ cart checkout
+        if (Array.isArray(checkoutItems) && checkoutItems.length > 0) {
+          const payload = encodeURIComponent(JSON.stringify(checkoutItems));
+          return `${window.location.origin}/checkout?items=${payload}`;
+        }
+
+        // ✅ single product checkout (include color + stock)
+        if (productId) {
+          const c = color ? `&color=${encodeURIComponent(color)}` : "";
+          const s = `&stock=${encodeURIComponent(String(currentStock))}`;
+          return `${window.location.origin}/checkout?productId=${productId}&qty=${qty}${c}${s}`;
+        }
+
+        return `${window.location.origin}/checkout`;
+      })();
+
       // 🔹 User not logged in → redirect to Google Auth
       if (!me) {
-        const checkoutUrl = productId
-          ? `${window.location.origin}/checkout?productId=${productId}&qty=${qty}`
-          : `${window.location.origin}/checkout`;
-
-        window.location.href = `${process.env.NEXT_PUBLIC_AUTH_API_URL}/auth/google?redirect=${encodeURIComponent(
-          checkoutUrl
-        )}`;
+        window.location.href = `${
+          process.env.NEXT_PUBLIC_AUTH_API_URL
+        }/auth/google?redirect=${encodeURIComponent(checkoutUrl)}`;
         return;
       }
 
-      // 🔹 যদি custom onClick থাকে → ওটা execute করো (async সাপোর্টসহ)
+      // 🔹 যদি custom onClick থাকে → ওটা execute করো
       if (onClick) {
-        await onClick(); // ✅ এখন async properly await হবে
+        await onClick();
         return;
       }
 
-      // 🔹 ডিফল্ট checkout রাউট
-      const checkoutUrl = productId
-        ? `/checkout?productId=${productId}&qty=${qty}`
-        : `/checkout`;
-      router.push(checkoutUrl);
+      // 🔹 redirect to checkout
+      const redirectPath = (() => {
+        // ✅ cart checkout
+        if (Array.isArray(checkoutItems) && checkoutItems.length > 0) {
+          const payload = encodeURIComponent(JSON.stringify(checkoutItems));
+          return `/checkout?items=${payload}`;
+        }
+
+        // ✅ single product checkout (include color + stock)
+        if (productId) {
+          const c = color ? `&color=${encodeURIComponent(color)}` : "";
+          const s = `&stock=${encodeURIComponent(String(currentStock))}`;
+          return `/checkout?productId=${productId}&qty=${qty}${c}${s}`;
+        }
+
+        return `/checkout`;
+      })();
+
+      router.push(redirectPath);
     } catch (err) {
       console.error("Checkout failed:", err);
     } finally {
       setLoading(false);
     }
-  }, [loading, me, onClick, product, productId, qty, router]);
+  }, [
+    mergedLoading,
+    disabled,
+    cartHasOutOfStock,
+    checkoutItems,
+    isOutOfStock,
+    me,
+    onClick,
+    productId,
+    qty,
+    router,
+    color,
+    currentStock,
+  ]);
 
-  const isDisabled = loading || (product && product.stock <= 0);
+  const isDisabled =
+    Boolean(disabled) ||
+    mergedLoading ||
+    cartHasOutOfStock ||
+    (!checkoutItems && isOutOfStock);
 
   return (
     <button
@@ -68,7 +158,7 @@ export default function CheckoutButton({
         flex items-center justify-center gap-2
       `}
     >
-      {loading ? (
+      {mergedLoading ? (
         <>
           <span className="animate-spin">⏳</span> Processing...
         </>
@@ -76,6 +166,8 @@ export default function CheckoutButton({
         label
       ) : total ? (
         `অর্ডার কনফার্ম করুন ৳${total}`
+      ) : cartHasOutOfStock ? (
+        "Out of Stock"
       ) : (
         "Checkout"
       )}

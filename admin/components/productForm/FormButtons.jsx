@@ -1,31 +1,37 @@
-export default function FormButtons({ processing, product, onClose }) {
+"use client";
+
+export default function FormButtons({
+  processing,
+  filesReady,
+  product,
+  onClose,
+}) {
+  const disabled = processing || !filesReady;
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="space-y-2">
       <button
         type="submit"
-        disabled={processing}
-        className={`w-full py-3 rounded-xl text-white font-semibold shadow-sm transition ${
-          processing
-            ? "bg-gray-400"
-            : "bg-gradient-to-r from-green-500 to-lime-500 hover:scale-[1.01]"
+        disabled={disabled}
+        className={`w-full py-3 rounded-xl text-white ${
+          disabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-600"
         }`}
       >
         {processing
-          ? product
-            ? "আপডেট হচ্ছে..."
-            : "সংরক্ষণ হচ্ছে..."
+          ? "Saving..."
+          : !filesReady
+          ? "Uploading Images..."
           : product
-          ? "💾 আপডেট করুন"
-          : "💾 সংরক্ষণ করুন"}
+          ? "💾 Update Product"
+          : "💾 Save Product"}
       </button>
 
       <button
         type="button"
         onClick={onClose}
-        disabled={processing}
-        className="w-full py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition font-medium"
+        className="w-full py-2 bg-gray-100 rounded-xl"
       >
-        ✖ বাতিল
+        Cancel
       </button>
     </div>
   );
