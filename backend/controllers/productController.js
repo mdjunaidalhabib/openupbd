@@ -130,8 +130,7 @@ export const createProduct = async (req, res) => {
 
       primaryImage = galleryImages[0] || "";
     } else {
-
-    /* ------------------- VARIANTS (Variant Upload) ------------------- */
+      /* ------------------- VARIANTS (Variant Upload) ------------------- */
       parsedColors = parsedColors.map((c) => ({
         ...c,
         price:
@@ -179,14 +178,31 @@ export const createProduct = async (req, res) => {
       colors: parsedColors,
     });
 
+    // ✅ ✅ ✅ IMPORTANT: If variants exist → sync main price/oldPrice/sold from first variant
+    const mainPrice = hasVariants
+      ? toNumber(parsedColors?.[0]?.price, 0)
+      : toNumber(price, 0);
+    const mainOldPrice = hasVariants
+      ? parsedColors?.[0]?.oldPrice &&
+        toNumber(parsedColors?.[0]?.oldPrice, 0) > 0
+        ? toNumber(parsedColors?.[0]?.oldPrice, 0)
+        : null
+      : oldPrice && toNumber(oldPrice, 0) > 0
+      ? toNumber(oldPrice, 0)
+      : null;
+
+    const mainSold = hasVariants
+      ? toNumber(parsedColors?.[0]?.sold, 0)
+      : toNumber(sold, 0);
+
     const product = new Product({
       name,
-      price: toNumber(price, 0),
-      oldPrice:
-        oldPrice && toNumber(oldPrice, 0) > 0 ? toNumber(oldPrice, 0) : null,
 
+      // ✅ main fields synced
+      price: mainPrice,
+      oldPrice: mainOldPrice,
       stock: finalStock,
-      sold: toNumber(sold, 0),
+      sold: mainSold,
 
       // ✅ SoldOut fix
       isSoldOut: isSoldOut === "true" ? true : computedSoldOut,
@@ -301,9 +317,17 @@ export const updateProduct = async (req, res) => {
 
       // ✅ Optional: primary image from first variant image
       product.image = product.colors?.[0]?.images?.[0] || product.image;
-    } else {
 
-    /* ---------------- NORMAL PRODUCT UPDATE MODE ---------------- */
+      // ✅ ✅ ✅ IMPORTANT: sync main product fields from FIRST variant
+      product.price = toNumber(product.colors?.[0]?.price, product.price);
+      product.oldPrice =
+        product.colors?.[0]?.oldPrice &&
+        toNumber(product.colors?.[0]?.oldPrice, 0) > 0
+          ? toNumber(product.colors?.[0]?.oldPrice, 0)
+          : null;
+      product.sold = toNumber(product.colors?.[0]?.sold, product.sold);
+    } else {
+      /* ---------------- NORMAL PRODUCT UPDATE MODE ---------------- */
       // If previously had variants -> delete all variant images
       if (product.colors && product.colors.length > 0) {
         for (let color of product.colors) {
@@ -341,12 +365,18 @@ export const updateProduct = async (req, res) => {
 
     /* ---------------- Other fields ---------------- */
     product.name = name || product.name;
-    product.price =
-      price !== undefined ? toNumber(price, product.price) : product.price;
-    product.oldPrice =
-      oldPrice && toNumber(oldPrice, 0) > 0 ? toNumber(oldPrice, 0) : null;
-    product.sold =
-      sold !== undefined ? toNumber(sold, product.sold) : product.sold;
+
+    // ✅ ✅ ✅ FIX: only update if provided (otherwise keep old)
+    if (price !== undefined) product.price = toNumber(price, product.price);
+
+    // ✅ ✅ ✅ FIX: oldPrice MUST NOT become null when not provided
+    if (oldPrice !== undefined) {
+      product.oldPrice =
+        oldPrice && toNumber(oldPrice, 0) > 0 ? toNumber(oldPrice, 0) : null;
+    }
+
+    if (sold !== undefined) product.sold = toNumber(sold, product.sold);
+
     product.rating =
       rating !== undefined ? toNumber(rating, product.rating) : product.rating;
     product.description = description ?? product.description;
@@ -404,7 +434,7 @@ export const getProductsAdmin = async (req, res) => {
   try {
     const products = await Product.find()
       .populate("category")
-      .sort({ order: 1, createdAt: 1 });
+      .sort({ createdAt: -1 }); // ✅ NEW PRODUCT FIRST
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err?.message || "Server error" });
@@ -429,7 +459,7 @@ export const getProductsPublic = async (req, res) => {
       isActive: true,
     })
       .populate("category")
-      .sort({ order: 1, createdAt: 1 });
+      .sort({ createdAt: -1 }); // ✅ NEW PRODUCT FIRST
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err?.message || "Server error" });
@@ -464,7 +494,7 @@ export const getProductsByCategoryPublic = async (req, res) => {
       isActive: true,
     })
       .populate("category")
-      .sort({ order: 1, createdAt: 1 });
+      .sort({ createdAt: -1 }); // ✅ NEW PRODUCT FIRST
 
     res.json(products);
   } catch (err) {

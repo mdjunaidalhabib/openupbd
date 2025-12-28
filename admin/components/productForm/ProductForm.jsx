@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import Toast from "../Toast";
 import HeaderSerialStatus from "./HeaderSerialStatus";
@@ -36,6 +36,10 @@ export default function ProductForm({
   // ✅ NEW: image load / normalize ready (save disable until ready)
   const [filesReady, setFilesReady] = useState(true);
 
+  // ✅ NEW: snapshot for dirty tracking
+  const initialSnapshotRef = useRef(null);
+  const [initDone, setInitDone] = useState(false);
+
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -46,6 +50,52 @@ export default function ProductForm({
     variants: [EMPTY_DEFAULT_VARIANT],
     reviews: [],
   });
+
+  // ✅ NEW: sanitize helper for compare (remove non-serializable / unstable)
+  const sanitizeFormForCompare = (f) => {
+    const safeVariants = (Array.isArray(f?.variants) ? f.variants : []).map(
+      (v) => ({
+        name: v?.name || "",
+        price: v?.price ?? "",
+        oldPrice: v?.oldPrice ?? "",
+        stock: Number(v?.stock ?? 0),
+        sold: Number(v?.sold ?? 0),
+        isBase: !!v?.isBase,
+        filesMeta: (Array.isArray(v?.files) ? v.files : []).map((x) => {
+          const src = x?.src ?? x;
+          if (src instanceof File)
+            return `FILE:${src.name}:${src.size}:${src.lastModified}`;
+          return `URL:${String(src)}`;
+        }),
+      })
+    );
+
+    const safeReviews = (Array.isArray(f?.reviews) ? f.reviews : []).map(
+      (r) => ({
+        user: r?.user || "",
+        rating: Number(r?.rating || 0),
+        comment: r?.comment || "",
+      })
+    );
+
+    return {
+      name: f?.name || "",
+      category: f?.category || "",
+      description: f?.description || "",
+      additionalInfo: f?.additionalInfo || "",
+      order: Number(f?.order || 1),
+      isActive: !!f?.isActive,
+      variants: safeVariants,
+      reviews: safeReviews,
+    };
+  };
+
+  // ✅ NEW: isDirty state (no update = save disabled)
+  const isDirty = useMemo(() => {
+    if (!initialSnapshotRef.current) return false;
+    const now = JSON.stringify(sanitizeFormForCompare(form));
+    return now !== initialSnapshotRef.current;
+  }, [form]);
 
   /* ---------------- Fetch Categories ---------------- */
   useEffect(() => {
@@ -65,6 +115,8 @@ export default function ProductForm({
 
   /* ---------------- Initialize Form ---------------- */
   useEffect(() => {
+    setInitDone(false);
+
     if (!product) {
       setForm((p) => ({ ...p, order: productsLength + 1 }));
 
@@ -75,6 +127,7 @@ export default function ProductForm({
       // ✅ reset
       setFilesReady(true);
 
+      setInitDone(true);
       return;
     }
 
@@ -124,6 +177,8 @@ export default function ProductForm({
 
       // ✅ reset
       setFilesReady(true);
+
+      setInitDone(true);
     }
     // ✅ Product has NO variants (default mode)
     else {
@@ -155,12 +210,21 @@ export default function ProductForm({
 
       // ✅ reset
       setFilesReady(true);
+
+      setInitDone(true);
     }
   }, [product, productsLength]);
 
+  // ✅ NEW: snapshot only once per init
+  useEffect(() => {
+    if (!initDone) return;
+    initialSnapshotRef.current = JSON.stringify(sanitizeFormForCompare(form));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initDone]);
+
   /* ---------------- Rating ---------------- */
   const averageRating = useMemo(() => {
-    if (form.reviews.length === 0) return 0;
+    if (!Array.isArray(form.reviews) || form.reviews.length === 0) return 0;
     const total = form.reviews.reduce(
       (sum, r) => sum + Number(r.rating || 0),
       0
@@ -174,7 +238,9 @@ export default function ProductForm({
     if (!form.name?.trim()) e.name = "প্রোডাক্ট নাম দিতে হবে";
     if (!form.category) e.category = "ক্যাটাগরি নির্বাচন করুন";
 
-    form.variants.forEach((v, i) => {
+    const list = Array.isArray(form.variants) ? form.variants : [];
+
+    list.forEach((v, i) => {
       if (variantMode === "default") {
         if (!v.price) e.basePrice = "মূল্য দিতে হবে";
         if (!v.files || v.files.length === 0)
@@ -198,6 +264,7 @@ export default function ProductForm({
 
     const firstVariant = {
       ...baseDraft,
+      files: Array.isArray(baseDraft?.files) ? baseDraft.files : [],
       price:
         baseDraft.price ?? form.variants?.[0]?.price ?? product?.price ?? "",
       oldPrice: baseDraft.oldPrice ?? product?.oldPrice ?? "",
@@ -208,7 +275,11 @@ export default function ProductForm({
     };
 
     setVariantDrafts([firstVariant]);
-    setForm((p) => ({ ...p, variants: [firstVariant] }));
+
+    setForm((p) => ({
+      ...p,
+      variants: [firstVariant],
+    }));
     setVariantMode("variant");
 
     // ✅ reset
@@ -224,6 +295,7 @@ export default function ProductForm({
 
     const restoredBase = {
       ...first,
+      files: Array.isArray(first?.files) ? first.files : [],
       name: "Default Variant",
       isBase: true,
     };
@@ -239,6 +311,14 @@ export default function ProductForm({
   /* ---------------- Submit ---------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ✅ if no update -> block submit
+    if (!isDirty) {
+      return setToast({
+        type: "error",
+        message: "কোনো পরিবর্তন করা হয়নি",
+      });
+    }
 
     // ✅ if files not ready -> block submit
     if (!filesReady) {
@@ -270,16 +350,16 @@ export default function ProductForm({
 
       /* ---------------- DEFAULT MODE ---------------- */
       if (variantMode === "default") {
-        const base = form.variants[0];
+        const base = Array.isArray(form.variants) ? form.variants[0] : null;
 
-        formData.append("price", base.price || 0);
-        formData.append("oldPrice", base.oldPrice || 0);
-        formData.append("stock", base.stock || 0);
-        formData.append("sold", base.sold || 0);
+        formData.append("price", base?.price || 0);
+        formData.append("oldPrice", base?.oldPrice || 0);
+        formData.append("stock", base?.stock || 0);
+        formData.append("sold", base?.sold || 0);
 
         const existingImg = [];
 
-        (base.files || []).forEach((fileItem) => {
+        (base?.files || []).forEach((fileItem) => {
           // ✅ if normalized {id, src}
           const src = fileItem?.src ?? fileItem;
 
@@ -294,7 +374,7 @@ export default function ProductForm({
         formData.append("colors", JSON.stringify([]));
       } else {
         /* ---------------- VARIANT MODE ---------------- */
-        const variants = form.variants;
+        const variants = Array.isArray(form.variants) ? form.variants : [];
 
         // ✅ Upload new files for each variant
         variants.forEach((v, idx) => {
@@ -321,6 +401,10 @@ export default function ProductForm({
 
         // ✅ keep main price for backward compatibility
         formData.append("price", variants[0]?.price || 0);
+
+        // ✅ IMPORTANT:
+        // এখানে oldPrice/stock/sold পাঠানো লাগবে না
+        // কারণ backend updateProduct() এখন variants থেকে main fields sync করে
       }
 
       const url = product
@@ -338,6 +422,10 @@ export default function ProductForm({
       }
 
       setToast({ message: "সফলভাবে সংরক্ষিত হয়েছে", type: "success" });
+
+      // ✅ NEW: reset dirty snapshot after successful save
+      initialSnapshotRef.current = JSON.stringify(sanitizeFormForCompare(form));
+
       onSaved?.();
       onClose?.();
     } catch (err) {
@@ -361,6 +449,55 @@ export default function ProductForm({
         >
           <X size={24} />
         </button>
+
+        {/* ✅ NEW: Sticky top right Save/Cancel bar (scroll করলে নড়বে না) */}
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
+          <div className="flex items-center justify-between px-6 py-3">
+            <div className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              {product ? "✏️ Edit Product" : "➕ Add Product"}
+              {!isDirty && (
+                <span className="text-[11px] font-semibold text-gray-400">
+                  (No changes)
+                </span>
+              )}
+              {!filesReady && (
+                <span className="text-[11px] font-semibold text-orange-500">
+                  (Images loading…)
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl font-bold text-sm border bg-white hover:bg-gray-50 active:scale-[0.99]"
+              >
+                ✖ Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={processing || !filesReady || !isDirty}
+                className={`px-5 py-2 rounded-xl text-white font-bold text-sm transition-all ${
+                  processing || !filesReady || !isDirty
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99]"
+                }`}
+              >
+                {processing
+                  ? "প্রসেসিং..."
+                  : !filesReady
+                  ? "ছবি লোড হচ্ছে..."
+                  : !isDirty
+                  ? "No changes"
+                  : product
+                  ? "💾 আপডেট করুন"
+                  : "💾 সংরক্ষণ করুন"}
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="p-6 space-y-6">
           <HeaderSerialStatus
@@ -405,13 +542,15 @@ export default function ProductForm({
           </div>
 
           <VariantSection
-            variants={form.variants}
+            variants={Array.isArray(form.variants) ? form.variants : []}
             setVariants={(v) => {
-              setForm((p) => ({ ...p, variants: v }));
+              const nextVariants = Array.isArray(v) ? v : [];
+              setForm((p) => ({ ...p, variants: nextVariants }));
 
               // ✅ drafts sync
-              if (variantMode === "default") setBaseDraft(v[0]);
-              else setVariantDrafts(v);
+              if (variantMode === "default")
+                setBaseDraft(nextVariants[0] || EMPTY_DEFAULT_VARIANT);
+              else setVariantDrafts(nextVariants);
             }}
             mode={variantMode}
             errors={errors}
@@ -423,47 +562,32 @@ export default function ProductForm({
             form={form}
             averageRating={averageRating}
             handleReviewChange={(i, f, v) => {
-              const next = [...form.reviews];
+              const next = Array.isArray(form.reviews) ? [...form.reviews] : [];
               next[i] = { ...next[i], [f]: v };
               setForm((p) => ({ ...p, reviews: next }));
             }}
             addReview={() =>
               setForm((p) => ({
                 ...p,
-                reviews: [...p.reviews, { user: "", rating: 5, comment: "" }],
+                reviews: [
+                  ...(Array.isArray(p.reviews) ? p.reviews : []),
+                  { user: "", rating: 5, comment: "" },
+                ],
               }))
             }
             removeReview={(i) =>
               setForm((p) => ({
                 ...p,
-                reviews: p.reviews.filter((_, idx) => idx !== i),
+                reviews: (Array.isArray(p.reviews) ? p.reviews : []).filter(
+                  (_, idx) => idx !== i
+                ),
               }))
             }
           />
-
-          <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t mt-4">
-            <button
-              type="submit"
-              disabled={processing || !filesReady}
-              className={`w-full py-3.5 rounded-xl text-white font-bold text-base transition-all ${
-                processing || !filesReady
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99]"
-              }`}
-            >
-              {processing
-                ? "প্রসেসিং..."
-                : !filesReady
-                ? "ছবি লোড হচ্ছে..."
-                : product
-                ? "💾 আপডেট করুন"
-                : "💾 সংরক্ষণ করুন"}
-            </button>
-          </div>
         </div>
       </form>
 
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </div>
   );
-}
+} /////////////// kono ubdate na kora hole button diseble thakbe//// kono ubdate korlei buttone active hobe... save and cancel 2 tai upore dan pashe fixt thakbe.// jeno scrool korlew na sore jai... with best ui ....... ar akhon image dile sob image uplood kora jaina... ber ber image ar karone fald ase... ar karon ki.. ata fixt korte hobe,,,,, atar jonno valo pera lagse product add korte giya... ...................... all fixt kore full code daw

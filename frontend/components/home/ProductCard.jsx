@@ -55,6 +55,9 @@ const ProductCard = memo(({ product, priority = false }) => {
     return "/no-image.png";
   }, [product, defaultColor]);
 
+  // ✅ SOLD Count Variant Aware (FIXED)
+  const soldCount = Number(defaultColor?.sold ?? product?.sold ?? 0) || 0;
+
   return (
     <div className="relative bg-pink-100 shadow-md rounded-lg hover:shadow-lg transition flex flex-col group">
       <Link
@@ -75,7 +78,7 @@ const ProductCard = memo(({ product, priority = false }) => {
               e.stopPropagation();
               toggleWishlist(productId);
             }}
-            className={`p-1.5 rounded-full shadow transition-colors ${
+            className={`p-1 rounded-full shadow transition-colors ${
               isInWishlist
                 ? "bg-red-500 text-white"
                 : "bg-white/80 text-gray-600 hover:bg-red-100"
@@ -96,12 +99,13 @@ const ProductCard = memo(({ product, priority = false }) => {
         />
       </Link>
 
-      <div className="px-3 pb-3">
+      <div className="px-2 pb-3">
         <h4 className="font-semibold text-sm sm:text-base truncate text-gray-800">
           {product?.name}
         </h4>
 
-        <div className="flex items-center justify-between mb-1">
+        {/* ✅ Stock + Sold */}
+        <div className="flex items-center justify-between">
           <p
             className={`text-[10px] font-bold ${
               !isOutOfStock ? "text-green-600" : "text-red-500"
@@ -110,30 +114,34 @@ const ProductCard = memo(({ product, priority = false }) => {
             {!isOutOfStock ? `In Stock (${computedStock})` : "Out of Stock"}
           </p>
 
-          {/* ✅ show default variant label */}
-          {defaultColor?.name && (
-            <p className="text-[10px] font-bold text-pink-600 mb-1">
+          <span className="text-[10px] text-gray-500">Sold: {soldCount}</span>
+        </div>
+
+        {/* ✅ Variant + Rating same row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-0.5">
+            {[...Array(5)].map((_, i) => (
+              <FaStar
+                key={i}
+                className={`w-2.5 h-2.5 ${
+                  i < (product?.rating || 0)
+                    ? "text-yellow-500"
+                    : "text-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+          {defaultColor?.name ? (
+            <p className="text-[10px] font-bold text-pink-600 truncate max-w-[55%]">
               Variant: {defaultColor.name}
             </p>
+          ) : (
+            <span />
           )}
-
-          <span className="text-[10px] text-gray-500">
-            Sold: {Number(product?.sold ?? 0) || 0}
-          </span>
         </div>
 
-        <div className="flex items-center mb-1">
-          {[...Array(5)].map((_, i) => (
-            <FaStar
-              key={i}
-              className={`w-3 h-3 ${
-                i < (product?.rating || 0) ? "text-yellow-500" : "text-gray-300"
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 mb-3">
+        {/* ✅ Price */}
+        <div className="flex items-center gap-2 mb-2">
           <p className="text-blue-600 font-bold text-sm sm:text-base">
             ৳{product?.price}
           </p>
@@ -144,6 +152,7 @@ const ProductCard = memo(({ product, priority = false }) => {
           )}
         </div>
 
+        {/* ✅ Cart Button */}
         {!quantity ? (
           <button
             type="button"
@@ -165,7 +174,7 @@ const ProductCard = memo(({ product, priority = false }) => {
           </button>
         ) : (
           <div>
-            <div className="flex items-center justify-between bg-white/50 rounded-lg p-1">
+            <div className="flex items-center justify-center gap-2 -mt-1">
               <button
                 type="button"
                 onClick={(e) => {
@@ -173,12 +182,12 @@ const ProductCard = memo(({ product, priority = false }) => {
                   e.stopPropagation();
                   updateCart(cartKey, -1, computedStock);
                 }}
-                className="p-1 bg-white shadow-sm rounded text-pink-600"
+                className="p-1 bg-pink-50 shadow-sm rounded text-pink-600"
               >
-                <FaMinus className="text-[10px]" />
+                <FaMinus className="text-[8px]" />
               </button>
 
-              <span className="text-sm font-bold text-gray-800">
+              <span className="text-[10px] font-bold text-gray-800">
                 {quantity}
               </span>
 
@@ -189,9 +198,9 @@ const ProductCard = memo(({ product, priority = false }) => {
                   e.stopPropagation();
                   updateCart(cartKey, +1, computedStock);
                 }}
-                className="p-1 bg-white shadow-sm rounded text-pink-600"
+                className="p-1 bg-pink-50 shadow-sm rounded text-pink-600"
               >
-                <FaPlus className="text-[10px]" />
+                <FaPlus className="text-[8px]" />
               </button>
             </div>
 

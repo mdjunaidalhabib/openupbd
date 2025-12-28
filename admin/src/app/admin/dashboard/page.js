@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -22,12 +22,27 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  // ✅ FIXED status list (schema enum অনুযায়ী)
+  const ORDER_STATUSES = [
+    "pending",
+    "ready_to_delivery",
+    "send_to_courier",
+    "delivered",
+    "cancelled",
+  ];
+
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSales: 0,
-    pendingOrders: 0,
-    deliveredOrders: 0,
   });
+
+  // ✅ status stats (সব status থাকবে, না থাকলে 0)
+  const [statusStats, setStatusStats] = useState(() =>
+    ORDER_STATUSES.reduce((acc, st) => {
+      acc[st] = 0;
+      return acc;
+    }, {})
+  );
 
   useEffect(() => {
     async function fetchOrders() {
@@ -35,34 +50,45 @@ export default function DashboardPage() {
         setErr("");
         setLoading(true);
 
-        // ✅ cookie সহ request যাবে
         const res = await fetch(`${API}/admin/orders`, {
           method: "GET",
           credentials: "include",
           cache: "no-store",
         });
 
-        if (!res.ok) {
-          throw new Error("Orders fetch failed");
-        }
+        if (!res.ok) throw new Error("Orders fetch failed");
 
         const data = await res.json();
 
         if (Array.isArray(data)) {
           setOrders(data);
 
+          // ✅ Total Orders + Sales
           const totalOrders = data.length;
           const totalSales = data.reduce((sum, o) => sum + (o.total || 0), 0);
-          const pendingOrders = data.filter(
-            (o) => o.status === "pending"
-          ).length;
-          const deliveredOrders = data.filter(
-            (o) => o.status === "delivered"
-          ).length;
+          setStats({ totalOrders, totalSales });
 
-          setStats({ totalOrders, totalSales, pendingOrders, deliveredOrders });
+          // ✅ status count (fixed enum list)
+          const statusMap = ORDER_STATUSES.reduce((acc, st) => {
+            acc[st] = 0;
+            return acc;
+          }, {});
+
+          data.forEach((order) => {
+            const st = order.status || "pending";
+            if (statusMap[st] !== undefined) statusMap[st] += 1;
+          });
+
+          setStatusStats(statusMap);
         } else {
           setOrders([]);
+          setStats({ totalOrders: 0, totalSales: 0 });
+          setStatusStats(
+            ORDER_STATUSES.reduce((acc, st) => {
+              acc[st] = 0;
+              return acc;
+            }, {})
+          );
         }
       } catch (error) {
         console.error("Failed to fetch orders:", error);
@@ -75,24 +101,8 @@ export default function DashboardPage() {
     fetchOrders();
   }, [API]);
 
-  // ====== chart data calculations (ag er motoi) ======
-  const salesData = (() => {
-    const last7 = {};
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      last7[key] = 0;
-    }
-    orders.forEach((o) => {
-      const key = o.createdAt?.slice(0, 10);
-      if (last7[key] !== undefined) last7[key] += o.total || 0;
-    });
-    return Object.entries(last7).map(([date, total]) => ({ date, total }));
-  })();
-
-  const topProducts = (() => {
+  // ====== Top Products ======
+  const topProducts = useMemo(() => {
     const map = {};
     orders.forEach((o) => {
       o.items?.forEach((it) => {
@@ -100,15 +110,16 @@ export default function DashboardPage() {
           map[it.productId] = { name: it.name, qty: 0, revenue: 0 };
         }
         map[it.productId].qty += it.qty;
-        map[it.productId].revenue += it.price * it.qty;
+        map[it.productId].revenue += (it.price || 0) * (it.qty || 0);
       });
     });
     return Object.values(map)
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
-  })();
+  }, [orders]);
 
-  const monthlySales = (() => {
+  // ====== Monthly Sales ======
+  const monthlySales = useMemo(() => {
     const map = {};
     const now = new Date();
     for (let i = 11; i >= 0; i--) {
@@ -128,17 +139,86 @@ export default function DashboardPage() {
       if (map[key] !== undefined) map[key] += o.total || 0;
     });
     return Object.entries(map).map(([month, sales]) => ({ month, sales }));
-  })();
+  }, [orders]);
+
+  // ✅ Professional Gradient Cards Config (premium colors)
+  const cards = useMemo(() => {
+    return [
+      {
+        key: "totalOrders",
+        label: "Total Orders",
+        value: stats.totalOrders,
+        gradient: "from-indigo-600 via-blue-600 to-cyan-500",
+        dot: "bg-white/70",
+        sub: "All orders",
+      },
+      {
+        key: "totalSales",
+        label: "Total Sales",
+        value: `৳${stats.totalSales}`,
+        gradient: "from-emerald-600 via-green-600 to-lime-500",
+        dot: "bg-white/70",
+        sub: "Total revenue",
+      },
+      {
+        key: "pending",
+        label: "Pending",
+        value: statusStats.pending ?? 0,
+        gradient: "from-amber-600 via-orange-600 to-yellow-500",
+        dot: "bg-white/70",
+        sub: "Awaiting action",
+      },
+      {
+        key: "ready_to_delivery",
+        label: "Ready",
+        value: statusStats.ready_to_delivery ?? 0,
+        gradient: "from-sky-600 via-cyan-600 to-teal-500",
+        dot: "bg-white/70",
+        sub: "Ready to deliver",
+      },
+      {
+        key: "send_to_courier",
+        label: "Courier",
+        value: statusStats.send_to_courier ?? 0,
+        gradient: "from-violet-600 via-purple-600 to-fuchsia-500",
+        dot: "bg-white/70",
+        sub: "Handed to courier",
+      },
+      {
+        key: "delivered",
+        label: "Delivered",
+        value: statusStats.delivered ?? 0,
+        gradient: "from-green-700 via-emerald-600 to-teal-500",
+        dot: "bg-white/70",
+        sub: "Completed",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        value: statusStats.cancelled ?? 0,
+        gradient: "from-rose-600 via-red-600 to-orange-500",
+        dot: "bg-white/70",
+        sub: "Stopped orders",
+      },
+    ];
+  }, [stats, statusStats]);
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl sm:text-3xl font-bold">
-          📊 Dashboard Overview
-        </h1>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Dashboard Overview
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Overview of orders & sales performance
+          </p>
+        </div>
+
         <button
           onClick={() => window.location.reload()}
-          className="px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm shadow hover:scale-105 transition-all"
+          className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg text-sm font-medium shadow hover:shadow-md hover:scale-[1.02] transition-all"
         >
           Refresh
         </button>
@@ -150,56 +230,68 @@ export default function DashboardPage() {
         <div className="bg-white shadow rounded-xl p-6 text-red-500">{err}</div>
       ) : (
         <>
-          {/* 🔹 Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                label: "Total Orders",
-                value: stats.totalOrders,
-                color: "from-indigo-500 to-blue-500",
-              },
-              {
-                label: "Total Sales (৳)",
-                value: stats.totalSales,
-                color: "from-green-500 to-emerald-500",
-              },
-              {
-                label: "Pending Orders",
-                value: stats.pendingOrders,
-                color: "from-yellow-400 to-amber-500",
-              },
-              {
-                label: "Delivered Orders",
-                value: stats.deliveredOrders,
-                color: "from-purple-500 to-indigo-600",
-              },
-            ].map((card, i) => (
+          {/* ✅ PREMIUM PROFESSIONAL COLOR CARDS */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4">
+            {cards.map((c) => (
               <div
-                key={i}
-                className={`bg-gradient-to-r ${card.color} text-white rounded-xl shadow-lg p-4 sm:p-5 hover:scale-[1.02] transition-all`}
+                key={c.key}
+                className="relative overflow-hidden rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
               >
-                <div className="text-sm opacity-80">{card.label}</div>
-                <div className="text-xl sm:text-2xl font-bold mt-1">
-                  {card.value}
+                {/* Gradient */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-r ${c.gradient}`}
+                />
+
+                {/* Soft glass overlay */}
+                <div className="absolute inset-0 bg-black/10" />
+
+                {/* Decorative blur blobs */}
+                <div className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
+                <div className="absolute -bottom-12 -left-12 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
+
+                <div className="relative p-4 text-white">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-white/85">
+                        {c.label}
+                      </p>
+                      <p className="mt-2 text-3xl font-extrabold leading-none drop-shadow-sm">
+                        {c.value}
+                      </p>
+                    </div>
+
+                    {/* Minimal icon circle (pro look) */}
+                    <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center border border-white/20">
+                      <div className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-xs text-white/80">{c.sub}</p>
+
+                  {/* Bottom accent line */}
+                  <div className="mt-4 h-[3px] w-10 rounded-full bg-white/70" />
                 </div>
               </div>
             ))}
           </div>
 
           {/* 🏆 Top Products */}
-          <div className="bg-white shadow rounded-xl p-4 sm:p-6">
-            <h2 className="text-lg font-semibold mb-4">
+          <div className="bg-white shadow rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">
               🏆 Top Selling Products
             </h2>
+
             {topProducts.length > 0 ? (
               <>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
-                    <thead className="bg-gray-100">
+                    <thead className="bg-gray-50 text-gray-700">
                       <tr>
-                        <th className="p-2 text-left">Product</th>
-                        <th className="p-2 text-left">Quantity</th>
-                        <th className="p-2 text-left">Revenue</th>
+                        <th className="p-2 text-left font-semibold">Product</th>
+                        <th className="p-2 text-left font-semibold">
+                          Quantity
+                        </th>
+                        <th className="p-2 text-left font-semibold">Revenue</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -207,7 +299,7 @@ export default function DashboardPage() {
                         <tr key={idx} className="border-t hover:bg-gray-50">
                           <td className="p-2">{p.name}</td>
                           <td className="p-2">{p.qty}</td>
-                          <td className="p-2 font-medium text-green-600">
+                          <td className="p-2 font-semibold text-emerald-600">
                             ৳{p.revenue}
                           </td>
                         </tr>
@@ -222,7 +314,7 @@ export default function DashboardPage() {
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
-                      <Bar dataKey="qty" fill="#10b981" radius={[5, 5, 0, 0]} />
+                      <Bar dataKey="qty" fill="#10b981" radius={[8, 8, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -235,10 +327,11 @@ export default function DashboardPage() {
           </div>
 
           {/* 📈 Monthly Sales */}
-          <div className="bg-white shadow rounded-xl p-4 sm:p-6">
-            <h2 className="text-lg font-semibold mb-4">
+          <div className="bg-white shadow rounded-2xl border border-gray-100 p-4 sm:p-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">
               📅 Monthly Sales (Last 12 Months)
             </h2>
+
             <div className="w-full h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={monthlySales}>

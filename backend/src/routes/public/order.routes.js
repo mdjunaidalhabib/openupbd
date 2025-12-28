@@ -1,12 +1,10 @@
 import express from "express";
 import Order from "../../models/Order.js";
 import Product from "../../models/Product.js";
-import DeliveryCharge from "../../models/DeliveryCharge.js"; 
+import DeliveryCharge from "../../models/DeliveryCharge.js";
 
-// ✅ FIX: correct relative path (routes/public থেকে utils)
+// ✅ correct relative path
 import { getOrderMailSendSettings } from "../../../utils/order-mail-send.js";
-
-// ✅ FIX: named import
 import { sendAdminOrderEmail } from "../../../utils/sendAdminOrderEmail.js";
 
 const router = express.Router();
@@ -23,6 +21,11 @@ const normalizePaymentMethod = (method) => {
   if (m === "paynow" || m === "bkash") return "bkash";
   return "cod";
 };
+
+const normalizeString = (s) =>
+  String(s || "")
+    .trim()
+    .toLowerCase();
 
 const hasVariants = (product) =>
   Array.isArray(product?.colors) && product.colors.length > 0;
@@ -56,28 +59,42 @@ const getDeliveryFeeFromDB = async () => {
  * ✅ Inventory update (stock & sold) for a single item
  * item: { productId, qty, color }
  * mode: "decrease" | "increase"
+ *
+ * IMPORTANT FIXES:
+ * ✅ no silent return (throw error instead)
+ * ✅ normalize color match
+ * ✅ strict stock validation
  */
 const updateInventoryForItem = async (item, mode = "decrease") => {
   const productId = item?.productId;
   const qty = toNumber(item?.qty, 0);
   const color = item?.color ? String(item.color) : null;
 
-  if (!productId || qty <= 0) return null;
+  // ✅ STOP silent fail
+  if (!productId || qty <= 0) {
+    throw new Error(
+      `Invalid order item! productId=${productId}, qty=${item?.qty}`
+    );
+  }
 
   const product = await Product.findById(productId);
-  if (!product) return null;
+  if (!product) {
+    throw new Error(`Product not found: ${productId}`);
+  }
 
   const productHasVariants = hasVariants(product);
 
-  // ✅ Variant
+  // ✅ Variant Mode
   if (productHasVariants && color) {
+    const targetColor = normalizeString(color);
+
     const idx = product.colors.findIndex(
-      (c) => String(c?.name) === String(color)
+      (c) => normalizeString(c?.name) === targetColor
     );
 
     if (idx === -1) {
       throw new Error(
-        `Variant not found: ${color} for product: ${product.name}`
+        `Variant not found: "${color}" for product: ${product.name}`
       );
     }
 
@@ -86,14 +103,18 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
     if (mode === "decrease") {
       if (currentVariantStock < qty) {
         throw new Error(
-          `${product.name} (${color}) stock not enough. Available: ${currentVariantStock}`
+          `${product.name} (${product.colors[idx]?.name}) stock not enough. Available: ${currentVariantStock}`
         );
       }
 
+      // ✅ update variant
       product.colors[idx].stock = currentVariantStock - qty;
       product.colors[idx].sold = toNumber(product.colors[idx]?.sold, 0) + qty;
+
+      // ✅ update product sold
       product.sold = toNumber(product.sold, 0) + qty;
     } else {
+      // ✅ restock
       product.colors[idx].stock = currentVariantStock + qty;
       product.colors[idx].sold = toNumber(product.colors[idx]?.sold, 0) - qty;
       if (product.colors[idx].sold < 0) product.colors[idx].sold = 0;
@@ -102,6 +123,7 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
       if (product.sold < 0) product.sold = 0;
     }
 
+    // ✅ sync product stock + soldout
     product.stock = computeVariantTotalStock(product.colors);
     product.isSoldOut = computeSoldOut(product);
 
@@ -109,7 +131,7 @@ const updateInventoryForItem = async (item, mode = "decrease") => {
     return product;
   }
 
-  // ✅ Normal product
+  // ✅ Normal Product (No variant)
   const baseStock = toNumber(product.stock, 0);
 
   if (mode === "decrease") {
@@ -167,12 +189,13 @@ router.post("/", async (req, res) => {
       });
     }
 
+    // ✅ Payment normalize
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
 
-    // ✅ ✅ DeliveryCharge DB থেকে আসবে
+    // ✅ DeliveryCharge DB driven
     const DELIVERY_CHARGE = await getDeliveryFeeFromDB();
 
-    // ✅ ✅ Backend-safe total calculation
+    // ✅ backend-safe total calculation
     const calculatedSubtotal = toNumber(subtotal, 0);
     const calculatedDiscount = toNumber(discount, 0);
 
@@ -201,20 +224,30 @@ router.post("/", async (req, res) => {
 
     const savedOrder = await order.save();
 
-    // ✅ Inventory decrease (variant aware)
+    /* ✅✅ STRICT INVENTORY UPDATE
+       - If stock update fails => rollback order + return 400
+    */
     try {
-      const updates = items.map((item) =>
-        updateInventoryForItem(item, "decrease")
+      await Promise.all(
+        items.map((item) => updateInventoryForItem(item, "decrease"))
       );
-      await Promise.all(updates);
     } catch (stockErr) {
       console.error("❌ Stock/Sold Update Error:", stockErr);
-      // Optional rollback strict stock mode:
-      // await Order.findByIdAndDelete(savedOrder._id);
-      // return res.status(400).json({ error: stockErr.message || "Stock not available" });
+
+      // ✅ rollback order so fake order not saved
+      try {
+        await Order.findByIdAndDelete(savedOrder._id);
+      } catch (rbErr) {
+        console.error("❌ Rollback failed:", rbErr);
+      }
+
+      return res.status(400).json({
+        error:
+          stockErr?.message || "Stock not available / Inventory update failed",
+      });
     }
 
-    // ✅ ✅ Admin Email Notify (DB settings)
+    // ✅ Admin Email Notify (DB settings)
     try {
       const settings = await getOrderMailSendSettings();
       const adminEmail = settings?.adminEmail?.trim();
@@ -313,6 +346,7 @@ router.put("/:id", async (req, res) => {
       }
     }
 
+    // ✅ Cancel -> Restock (ONLY if pending)
     if (status === "cancelled") {
       if (order.status !== "pending") {
         return res.status(403).json({
@@ -324,10 +358,9 @@ router.put("/:id", async (req, res) => {
       order.cancelReason = cancelReason || "Cancelled by user";
 
       try {
-        const restocks = order.items.map((item) =>
-          updateInventoryForItem(item, "increase")
+        await Promise.all(
+          order.items.map((item) => updateInventoryForItem(item, "increase"))
         );
-        await Promise.all(restocks);
       } catch (restockErr) {
         console.error("❌ Restock Error:", restockErr);
       }
@@ -350,6 +383,7 @@ router.put("/:id", async (req, res) => {
     await order.save();
     return res.json(order);
   } catch (err) {
+    console.error("❌ Order update error:", err);
     return res.status(500).json({ error: "অর্ডার আপডেট ব্যর্থ হয়েছে।" });
   }
 });

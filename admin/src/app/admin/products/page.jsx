@@ -29,7 +29,14 @@ export default function ProductsPage() {
       const data = await res.json();
 
       const arr = Array.isArray(data) ? data : [];
-      arr.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      // ✅ ✅ ✅ NEW PRODUCT FIRST (createdAt DESC)
+      // ✅ same time হলে serial/order অনুযায়ী
+      arr.sort((a, b) => {
+        const dateDiff = new Date(b.createdAt) - new Date(a.createdAt);
+        if (dateDiff !== 0) return dateDiff;
+        return (a.order || 0) - (b.order || 0);
+      });
 
       setProducts(arr);
     } catch (error) {
@@ -120,176 +127,178 @@ export default function ProductsPage() {
       setLoading(false);
     }
   };
-return (
-  <div className="p-4 sm:p-6">
-    {/* ===================== HEADER ===================== */}
-    <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
-      <h1 className="text-2xl sm:text-3xl font-bold">✨ Product Manager</h1>
+  return (
+    <div className="p-4 sm:p-6">
+      {/* ===================== HEADER ===================== */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">✨ Product Manager</h1>
 
-      {/* Right side controls */}
-      <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:gap-2 lg:ml-auto">
-        {/* ✅ ADD PRODUCT (mobile first, desktop last/right) */}
-        <button
-          onClick={() => {
-            setEditProduct(null);
-            setShowForm(true);
-          }}
-          className="order-1 lg:order-last bg-blue-600 text-white shadow font-semibold px-3 py-1.5 rounded-md text-sm hover:bg-blue-700 active:scale-[0.98] lg:px-4 lg:py-2 lg:text-base lg:rounded-lg"
-        >
-          + Add Product
-        </button>
-
-        {/* FILTER BUTTONS (same style as categories, bigger on mobile+desktop) */}
-        <div className="order-2 lg:order-first flex flex-wrap justify-end gap-1.5 lg:gap-2">
+        {/* Right side controls */}
+        <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:gap-2 lg:ml-auto">
+          {/* ✅ ADD PRODUCT (mobile first, desktop last/right) */}
           <button
-            className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
-              filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
-            }`}
-            onClick={() => setFilter("all")}
-          >
-            All
-          </button>
-
-          <button
-            className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
-              filter === "active" ? "bg-green-600 text-white" : "bg-white"
-            }`}
-            onClick={() => setFilter("active")}
-          >
-            Active
-          </button>
-
-          <button
-            className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
-              filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
-            }`}
-            onClick={() => setFilter("hidden")}
-          >
-            Hidden
-          </button>
-
-          {/* BULK BUTTON */}
-          {products.length > 0 && (
-            <button
-              onClick={toggleAllProducts}
-              className={`px-2.5 py-1.5 rounded-md border text-xs leading-none font-semibold text-white lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
-                hasAnyActive
-                  ? "bg-gray-700 hover:bg-gray-800"
-                  : "bg-green-600 hover:bg-green-700"
-              }`}
-            >
-              {hasAnyActive ? "Hide All" : "Show All"}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-
-    {/* ===================== PRODUCT GRID ===================== */}
-    {loading ? (
-      <ProductsSkeleton />
-    ) : filteredProducts.length > 0 ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {filteredProducts.map((p) => (
-          <ProductCard
-            key={p._id}
-            product={p}
-            onEdit={() => {
-              setEditProduct(p);
+            onClick={() => {
+              setEditProduct(null);
               setShowForm(true);
             }}
-            onDelete={() => confirmDelete(p)}
-          />
-        ))}
-      </div>
-    ) : (
-      <div className="text-center text-gray-500 py-10">No products found.</div>
-    )}
+            className="order-1 lg:order-last bg-blue-600 text-white shadow font-semibold px-3 py-1.5 rounded-md text-sm hover:bg-blue-700 active:scale-[0.98] lg:px-4 lg:py-2 lg:text-base lg:rounded-lg"
+          >
+            + Add Product
+          </button>
 
-    {/* ===================== FORM MODAL ===================== */}
-    {showForm && (
-      <>
-        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40" />
+          {/* FILTER BUTTONS (same style as categories, bigger on mobile+desktop) */}
+          <div className="order-2 lg:order-first flex flex-wrap justify-end gap-1.5 lg:gap-2">
+            <button
+              className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+                filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
+              }`}
+              onClick={() => setFilter("all")}
+            >
+              All
+            </button>
 
-        <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
-          <div className="bg-white rounded-2xl shadow-lg w-full max-w-4xl p-6 overflow-y-auto max-h-[90vh] relative animate-[zoomIn_.2s_ease-out]">
-            <ProductForm
-              product={editProduct}
-              productsLength={products.length}
-              onClose={() => setShowForm(false)}
-              onSaved={() => {
-                setShowForm(false);
-                loadProducts();
-                setToast({
-                  message: editProduct
-                    ? "✅ Product updated!"
-                    : "✅ Product added!",
-                  type: "success",
-                });
-              }}
-            />
+            <button
+              className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+                filter === "active" ? "bg-green-600 text-white" : "bg-white"
+              }`}
+              onClick={() => setFilter("active")}
+            >
+              Active
+            </button>
+
+            <button
+              className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+                filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
+              }`}
+              onClick={() => setFilter("hidden")}
+            >
+              Hidden
+            </button>
+
+            {/* BULK BUTTON */}
+            {products.length > 0 && (
+              <button
+                onClick={toggleAllProducts}
+                className={`px-2.5 py-1.5 rounded-md border text-xs leading-none font-semibold text-white lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+                  hasAnyActive
+                    ? "bg-gray-700 hover:bg-gray-800"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {hasAnyActive ? "Hide All" : "Show All"}
+              </button>
+            )}
           </div>
         </div>
-      </>
-    )}
+      </div>
 
-    {/* ===================== DELETE CONFIRM ===================== */}
-    {deleteModal && (
-      <>
-        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40" />
+      {/* ===================== PRODUCT GRID ===================== */}
+      {loading ? (
+        <ProductsSkeleton />
+      ) : filteredProducts.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {filteredProducts.map((p) => (
+            <ProductCard
+              key={p._id}
+              product={p}
+              onEdit={() => {
+                setEditProduct(p);
+                setShowForm(true);
+              }}
+              onDelete={() => confirmDelete(p)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center text-gray-500 py-10">
+          No products found.
+        </div>
+      )}
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl border animate-[zoomIn_.2s_ease-out]">
-            <h2 className="text-xl font-bold text-red-600 mb-3">
-              ⚠ Delete Product
-            </h2>
+      {/* ===================== FORM MODAL ===================== */}
+      {showForm && (
+        <>
+          <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40" />
 
-            <p className="text-gray-700 mb-6">
-              Are you sure you want to delete{" "}
-              <span className="font-semibold">{deleteModal.name}</span>?
-            </p>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteModal(null)}
-                className="px-4 py-2 border rounded"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded shadow"
-              >
-                {deleting ? "Deleting..." : "Delete"}
-              </button>
+          <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-2xl shadow-lg w-full max-w-4xl p-6 overflow-y-auto max-h-[90vh] relative animate-[zoomIn_.2s_ease-out]">
+              <ProductForm
+                product={editProduct}
+                productsLength={products.length}
+                onClose={() => setShowForm(false)}
+                onSaved={() => {
+                  setShowForm(false);
+                  loadProducts();
+                  setToast({
+                    message: editProduct
+                      ? "✅ Product updated!"
+                      : "✅ Product added!",
+                    type: "success",
+                  });
+                }}
+              />
             </div>
           </div>
-        </div>
-      </>
-    )}
+        </>
+      )}
 
-    {/* TOAST */}
-    {toast && (
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast(null)}
-      />
-    )}
+      {/* ===================== DELETE CONFIRM ===================== */}
+      {deleteModal && (
+        <>
+          <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40" />
 
-    <style jsx global>{`
-      @keyframes zoomIn {
-        from {
-          transform: scale(0.95);
-          opacity: 0;
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl border animate-[zoomIn_.2s_ease-out]">
+              <h2 className="text-xl font-bold text-red-600 mb-3">
+                ⚠ Delete Product
+              </h2>
+
+              <p className="text-gray-700 mb-6">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold">{deleteModal.name}</span>?
+              </p>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeleteModal(null)}
+                  className="px-4 py-2 border rounded"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded shadow"
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* TOAST */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      <style jsx global>{`
+        @keyframes zoomIn {
+          from {
+            transform: scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
-        to {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-    `}</style>
-  </div>
-);
+      `}</style>
+    </div>
+  );
 }

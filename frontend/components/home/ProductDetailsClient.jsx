@@ -80,7 +80,7 @@ export default function ProductDetailsClient({
     if (activeIdx >= images.length) setActiveIdx(0);
   }, [images, activeIdx]);
 
-  // ✅ autoplay slider
+  // ✅ autoplay slider (✅ dependency fixed)
   useEffect(() => {
     if (!images || images.length <= 1) return;
     const interval = setInterval(() => {
@@ -104,6 +104,9 @@ export default function ProductDetailsClient({
   // ✅ wishlist normalize
   const isInWishlist = wishlist.includes(String(product._id));
 
+  // ✅ ✅ SOLD Count Variant Aware (FIXED)
+  const soldCount = Number(selectedColor?.sold ?? product?.sold ?? 0) || 0;
+
   // ✅ Professional Tabs Button
   const tabBtn = (key, label) => (
     <button
@@ -119,7 +122,6 @@ export default function ProductDetailsClient({
       {label}
     </button>
   );
-
 
   // ✅ checkout will pass stock + color via URL (AND cartKey qty)
   const handleCheckout = async () => {
@@ -244,9 +246,7 @@ export default function ProductDetailsClient({
 
               <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-100">
                 <FaFire className="text-[10px] animate-bounce" />
-                <span className="text-xs font-bold">
-                  {Number(product.sold ?? 0) || 0} Sold
-                </span>
+                <span className="text-xs font-bold">{soldCount} Sold</span>
               </div>
             </div>
 
