@@ -142,66 +142,66 @@ export default function DashboardPage() {
   }, [orders]);
 
   // ✅ Professional Gradient Cards Config (premium colors)
-  const cards = useMemo(() => {
-    return [
-      {
-        key: "totalOrders",
-        label: "Total Orders",
-        value: stats.totalOrders,
-        gradient: "from-indigo-600 via-blue-600 to-cyan-500",
-        dot: "bg-white/70",
-        sub: "All orders",
-      },
-      {
-        key: "totalSales",
-        label: "Total Sales",
-        value: `৳${stats.totalSales}`,
-        gradient: "from-emerald-600 via-green-600 to-lime-500",
-        dot: "bg-white/70",
-        sub: "Total revenue",
-      },
-      {
-        key: "pending",
-        label: "Pending",
-        value: statusStats.pending ?? 0,
-        gradient: "from-amber-600 via-orange-600 to-yellow-500",
-        dot: "bg-white/70",
-        sub: "Awaiting action",
-      },
-      {
-        key: "ready_to_delivery",
-        label: "Ready",
-        value: statusStats.ready_to_delivery ?? 0,
-        gradient: "from-sky-600 via-cyan-600 to-teal-500",
-        dot: "bg-white/70",
-        sub: "Ready to deliver",
-      },
-      {
-        key: "send_to_courier",
-        label: "Courier",
-        value: statusStats.send_to_courier ?? 0,
-        gradient: "from-violet-600 via-purple-600 to-fuchsia-500",
-        dot: "bg-white/70",
-        sub: "Handed to courier",
-      },
-      {
-        key: "delivered",
-        label: "Delivered",
-        value: statusStats.delivered ?? 0,
-        gradient: "from-green-700 via-emerald-600 to-teal-500",
-        dot: "bg-white/70",
-        sub: "Completed",
-      },
-      {
-        key: "cancelled",
-        label: "Cancelled",
-        value: statusStats.cancelled ?? 0,
-        gradient: "from-rose-600 via-red-600 to-orange-500",
-        dot: "bg-white/70",
-        sub: "Stopped orders",
-      },
-    ];
-  }, [stats, statusStats]);
+const cards = useMemo(() => {
+  return [
+    {
+      key: "totalOrders",
+      label: "Total Orders",
+      value: stats.totalOrders,
+      gradient: "from-indigo-600 via-blue-600 to-cyan-500",
+      dot: "bg-white/50",
+      sub: "All orders",
+    },
+    {
+      key: "totalSales",
+      label: "Total Sales",
+      value: `৳${stats.totalSales}`,
+      gradient: "from-emerald-600 via-emerald-600 to-emerald-500",
+      dot: "bg-white/50",
+      sub: "Total revenue",
+    },
+    {
+      key: "pending",
+      label: "Pending",
+      value: statusStats.pending ?? 0,
+      gradient: "from-amber-600 via-amber-600 to-amber-500",
+      dot: "bg-white/50",
+      sub: "Awaiting action",
+    },
+    {
+      key: "ready_to_delivery",
+      label: "Ready",
+      value: statusStats.ready_to_delivery ?? 0,
+      gradient: "from-sky-600 via-sky-600 to-sky-500",
+      dot: "bg-white/50",
+      sub: "Ready to deliver",
+    },
+    {
+      key: "send_to_courier",
+      label: "Courier",
+      value: statusStats.send_to_courier ?? 0,
+      gradient: "from-violet-600 via-violet-600 to-violet-500",
+      dot: "bg-white/50",
+      sub: "Handed to courier",
+    },
+    {
+      key: "delivered",
+      label: "Delivered",
+      value: statusStats.delivered ?? 0,
+      gradient: "from-teal-600 via-teal-700 to-teal-600",
+      dot: "bg-white/50",
+      sub: "Completed",
+    },
+    {
+      key: "cancelled",
+      label: "Cancelled",
+      value: statusStats.cancelled ?? 0,
+      gradient: "from-rose-500 via-rose-600 to-rose-500",
+      dot: "bg-white/50",
+      sub: "Stopped orders",
+    },
+  ];
+}, [stats, statusStats]);
 
   return (
     <div className="space-y-6 p-3 sm:p-6">

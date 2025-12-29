@@ -18,8 +18,11 @@ const ProductCard = memo(({ product, priority = false }) => {
   const productId = product?._id;
   if (!productId) return null;
 
+  // ✅ SAFE colors array
+  const colors = Array.isArray(product?.colors) ? product.colors : [];
+
   // ✅ pick default variant (first color)
-  const defaultColor = product?.colors?.length > 0 ? product.colors[0] : null;
+  const defaultColor = colors.length > 0 ? colors[0] : null;
 
   // ✅ cartKey must include color to avoid stock mismatch
   const cartKey = defaultColor
@@ -39,13 +42,23 @@ const ProductCard = memo(({ product, priority = false }) => {
   const isSoldOut =
     product?.isSoldOut === true || product?.isSoldOut === "true";
 
-  // ✅ stock: use default variant stock, not sum
-  const computedStock = useMemo(() => {
-    if (defaultColor) return Number(defaultColor?.stock ?? 0) || 0;
-    return Number(product?.stock ?? 0) || 0;
-  }, [product, defaultColor]);
+  // ✅ ✅ Total Stock (variants থাকলে যোগ করে, না থাকলে product.stock)
+  const totalStock = useMemo(() => {
+    if (colors.length > 0) {
+      return colors.reduce((sum, v) => sum + Number(v?.stock || 0), 0);
+    }
+    return Number(product?.stock || 0);
+  }, [colors, product]);
 
-  const isOutOfStock = computedStock <= 0 || isSoldOut;
+  // ✅ ✅ Total Sold (variants থাকলে যোগ করে, না থাকলে product.sold)
+  const totalSold = useMemo(() => {
+    if (colors.length > 0) {
+      return colors.reduce((sum, v) => sum + Number(v?.sold || 0), 0);
+    }
+    return Number(product?.sold || 0);
+  }, [colors, product]);
+
+  const isOutOfStock = totalStock <= 0 || isSoldOut;
 
   const mainImage = useMemo(() => {
     if (defaultColor?.images?.length > 0) return defaultColor.images[0];
@@ -54,9 +67,6 @@ const ProductCard = memo(({ product, priority = false }) => {
     if (product?.images?.length > 0) return product.images[0];
     return "/no-image.png";
   }, [product, defaultColor]);
-
-  // ✅ SOLD Count Variant Aware (FIXED)
-  const soldCount = Number(defaultColor?.sold ?? product?.sold ?? 0) || 0;
 
   return (
     <div className="relative bg-pink-100 shadow-md rounded-lg hover:shadow-lg transition flex flex-col group">
@@ -104,22 +114,22 @@ const ProductCard = memo(({ product, priority = false }) => {
           {product?.name}
         </h4>
 
-        {/* ✅ Stock + Sold */}
+        {/* ✅ Stock + Sold (NOW TOTAL) */}
         <div className="flex items-center justify-between">
           <p
             className={`text-[10px] font-bold ${
               !isOutOfStock ? "text-green-600" : "text-red-500"
             }`}
           >
-            {!isOutOfStock ? `In Stock (${computedStock})` : "Out of Stock"}
+            {!isOutOfStock ? `In Stock (${totalStock})` : "Out of Stock"}
           </p>
 
-          <span className="text-[10px] text-gray-500">Sold: {soldCount}</span>
+          <span className="text-[10px] text-gray-500">Sold: {totalSold}</span>
         </div>
 
         {/* ✅ Variant + Rating same row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0.5 my-1">
             {[...Array(5)].map((_, i) => (
               <FaStar
                 key={i}
@@ -131,13 +141,6 @@ const ProductCard = memo(({ product, priority = false }) => {
               />
             ))}
           </div>
-          {defaultColor?.name ? (
-            <p className="text-[10px] font-bold text-pink-600 truncate max-w-[55%]">
-              Variant: {defaultColor.name}
-            </p>
-          ) : (
-            <span />
-          )}
         </div>
 
         {/* ✅ Price */}
@@ -160,8 +163,8 @@ const ProductCard = memo(({ product, priority = false }) => {
               e.preventDefault();
               e.stopPropagation();
 
-              // ✅ add with variant cartKey + variant stock
-              updateCart(cartKey, +1, computedStock);
+              // ✅ add with cartKey + TOTAL STOCK limit
+              updateCart(cartKey, +1, totalStock);
             }}
             disabled={isOutOfStock}
             className={`w-full px-3 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-bold transition ${
@@ -180,7 +183,7 @@ const ProductCard = memo(({ product, priority = false }) => {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  updateCart(cartKey, -1, computedStock);
+                  updateCart(cartKey, -1, totalStock);
                 }}
                 className="p-1 bg-pink-50 shadow-sm rounded text-pink-600"
               >
@@ -196,7 +199,7 @@ const ProductCard = memo(({ product, priority = false }) => {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  updateCart(cartKey, +1, computedStock);
+                  updateCart(cartKey, +1, totalStock);
                 }}
                 className="p-1 bg-pink-50 shadow-sm rounded text-pink-600"
               >

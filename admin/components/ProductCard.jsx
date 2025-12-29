@@ -9,17 +9,13 @@ export default function ProductCard({ product, onEdit, onDelete }) {
     ? product.colors.length
     : 0;
 
-  // ✅ Total Sold Calculation:
-  // যদি variants থাকে → সব variant sold যোগ করে totalSold
-  // যদি variants না থাকে → product.sold
+  // ✅ Total Sold
   const totalSold =
     totalVariants > 0
       ? product.colors.reduce((sum, v) => sum + Number(v?.sold || 0), 0)
       : Number(product?.sold || 0);
 
-  // ✅ Total Stock Calculation:
-  // আপনার backend already product.stock total রাখে
-  // তারপরও safe fallback:
+  // ✅ Total Stock
   const totalStock =
     product?.stock !== undefined && product?.stock !== null
       ? Number(product.stock || 0)
@@ -27,7 +23,6 @@ export default function ProductCard({ product, onEdit, onDelete }) {
       ? product.colors.reduce((sum, v) => sum + Number(v?.stock || 0), 0)
       : 0;
 
-  // ✅ Display Image (backend synced product.image)
   const displayImage = product?.image || "";
 
   return (
@@ -36,7 +31,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
         ${isHidden ? "bg-gray-100 opacity-80" : "bg-white hover:shadow-lg"}
       `}
     >
-      {/* 🖼️ প্রোডাক্ট ছবি */}
+      {/* 🖼️ Product Image */}
       <div className="w-full h-40 overflow-hidden rounded-lg mb-3 relative bg-gray-50">
         {displayImage ? (
           <img
@@ -79,37 +74,57 @@ export default function ProductCard({ product, onEdit, onDelete }) {
         )}
       </div>
 
-      {/* 📋 প্রোডাক্ট তথ্য */}
+      {/* 📋 Product Info */}
       <h2 className="font-semibold text-lg truncate text-gray-800">
         {product.name}
       </h2>
 
       {/* ✅ Price */}
-      <p className="text-gray-700 font-medium mt-1">
+      <p className="text-gray-700 font-medium">
         ৳ {product.price}{" "}
         {product.oldPrice ? (
-          <span className="line-through text-sm text-gray-500 ml-1">
+          <span className="line-through text-sm text-gray-500 ">
             ৳ {product.oldPrice}
           </span>
         ) : null}
       </p>
 
       {/* ✅ Stock + Total Sold */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-gray-500 mt-1">স্টক: {totalStock}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500 ">স্টক: {totalStock}</p>
 
-        <span className="text-[10px] sm:text-xs text-gray-500 ">
-          Sold: {totalSold}
+        <span className="text-[10px] sm:text-xs text-gray-500">
+          Total Sold: {totalSold}
         </span>
       </div>
 
+      {/* ✅ ✅ Variant wise Sold List (NEW) */}
+      {totalVariants > 0 && (
+        <div className="mt-1 bg-gray-50 border rounded-lg p-2">
+          <p className="text-[11px] font-semibold text-gray-700 mb-1">
+            Variant Sold:
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            {product.colors.map((v, idx) => (
+              <span
+                key={idx}
+                className="text-[10px] px-2 py-1 rounded-full border bg-white text-gray-700"
+                title={`${v.name} sold`}
+              >
+                {v.name}: <b>{Number(v?.sold || 0)}</b>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ✅ Status Tags */}
-      <div className="mt-1 flex items-center gap-2 text-[11px] flex-wrap">
+      <div className="mt-2 flex items-center gap-2 text-[11px] flex-wrap">
         <span className="px-2 py-0.5 rounded bg-gray-100 border text-gray-700">
           Serial: {product.order || 0}
         </span>
 
-        {/* ✅ Variants Badge */}
         {totalVariants > 0 && (
           <span className="px-2 py-0.5 rounded bg-purple-100 border border-purple-200 text-purple-700 font-medium">
             {totalVariants} Variants
@@ -129,7 +144,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
 
       {/* ✅ Category */}
       {cat ? (
-        <div className="mt-2 space-y-1">
+        <div className="mt-1 space-y-1">
           <p className="text-xs text-gray-500">
             ক্যাটাগরি:{" "}
             <span className="font-medium text-gray-800">{cat.name}</span>
@@ -140,7 +155,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
       )}
 
       {/* ⭐ Rating */}
-      <div className="flex items-center gap-1 mt-2">
+      <div className="flex items-center gap-1">
         <span className="text-yellow-500">⭐</span>
         <span className="text-sm font-medium text-gray-700">
           {product.rating || 0}
@@ -148,7 +163,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
       </div>
 
       {/* 🎯 Buttons */}
-      <div className="mt-auto pt-4 flex gap-2">
+      <div className="mt-auto pt- flex gap-2">
         <button
           type="button"
           onClick={(e) => {
