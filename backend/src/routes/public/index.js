@@ -10,6 +10,8 @@ import receiptRoutes from "./receipt.routes.js";
 import sliderRoutes from "./slider.routes.js";
 import invoiceRoute from "./invoice.js";
 import deliveryCharge from "./deliveryCharge.js";
+import profileUploadRoutes from "./profileUpload.routes.js";
+import userRoutes from "./user.routes.js";
 
 
 
@@ -25,6 +27,8 @@ router.use("/receipts", receiptRoutes);
 router.use("/slider-images", sliderRoutes);
 router.use("/api", invoiceRoute);
 router.use("/deliveryCharge", deliveryCharge);
+router.use("/profile", profileUploadRoutes);
+router.use("/users", userRoutes); 
 
 
 

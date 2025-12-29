@@ -22,12 +22,15 @@ const colorSchema = new mongoose.Schema(
 // --- Review Schema ---
 const reviewSchema = new mongoose.Schema(
   {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // ✅ FIX
     user: { type: String, default: "" },
+    avatar: { type: String, default: "" },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     comment: { type: String, default: "" },
   },
-  { _id: false }
+  { timestamps: true }
 );
+
 
 const productSchema = new mongoose.Schema(
   {

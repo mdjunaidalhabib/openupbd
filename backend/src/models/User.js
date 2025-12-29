@@ -4,21 +4,32 @@ import Counter from "./Counter.js";
 const userSchema = new mongoose.Schema(
   {
     googleId: { type: String, required: true, unique: true, index: true },
+
     userId: { type: Number, unique: true, index: true }, // ✅ auto incremented ID
+
     name: { type: String, default: "" },
-    // Make email optional but uniquely indexed (sparse) to avoid duplicates on missing emails
+
+    // ✅ optional email (unique + sparse)
     email: {
       type: String,
       unique: true,
       sparse: true,
       lowercase: true,
       trim: true,
+      default: "",
     },
-    // ✅ Avatar field with default image (use your CDN/static fallback if possible)
+
+    // ✅ Avatar field with default image
     avatar: {
       type: String,
       default: "https://i.pravatar.cc/150?u=default",
     },
+
+    // ✅ NEW: profile details fields
+    phone: { type: String, default: "" },
+    address: { type: String, default: "" },
+    city: { type: String, default: "" },
+    country: { type: String, default: "" },
   },
   { timestamps: true }
 );

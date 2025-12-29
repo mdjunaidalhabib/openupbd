@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { apiFetch } from "../../../../utils/api";
-import ProductDetailsClient from "../../../../components/home/ProductDetailsClient";
+import ProductDetailsClient from "../../../../components/product-details/ProductDetailsClient";
+
 import ProductDetailsSkeleton from "../../../../components/skeletons/ProductDetailsSkeleton";
 
 export default function ProductDetailsPage() {

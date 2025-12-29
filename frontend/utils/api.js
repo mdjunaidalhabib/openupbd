@@ -8,13 +8,22 @@ export async function apiFetch(url, options = {}) {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
+  // ✅ FormData হলে Content-Type set করবে না
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(`${baseUrl}${url}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
+    headers,
   });
 
   if (!res.ok) {
