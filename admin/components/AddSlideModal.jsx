@@ -52,6 +52,13 @@ export default function AddSlideModal({
     }
   }, [showModal, initialData, editId, slidesLength]);
 
+  // ✅ IMPORTANT: preview object URL cleanup (memory leak fix)
+  useEffect(() => {
+    return () => {
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
   if (!showModal) return null;
 
   const handleClose = () => {
@@ -161,14 +168,15 @@ export default function AddSlideModal({
 
             <div>
               <label className="block text-sm font-medium mb-2">
-                Slide Image
+                Slide Image (1500×500)
               </label>
 
+              {/* ✅ 1500x500 ratio preview */}
               <div
                 ref={dropRef}
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed h-32 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer bg-gray-50"
+                className="border-2 border-dashed rounded-lg overflow-hidden cursor-pointer bg-gray-50 aspect-[3/1] flex items-center justify-center"
                 onClick={() =>
                   dropRef.current?.querySelector("input[type=file]")?.click()
                 }
@@ -177,10 +185,10 @@ export default function AddSlideModal({
                   <img
                     src={preview}
                     alt="preview"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-gray-500">
+                  <span className="text-gray-500 text-sm">
                     Drag & drop or click to upload
                   </span>
                 )}
@@ -198,6 +206,12 @@ export default function AddSlideModal({
                   }}
                 />
               </div>
+
+              {/* ✅ helper text */}
+              <p className="text-xs text-gray-400 mt-1">
+                Recommended size: 1500×500 (3:1). Different size হলে auto crop
+                হয়ে যাবে।
+              </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

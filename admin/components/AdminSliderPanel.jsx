@@ -5,7 +5,7 @@ import AddSlideModal from "./AddSlideModal";
 import SliderPanelSkeleton from "./Skeleton/SliderSkeleton";
 
 export default function AdminSliderPanel() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [slides, setSlides] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
@@ -151,7 +151,7 @@ export default function AdminSliderPanel() {
   // ✅ any active?
   const hasAnyActive = slides.some((s) => s.isActive);
 
-  // ✅ bulk toggle all slides (category/product page er moto)
+  // ✅ bulk toggle all slides
   const toggleAllSlides = async () => {
     try {
       const shouldHideAll = hasAnyActive;
@@ -208,7 +208,7 @@ export default function AdminSliderPanel() {
 
         {/* Right side controls */}
         <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:gap-2 lg:ml-auto">
-          {/* ✅ ADD SLIDE (mobile first, desktop last/right) */}
+          {/* ✅ ADD SLIDE */}
           <button
             onClick={() => {
               setEditSlide(null);
@@ -287,8 +287,8 @@ export default function AdminSliderPanel() {
                 s.isActive ? "bg-white" : "bg-gray-50 opacity-70 grayscale"
               }`}
             >
-              {/* image fixed height + Hidden badge */}
-              <div className="h-44 bg-gray-100 rounded-lg overflow-hidden relative">
+              {/* ✅ 1500x500 ratio image */}
+              <div className="aspect-[3/1] bg-gray-100 rounded-lg overflow-hidden relative">
                 {s.src ? (
                   <img
                     src={s.src}

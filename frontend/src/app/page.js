@@ -12,9 +12,7 @@ export const metadata = {
 export default function HomePage() {
   return (
     <section className="bg-pink-50">
-      {/* 🔒 SEO only – UI change হবে না */}
       <HomeSEO />
-
       <div>
         <ImageSlider />
         <HomeAllProduct />

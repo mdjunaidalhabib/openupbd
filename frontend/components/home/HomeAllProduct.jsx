@@ -165,7 +165,7 @@ export default function CategoryTabsSection() {
         onMouseUp={stopDrag}
         onMouseLeave={stopDrag}
         className="
-          px-1 mb-8 w-full
+          mb-8 w-full
           overflow-x-auto overflow-y-hidden
           [&::-webkit-scrollbar]:hidden scrollbar-none
           sm:cursor-grab
@@ -175,7 +175,7 @@ export default function CategoryTabsSection() {
         <div
           className="
             /* 📱 MOBILE */
-            grid grid-rows-2 grid-flow-col gap-2 auto-cols-[6rem]
+            grid grid-rows-2 grid-flow-col gap-2 auto-cols-[5rem]
 
             /* 🖥 DESKTOP */
             sm:flex sm:flex-wrap sm:justify-center sm:gap-2
@@ -189,7 +189,7 @@ export default function CategoryTabsSection() {
                 setActiveCat((prev) => (prev === cat._id ? null : cat._id))
               }
               className={`flex-none flex flex-col items-center justify-center
-                w-24 h-24 p-2 rounded-xl transition-all duration-300
+                w-20 h-20 p-1 rounded-xl transition-all duration-300
                 border shadow-sm hover:shadow-md
                 ${
                   activeCat === cat._id

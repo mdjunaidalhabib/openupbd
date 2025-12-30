@@ -99,8 +99,8 @@ export default function Navbar() {
   return (
     <>
       {/* 🧭 Top Navbar */}
-      <nav className="bg-pink-100 text-gray-800 shadow-md sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center py-3 px-4">
+      <nav className="bg-pink-100 text-gray-800 shadow-md sticky top-0 z-50 ">
+        <div className="container mx-auto w-full max-w-[1280px] flex justify-between items-center py-3 px-8">
           {/* 📱 Mobile Search Icon */}
           <button
             className="md:hidden p-2 rounded hover:bg-gray-100"

@@ -6,6 +6,7 @@ import FooterSkeleton from "../skeletons/FooterSkeleton";
 import { useEffect, useState } from "react";
 import {
   FaFacebookF,
+  FaUsers,
   FaYoutube,
   FaInstagram,
   FaTiktok,
@@ -13,16 +14,17 @@ import {
   FaEnvelope,
   FaGlobe,
   FaMapMarkerAlt,
-  FaUserCircle,
 } from "react-icons/fa";
 
-const iconMap = { FaFacebookF, FaYoutube, FaInstagram, FaTiktok };
-
 const socialLinksData = [
-  { icon: "FaFacebookF", url: "https://www.facebook.com/openupbd" },
-  { icon: "FaYoutube", url: "https://youtube.com/@openupbd" },
-  { icon: "FaInstagram", url: "https://instagram.com/openupbd" },
-  { icon: "FaTiktok", url: "https://tiktok.com/@openupbd.com" },
+  { Icon: FaFacebookF, url: "https://www.facebook.com/openupbd" },
+  {
+    Icon: FaUsers,
+    url: "https://www.facebook.com/share/g/17mB3XsdQR",
+  },
+  { Icon: FaYoutube, url: "https://youtube.com/@openupbd" },
+  { Icon: FaInstagram, url: "https://instagram.com/openupbd" },
+  { Icon: FaTiktok, url: "https://tiktok.com/@openupbd.com" },
 ];
 
 const quickLinksData = [
@@ -69,8 +71,8 @@ export default function Footer() {
   const { brand = {}, contact = {} } = data;
 
   return (
-    <footer className="bg-pink-100 text-gray-900 pt-10 pb-2 px-6 md:px-12 mb-14 md:mb-0">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+    <footer className="bg-pink-100 text-gray-900 pt-10 pb-2 px-4 md:px-12 mb-14 md:mb-0">
+      <div className=" mx-auto w-full max-w-[1080px] grid grid-cols-1 md:grid-cols-3 gap-10">
         {/* BRAND */}
         <div>
           <div className="flex items-center gap-3 mb-3">
@@ -100,19 +102,16 @@ export default function Footer() {
           </p>
 
           <div className="flex gap-4 text-xl">
-            {socialLinksData.map((s, idx) => {
-              const Icon = iconMap[s.icon] || FaGlobe;
-              return (
-                <Link
-                  key={idx}
-                  href={s.url || "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon className="hover:text-pink-600" />
-                </Link>
-              );
-            })}
+            {socialLinksData.map(({ Icon, url }, idx) => (
+              <Link
+                key={idx}
+                href={url || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon className="hover:text-pink-600" />
+              </Link>
+            ))}
           </div>
         </div>
 

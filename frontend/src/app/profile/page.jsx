@@ -9,7 +9,7 @@ import Toast from "../../../components/home/Toast";
 
 function StatCard({ label, value, sub }) {
   return (
-    <div className="rounded-2xl border bg-purple-100 p-4 shadow-sm">
+    <div className="rounded-2xl border border-pink-200 bg-pink-50 p-4 shadow-sm">
       <p className="text-xs font-medium text-gray-900">{label}</p>
       <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
       {sub ? <p className="mt-1 text-xs text-gray-800">{sub}</p> : null}
@@ -34,7 +34,9 @@ function Input({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+        className="mt-1 w-full rounded-xl border border-pink-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition
+        focus:border-blue-600 focus:ring-2 focus:ring-blue-100
+        disabled:bg-pink-50 disabled:text-gray-600 disabled:opacity-100 disabled:cursor-not-allowed disabled:border-pink-200"
       />
     </div>
   );
@@ -332,12 +334,13 @@ export default function ProfilePage() {
       <Toast message={toastMsg} type={toastType} onClose={closeToast} />
 
       <div className="min-h-[70vh] px-4 py-10">
-        <div className="mx-auto w-full max-w-4xl rounded-3xl border border-pink-200 bg-purple-50 p-6 shadow-sm">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto w-full max-w-4xl rounded-3xl border border-pink-200 bg-pink-50 p-4 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
+              {/* ✅ Avatar fixed for mobile */}
               <div
                 onClick={handleAvatarClick}
-                className={`relative h-20 w-20 overflow-hidden rounded-full border bg-gray-100 shadow-sm ${
+                className={`relative h-16 w-16 aspect-square overflow-hidden rounded-full border bg-gray-100 shadow-sm ${
                   editMode ? "cursor-pointer ring-4 ring-blue-100" : ""
                 }`}
                 title={editMode ? "Click to change photo" : ""}
@@ -347,7 +350,9 @@ export default function ProfilePage() {
                     src={avatarPreview}
                     alt={form.name || "User"}
                     fill
-                    className="object-cover"
+                    sizes="80px"
+                    className="object-cover rounded-full"
+                    priority
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
@@ -364,65 +369,33 @@ export default function ProfilePage() {
                 onChange={handleAvatarChange}
               />
 
-              <div>
-                <h1 className="text-2xl font-bold text-purple-600">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-2xl font-bold text-purple-600 break-words leading-tight">
                   {form.name || "Unnamed User"}
                 </h1>
-                <p className="text-sm text-gray-800">{form.email}</p>
 
-                <p className="mt-1 text-xs text-gray-700">
+                <p className="mt-0.5 text-xs sm:text-sm text-gray-800 break-all">
+                  {form.email}
+                </p>
+
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-700 break-words leading-snug">
                   Keep your profile updated for faster checkout and smooth
                   delivery.
                 </p>
 
-                <p className="mt-2 inline-flex rounded-full bg-purple-200 px-3 py-1 text-xs font-semibold text-gray-700">
+                <p className="mt-2 inline-flex max-w-full rounded-full bg-purple-200 px-3 py-1 text-[11px] sm:text-xs font-semibold text-gray-700">
                   User ID: {me.userId}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {!editMode ? (
-                <button
-                  onClick={() => setEditMode(true)}
-                  className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-                >
-                  Edit Profile
-                </button>
-              ) : (
-                <>
-                  {/* ✅ If no changes, show "No changes yet" text */}
-                  {!isDirty ? (
-                    <div className="flex items-center rounded-2xl border bg-white px-4 py-2.5 text-sm font-semibold text-gray-500 shadow-sm">
-                      No changes
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="rounded-2xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {saving ? "Saving..." : "Save Changes"}
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleCancel}
-                    disabled={saving}
-                    className="rounded-2xl border bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-60"
-                  >
-                    Cancel
-                  </button>
-                </>
-              )}
-
-              <button
-                onClick={handleLogout}
-                className="rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
-              >
-                Logout
-              </button>
-            </div>
+            {/* ✅ Only logout on top */}
+            <button
+              onClick={handleLogout}
+              className="rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
+            >
+              Logout
+            </button>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -443,14 +416,53 @@ export default function ProfilePage() {
             />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-pink-200 bg-purple-50 p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-purple-600">
-                Profile Details
-              </p>
-              <p className="text-xs text-purple-500">
-                {editMode ? "Editing mode" : "View mode"}
-              </p>
+          {/* ✅ White panel for premium feel */}
+          <div className="mt-6 rounded-2xl border border-pink-200 bg-pink-50 p-4 ">
+            {/* ✅ header with buttons */}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-purple-600">
+                  Profile Details
+                </p>
+                <p className="text-xs text-purple-500">
+                  {editMode ? "Editing mode" : "View mode"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!editMode ? (
+                  <button
+                    onClick={() => setEditMode(true)}
+                    className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <>
+                    {!isDirty ? (
+                      <div className="rounded-xl border bg-white px-2 py-2 text-xs text-[11px] font-semibold text-gray-500 shadow-sm">
+                        No changes
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {saving ? "Saving..." : "Save"}
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleCancel}
+                      disabled={saving}
+                      className="rounded-xl border bg-white px-2 py-2 text-xs text-[11px] font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -481,7 +493,7 @@ export default function ProfilePage() {
                 label="City"
                 value={form.city}
                 onChange={(v) => setForm((p) => ({ ...p, city: v }))}
-                placeholder="Dhaka"
+                placeholder="...."
                 disabled={!editMode}
               />
 
@@ -489,7 +501,7 @@ export default function ProfilePage() {
                 label="Country"
                 value={form.country}
                 onChange={(v) => setForm((p) => ({ ...p, country: v }))}
-                placeholder="Bangladesh"
+                placeholder="...."
                 disabled={!editMode}
               />
               <Input
@@ -502,12 +514,10 @@ export default function ProfilePage() {
             </div>
 
             {!editMode ? (
-              <div className="mt-4 rounded-xl border bg-white p-3 text-xs text-gray-600">
+              <div className="mt-4 rounded-xl border bg-gray-50 p-3 text-xs text-gray-600">
                 Want to update your details? Click{" "}
-                <span className="font-semibold text-blue-600">
-                  Edit Profile
-                </span>{" "}
-                to make changes.
+                <span className="font-semibold text-blue-600">Edit</span> to
+                make changes.
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">

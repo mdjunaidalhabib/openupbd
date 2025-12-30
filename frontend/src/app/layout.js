@@ -30,11 +30,14 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="flex flex-col min-h-screen bg-gray-50">
         <PWARegister />
-
         <UserProvider>
           <CartProvider>
             <Navbar />
-            <main className="flex-grow bg-pink-50">{children}</main>
+            <main className="flex-grow bg-pink-50">
+              <div className="mx-auto w-full max-w-[1280px]">
+                {children}
+              </div>
+            </main>
             <Footer />
             <FloatingActionButton />
           </CartProvider>

@@ -8,8 +8,8 @@ export default function SliderPanelSkeleton({ count = 8 }) {
           key={i}
           className="border border-gray-200 bg-white rounded-xl p-3 shadow-sm flex flex-col h-full animate-pulse"
         >
-          {/* image skeleton */}
-          <div className="h-44 bg-gray-200 rounded-lg" />
+          {/* ✅ image skeleton (1500x500 ratio) */}
+          <div className="aspect-[3/1] bg-gray-200 rounded-lg" />
 
           {/* body */}
           <div className="flex flex-col flex-1 mt-3 space-y-2">
