@@ -433,7 +433,7 @@ export default function ProfilePage() {
                 {!editMode ? (
                   <button
                     onClick={() => setEditMode(true)}
-                    className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+                    className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-700"
                   >
                     Edit
                   </button>

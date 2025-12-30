@@ -72,7 +72,7 @@ const ProductCard = memo(({ product, priority = false }) => {
     <div className="relative bg-pink-100 shadow-md rounded-lg hover:shadow-lg transition flex flex-col group">
       <Link
         href={`/products/${productId}`}
-        className="relative w-full aspect-[4/4] mb-3 overflow-hidden rounded-lg bg-white"
+        className="relative w-full aspect-[4/4] mb-1 overflow-hidden rounded-lg bg-white"
       >
         <div className="absolute top-1 left-1 right-1 flex justify-between z-10">
           {product?.oldPrice && (
@@ -109,7 +109,7 @@ const ProductCard = memo(({ product, priority = false }) => {
         />
       </Link>
 
-      <div className="px-2 pb-3">
+      <div className="px-2 pb-1">
         <h4 className="font-semibold text-sm sm:text-base truncate text-gray-800">
           {product?.name}
         </h4>
@@ -117,19 +117,19 @@ const ProductCard = memo(({ product, priority = false }) => {
         {/* ✅ Stock + Sold (NOW TOTAL) */}
         <div className="flex items-center justify-between">
           <p
-            className={`text-[10px] font-bold ${
+            className={`text-[9px] ${
               !isOutOfStock ? "text-green-600" : "text-red-500"
             }`}
           >
             {!isOutOfStock ? `In Stock (${totalStock})` : "Out of Stock"}
           </p>
 
-          <span className="text-[10px] text-gray-500">Sold: {totalSold}</span>
+          <span className="text-[9px] text-gray-500">Sold: {totalSold}</span>
         </div>
 
         {/* ✅ Variant + Rating same row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-0.5 my-1">
+          <div className="flex items-center gap-0.5">
             {[...Array(5)].map((_, i) => (
               <FaStar
                 key={i}
@@ -187,10 +187,10 @@ const ProductCard = memo(({ product, priority = false }) => {
                 }}
                 className="p-1 bg-pink-50 shadow-sm rounded text-pink-600"
               >
-                <FaMinus className="text-[8px]" />
+                <FaMinus className="text-[7px]" />
               </button>
 
-              <span className="text-[10px] font-bold text-gray-800">
+              <span className="text-[9px] font-bold text-gray-800">
                 {quantity}
               </span>
 
@@ -203,11 +203,11 @@ const ProductCard = memo(({ product, priority = false }) => {
                 }}
                 className="p-1 bg-pink-50 shadow-sm rounded text-pink-600"
               >
-                <FaPlus className="text-[8px]" />
+                <FaPlus className="text-[7px]" />
               </button>
             </div>
 
-            <p className="text-center text-[10px] font-bold text-blue-600 mt-1">
+            <p className="text-center text-[9px] font-bold text-blue-600 mt-1">
               Total: ৳{totalPrice}
             </p>
           </div>

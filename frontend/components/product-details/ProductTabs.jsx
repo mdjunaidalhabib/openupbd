@@ -30,7 +30,7 @@ export default function ProductTabs({ product, tab, setTab }) {
       type="button"
       key={key}
       onClick={() => setTab(key)}
-      className={`px-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+      className={`px-2 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
         tab === key
           ? "bg-pink-500 text-white shadow"
           : "text-gray-600 hover:bg-gray-200"
@@ -101,9 +101,9 @@ export default function ProductTabs({ product, tab, setTab }) {
     <section className="mt-12">
       {/* Tabs Header */}
       <div className="border-b flex border-gray-200">
-        <div className="max-w-6xl mx-auto flex gap-4 px-2">
+        <div className="max-w-6xl mx-auto flex gap-1 md:gap-4 px-2">
           {tabBtn("desc", "Description")}
-          {tabBtn("info", "Information")}
+          {tabBtn("info", "return policy")}
           {tabBtn("reviews", `Reviews (${reviews?.length || 0})`)}
         </div>
       </div>

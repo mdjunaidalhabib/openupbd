@@ -100,15 +100,31 @@ export default function Navbar() {
     <>
       {/* 🧭 Top Navbar */}
       <nav className="bg-pink-100 text-gray-800 shadow-md sticky top-0 z-50 ">
-        <div className="container mx-auto w-full max-w-[1280px] flex justify-between items-center py-3 px-8">
-          {/* 📱 Mobile Search Icon */}
+        <div className="container mx-auto w-full max-w-[1280px] flex justify-between items-center py-3 px-4 md:px-8">
+          {/* 📱 Hamburger */}
           <button
-            className="md:hidden p-2 rounded hover:bg-gray-100"
-            onClick={() => setMobileSearchOpen(true)}
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="md:hidden relative w-8 h-8 flex flex-col justify-center items-center gap-[5px] z-50"
           >
-            <FaSearch className="w-5 h-5 text-pink-600" />
+            <motion.span
+              variants={topBar}
+              animate={menuOpen ? "open" : "closed"}
+              transition={{ duration: 0.3 }}
+              className="block h-1 w-6 bg-pink-600 rounded"
+            />
+            <motion.span
+              variants={middleBar}
+              animate={menuOpen ? "open" : "closed"}
+              transition={{ duration: 0.3 }}
+              className="block h-1 w-6 bg-pink-600 rounded"
+            />
+            <motion.span
+              variants={bottomBar}
+              animate={menuOpen ? "open" : "closed"}
+              transition={{ duration: 0.3 }}
+              className="block h-1 w-6 bg-pink-600 rounded"
+            />
           </button>
-
           {/* 🏷 Brand (Footer-like UI) */}
           <Link href="/" className="flex items-center gap-3">
             {navbar?.brand?.logo && !imgError ? (
@@ -133,29 +149,12 @@ export default function Navbar() {
             )}
           </Link>
 
-          {/* 📱 Hamburger */}
+          {/* 📱 Mobile Search Icon */}
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden relative w-8 h-8 flex flex-col justify-center items-center gap-[5px] z-50"
+            className="md:hidden p-2 rounded hover:bg-gray-100"
+            onClick={() => setMobileSearchOpen(true)}
           >
-            <motion.span
-              variants={topBar}
-              animate={menuOpen ? "open" : "closed"}
-              transition={{ duration: 0.3 }}
-              className="block h-1 w-6 bg-pink-600 rounded"
-            />
-            <motion.span
-              variants={middleBar}
-              animate={menuOpen ? "open" : "closed"}
-              transition={{ duration: 0.3 }}
-              className="block h-1 w-6 bg-pink-600 rounded"
-            />
-            <motion.span
-              variants={bottomBar}
-              animate={menuOpen ? "open" : "closed"}
-              transition={{ duration: 0.3 }}
-              className="block h-1 w-6 bg-pink-600 rounded"
-            />
+            <FaSearch className="w-5 h-5 text-pink-600" />
           </button>
 
           {/* 💻 Desktop Menu */}

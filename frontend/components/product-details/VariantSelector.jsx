@@ -6,8 +6,8 @@ export default function VariantSelector({
   if (!colors?.length) return null;
 
   return (
-    <div className="mb-4">
-      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+    <div className="md:mb-4">
+      <h3 className="text-[11px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 md:mb-2">
         Select Variant:
       </h3>
 
@@ -17,7 +17,7 @@ export default function VariantSelector({
             type="button"
             key={idx}
             onClick={() => onSelect(color)}
-            className={`px-4 py-2 border rounded-xl text-sm font-semibold transition-all ${
+            className={`px-2 py-1 text-[11px] md:px-4 md:py-2 md:text-sm border rounded-xl  font-semibold transition-all ${
               selectedColor?.name === color.name
                 ? "border-pink-600 bg-pink-600 text-white shadow-lg shadow-pink-200"
                 : "border-gray-200 bg-white text-gray-600 hover:border-pink-300"

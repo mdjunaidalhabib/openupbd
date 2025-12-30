@@ -6,6 +6,8 @@ import ProductCardSkeleton from "../skeletons/ProductCardSkeleton";
 import { apiFetch } from "../../utils/api";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import OfferBadges from "./OfferBadges";
+
 
 export default function CategoryTabsSection() {
   const [products, setProducts] = useState([]);
@@ -56,10 +58,8 @@ export default function CategoryTabsSection() {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ================= FILTER PRODUCTS ================= */
   const filtered = useMemo(() => {
     if (!activeCat) return products;
     return products.filter(
@@ -70,7 +70,6 @@ export default function CategoryTabsSection() {
   const shouldShowSkeleton =
     loading || (!error && (products.length === 0 || categories.length === 0));
 
-  /* ================= DRAG LOGIC ================= */
   const startInertia = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -149,13 +148,14 @@ export default function CategoryTabsSection() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="container mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      className="container mx-auto px-4 py-4 sm:px-6 lg:px-8 lg:py-8 "
     >
+      {/*
       <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
         <span className="bg-gradient-to-r from-blue-600 via-purple-500 to-pink-500 text-transparent bg-clip-text">
           🛍️ Categories
         </span>
-      </h2>
+      </h2> */}
 
       {/* ================= CATEGORY TABS ================= */}
       <div
@@ -165,7 +165,7 @@ export default function CategoryTabsSection() {
         onMouseUp={stopDrag}
         onMouseLeave={stopDrag}
         className="
-          mb-8 w-full
+          w-full
           overflow-x-auto overflow-y-hidden
           [&::-webkit-scrollbar]:hidden scrollbar-none
           sm:cursor-grab
@@ -189,39 +189,46 @@ export default function CategoryTabsSection() {
                 setActiveCat((prev) => (prev === cat._id ? null : cat._id))
               }
               className={`flex-none flex flex-col items-center justify-center
-                w-20 h-20 p-1 rounded-xl transition-all duration-300
-                border shadow-sm hover:shadow-md
-                ${
-                  activeCat === cat._id
-                    ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
-                    : "bg-pink-100 hover:bg-pink-200 border-pink-300"
-                }`}
+      px-2 py-1 rounded-xl transition-all duration-300
+      border shadow-sm hover:shadow-md
+      min-w-[65px]
+      ${
+        activeCat === cat._id
+          ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white border-blue-600 scale-105"
+          : "bg-pink-100 hover:bg-pink-200 border-pink-300"
+      }`}
             >
-              {/* ✅ FIX: next/image for better perf + sizes */}
-              <div className="relative w-10 h-10 overflow-hidden rounded-full border border-gray-300 mb-1 bg-white">
+              {/* ✅ Square & bigger image */}
+              <div className="relative w-10 h-10 overflow-hidden rounded-lg border border-gray-300 m bg-white">
                 <Image
                   src={cat.image || "/no-image.png"}
                   alt={cat.name}
                   fill
-                  sizes="40px"
+                  sizes="48px"
                   loading="lazy"
                   className="object-cover transition-transform duration-300 hover:scale-110"
                 />
               </div>
 
-              <span className="text-xs font-medium text-center line-clamp-2">
+              {/* ✅ Added truncate span */}
+              <span className="text-sm text-[11px] font-medium text-center truncate w-full max-w-[150px]">
                 {cat.name}
               </span>
             </button>
           ))}
         </div>
       </div>
+      <div className="p-4">
+        <OfferBadges />
+      </div>
 
+      {/*
       <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
         <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text">
           {activeCat ? "📦 Selected Category Products" : "📦 All Products"}
         </span>
       </h2>
+       */}
 
       {filtered.length ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">

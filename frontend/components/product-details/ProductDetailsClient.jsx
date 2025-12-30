@@ -11,6 +11,7 @@ import ProductInfo from "./ProductInfo";
 import PurchaseActions from "./PurchaseActions";
 import ProductTabs from "./ProductTabs";
 import RelatedProducts from "./RelatedProducts";
+import FacebookGroupLink from "../home/FacebookGroupLink";
 
 export default function ProductDetailsClient({
   product,
@@ -124,10 +125,10 @@ export default function ProductDetailsClient({
   };
 
   return (
-    <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="container mx-auto px-4 sm:px-6 lg:px-8 mt-4 md:py-8">
       <ProductBreadcrumb product={product} category={category} />
 
-      <section className="bg-pink-50 rounded-2xl shadow-lg grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-hidden border border-gray-100">
+      <section className="bg-pink-50 rounded-2xl grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 overflow-hidden">
         <ProductGallery
           images={images}
           activeIdx={activeIdx}
@@ -136,7 +137,7 @@ export default function ProductDetailsClient({
           isOutOfStock={isOutOfStock}
         />
 
-        <div className="flex flex-col px-6 py-6 bg-pink-50 gap-4">
+        <div className="flex flex-col md:px-6 md:py-6 bg-pink-50 gap-4">
           <ProductInfo
             product={product}
             category={category}
@@ -168,7 +169,7 @@ export default function ProductDetailsClient({
       </section>
 
       <ProductTabs product={product} tab={tab} setTab={setTab} />
-
+      <FacebookGroupLink />
       <RelatedProducts related={related} />
     </main>
   );

@@ -24,6 +24,9 @@ export default function CheckoutButton({
   // ✅ external control
   disabled,
   loading: externalLoading,
+
+  // ✅ optional extra styling
+  className = "",
 }) {
   const router = useRouter();
   const { me } = useUser();
@@ -35,7 +38,6 @@ export default function CheckoutButton({
   const currentStock = useMemo(() => {
     const s =
       stock !== undefined && stock !== null ? stock : product?.stock ?? 0;
-
     const n = Number(s);
     return Number.isFinite(n) ? n : 0;
   }, [stock, product?.stock]);
@@ -56,7 +58,6 @@ export default function CheckoutButton({
 
   const handleClick = useCallback(async () => {
     if (mergedLoading) return;
-
     if (disabled) return;
 
     // ✅ prevent checkout if cart contains out-of-stock
@@ -94,7 +95,7 @@ export default function CheckoutButton({
         return;
       }
 
-      // 🔹 যদি custom onClick থাকে → ওটা execute করো
+      // 🔹 custom onClick (optional)
       if (onClick) {
         await onClick();
         return;
@@ -102,13 +103,11 @@ export default function CheckoutButton({
 
       // 🔹 redirect to checkout
       const redirectPath = (() => {
-        // ✅ cart checkout
         if (Array.isArray(checkoutItems) && checkoutItems.length > 0) {
           const payload = encodeURIComponent(JSON.stringify(checkoutItems));
           return `/checkout?items=${payload}`;
         }
 
-        // ✅ single product checkout (include color + stock)
         if (productId) {
           const c = color ? `&color=${encodeURIComponent(color)}` : "";
           const s = `&stock=${encodeURIComponent(String(currentStock))}`;
@@ -150,17 +149,27 @@ export default function CheckoutButton({
       onClick={handleClick}
       disabled={isDisabled}
       className={`
-        ${fullWidth ? "w-full" : "w-auto"} 
-        px-4 sm:px-24 py-3 font-medium rounded-lg
+        ${fullWidth ? "w-full" : "w-auto"}
+
+        /* ✅ MOBILE (default) */
+        h-10 px-4 text-sm font-medium rounded-lg
+        shadow-md
+
+        /* ✅ DESKTOP (md+) */
+        md:h-12 md:px-24 md:text-base md:font-semibold md:rounded-xl
+        md:shadow-sm
+
         bg-green-600 hover:bg-green-700 transition-colors duration-200
-        text-white shadow-md
+        text-white
         disabled:opacity-50 disabled:cursor-not-allowed
         flex items-center justify-center gap-2
+        ${className}
       `}
     >
       {mergedLoading ? (
         <>
-          <span className="animate-spin">⏳</span> Processing...
+          <span className="animate-spin text-xs md:text-sm">⏳</span>
+          <span className="text-xs md:text-sm">Processing...</span>
         </>
       ) : label ? (
         label
@@ -169,7 +178,7 @@ export default function CheckoutButton({
       ) : cartHasOutOfStock ? (
         "Out of Stock"
       ) : (
-        "Checkout"
+        "Buy Now"
       )}
     </button>
   );
