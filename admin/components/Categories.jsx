@@ -5,6 +5,56 @@ import Toast from "../components/Toast";
 import CategoriesSkeleton from "../components/Skeleton/CategoriesSkeleton";
 import CategoryModal from "./CategoryModal";
 
+/* ================== ✅ RESIZE HELPER (300×300 WEBP) ================== */
+async function resizeToWebP(file, size = 300, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+
+      // ✅ Cover crop (square fill)
+      const scale = Math.max(size / img.width, size / img.height);
+      const x = (size - img.width * scale) / 2;
+      const y = (size - img.height * scale) / 2;
+
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject("Blob creation failed");
+
+          const newFile = new File(
+            [blob],
+            file.name.replace(/\.\w+$/, ".webp"),
+            {
+              type: "image/webp",
+            }
+          );
+
+          resolve(newFile);
+        },
+        "image/webp",
+        quality
+      );
+    };
+
+    img.onerror = reject;
+    reader.onerror = reject;
+
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
 
@@ -78,6 +128,35 @@ export default function CategoriesPage() {
     setIsActive(true);
 
     setLoading(false);
+  };
+
+  // ================== ✅ FILE CHANGE (300×300 WEBP) ==================
+  const handleFileChange = async (selectedFile) => {
+    if (!selectedFile) return;
+
+    try {
+      const resized = await resizeToWebP(selectedFile, 300, 0.75);
+
+      // ✅ preview for UI
+      setPreview(URL.createObjectURL(resized));
+      setFile(resized);
+
+      // ✅ size check (20KB)
+      if (resized.size > 20 * 1024) {
+        setToast({
+          message: "⚠ Image is still bigger than 20KB (reduce quality)",
+          type: "error",
+        });
+      } else {
+        setToast({
+          message: "✅ Image resized to 300×300 WEBP",
+          type: "success",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "❌ Image processing failed", type: "error" });
+    }
   };
 
   // ================== SUBMIT ADD/EDIT ==================
@@ -199,12 +278,12 @@ export default function CategoriesPage() {
         {/* Right side controls */}
         <div
           className="
-      flex flex-col items-end gap-2
-      lg:flex-row lg:items-center lg:gap-2
-      lg:ml-auto
-    "
+            flex flex-col items-end gap-2
+            lg:flex-row lg:items-center lg:gap-2
+            lg:ml-auto
+          "
         >
-          {/* ✅ ADD CATEGORY (mobile first, desktop last/right) */}
+          {/* ✅ ADD CATEGORY */}
           <button
             onClick={() => {
               setEditId(null);
@@ -216,23 +295,23 @@ export default function CategoriesPage() {
               setShowModal(true);
             }}
             className="
-        order-1 lg:order-last
-        bg-indigo-600 text-white shadow font-semibold
-        px-3 py-1.5 rounded-md text-sm
-        hover:bg-indigo-700 active:scale-[0.98]
-        lg:px-4 lg:py-2 lg:text-sm lg:rounded-lg
-      "
+              order-1 lg:order-last
+              bg-indigo-600 text-white shadow font-semibold
+              px-3 py-1.5 rounded-md text-sm
+              hover:bg-indigo-700 active:scale-[0.98]
+              lg:px-4 lg:py-2 lg:text-sm lg:rounded-lg
+            "
           >
             + Add Category
           </button>
 
-          {/* FILTER BUTTONS (a bit bigger on both mobile & desktop) */}
+          {/* FILTER BUTTONS */}
           <div className="order-2 lg:order-first flex flex-wrap justify-end gap-1.5 lg:gap-2">
             <button
               className={`px-2.5 py-1.5 rounded-md border text-xs leading-none
-      lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
-        filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
-      }`}
+                lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
+                  filter === "all" ? "bg-indigo-600 text-white" : "bg-white"
+                }`}
               onClick={() => setFilter("all")}
             >
               All
@@ -240,9 +319,9 @@ export default function CategoriesPage() {
 
             <button
               className={`px-2.5 py-1 rounded-md border text-xs leading-none
-      lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
-        filter === "active" ? "bg-green-600 text-white" : "bg-white"
-      }`}
+                lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+                  filter === "active" ? "bg-green-600 text-white" : "bg-white"
+                }`}
               onClick={() => setFilter("active")}
             >
               Active
@@ -250,9 +329,9 @@ export default function CategoriesPage() {
 
             <button
               className={`px-2.5 py-1 rounded-md border text-xs leading-none
-      lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
-        filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
-      }`}
+                lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+                  filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
+                }`}
               onClick={() => setFilter("hidden")}
             >
               Hidden
@@ -262,11 +341,11 @@ export default function CategoriesPage() {
               <button
                 onClick={toggleAllCategories}
                 className={`px-2.5 py-1 rounded-md border text-xs leading-none font-semibold text-white
-        lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
-          hasAnyActive
-            ? "bg-gray-700 hover:bg-gray-800"
-            : "bg-green-600 hover:bg-green-700"
-        }`}
+                  lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
+                    hasAnyActive
+                      ? "bg-gray-700 hover:bg-gray-800"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
               >
                 {hasAnyActive ? "Hide All" : "Show All"}
               </button>
@@ -363,6 +442,7 @@ export default function CategoriesPage() {
         loading={loading}
         onClose={closeModal}
         onSubmit={handleSubmit}
+        onFileChange={handleFileChange} // ✅ NEW PROP
       />
 
       {/* DELETE MODAL */}

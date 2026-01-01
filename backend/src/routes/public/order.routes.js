@@ -4,8 +4,8 @@ import Product from "../../models/Product.js";
 import DeliveryCharge from "../../models/DeliveryCharge.js";
 
 // ✅ correct relative path
-import { getOrderMailSendSettings } from "../../../utils/order-mail-send.js";
-import { sendAdminOrderEmail } from "../../../utils/sendAdminOrderEmail.js";
+import { getOrderMailSendSettings } from "../../../utils/mail/index.js";
+import { sendAdminOrderEmail } from "../../../utils/mail/index.js";
 
 const router = express.Router();
 

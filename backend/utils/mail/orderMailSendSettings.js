@@ -1,4 +1,4 @@
-import OrderMailSend from "../src/models/order-mail-send.js";
+import OrderMailSend from "../../src/models/order-mail-send.js";
 
 export async function getOrderMailSendSettings() {
   let settings = await OrderMailSend.findOne();

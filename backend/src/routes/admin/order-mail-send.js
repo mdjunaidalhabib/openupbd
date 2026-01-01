@@ -1,5 +1,5 @@
 import express from "express";
-import { getOrderMailSendSettings } from "../../../utils/order-mail-send.js";
+import { getOrderMailSendSettings } from "../../../utils/mail/index.js";
 
 const router = express.Router();
 

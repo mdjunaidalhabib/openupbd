@@ -10,6 +10,9 @@ export default function AddSlideModal({
   editId = null,
   initialData = null,
   slidesLength = 0,
+
+  // ✅ NEW: image processor from parent
+  processSliderImage,
 }) {
   const dropRef = useRef(null);
 
@@ -20,6 +23,10 @@ export default function AddSlideModal({
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState("");
+
+  // ✅ NEW states (same CategoryModal system)
+  const [imageError, setImageError] = useState("");
+  const [filesReady, setFilesReady] = useState(true);
 
   // ✅ dropdown limit
   const maxSerial = editId ? slidesLength : slidesLength + 1;
@@ -37,10 +44,13 @@ export default function AddSlideModal({
       setIsActive(initialData.isActive ?? true);
       setPreview(initialData.src || "");
       setFile(null);
+
+      setImageError("");
+      setFilesReady(true);
     }
   }, [initialData, slidesLength]);
 
-  // ✅ NEW: New slide open হলে ফর্ম ক্লিয়ার হবে
+  // ✅ New slide open হলে ফর্ম ক্লিয়ার হবে
   useEffect(() => {
     if (showModal && !initialData && !editId) {
       setTitle("");
@@ -49,15 +59,26 @@ export default function AddSlideModal({
       setIsActive(true);
       setFile(null);
       setPreview("");
+
+      setImageError("");
+      setFilesReady(true);
     }
   }, [showModal, initialData, editId, slidesLength]);
 
-  // ✅ IMPORTANT: preview object URL cleanup (memory leak fix)
+  // ✅ preview object URL cleanup (memory leak fix)
   useEffect(() => {
     return () => {
       if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
     };
   }, [preview]);
+
+  // ✅ Reset image states on close
+  useEffect(() => {
+    if (!showModal) {
+      setImageError("");
+      setFilesReady(true);
+    }
+  }, [showModal]);
 
   if (!showModal) return null;
 
@@ -66,22 +87,75 @@ export default function AddSlideModal({
     setHref("");
     setOrder(1);
     setIsActive(true);
+
     setFile(null);
     setPreview("");
+
+    setImageError("");
+    setFilesReady(true);
+
     closeModal?.();
+  };
+
+  /* ================== ✅ MAIN FILE PROCESSOR ================== */
+  const processFile = async (incomingFile) => {
+    if (!incomingFile) return;
+
+    setFilesReady(false);
+    setImageError("");
+
+    try {
+      if (!processSliderImage) {
+        setImageError("Image processor missing!");
+        setFilesReady(true);
+        return;
+      }
+
+      // ✅ Convert to webp (1500×500 <= 20kb)
+      const resized = await processSliderImage(incomingFile);
+
+      if (resized.type !== "image/webp") {
+        setImageError("Only WEBP allowed (1500×500, max 20KB)");
+        setFile(null);
+        setPreview("");
+        setFilesReady(true);
+        return;
+      }
+
+      if (resized.size > 20 * 1024) {
+        setImageError(
+          `Max 20KB allowed (Your file: ${Math.ceil(resized.size / 1024)}KB)`
+        );
+        setFile(null);
+        setPreview("");
+        setFilesReady(true);
+        return;
+      }
+
+      setFile(resized);
+      setPreview(URL.createObjectURL(resized));
+      setFilesReady(true);
+    } catch (err) {
+      console.error(err);
+      setImageError("Invalid image file");
+      setFile(null);
+      setPreview("");
+      setFilesReady(true);
+    }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped) {
-      setFile(dropped);
-      setPreview(URL.createObjectURL(dropped));
-    }
+    if (!dropped) return;
+    processFile(dropped);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ✅ block submit when processing / error
+    if (!filesReady || imageError) return;
 
     const slideObj = {
       ...(initialData || {}),
@@ -90,7 +164,7 @@ export default function AddSlideModal({
       href,
       order,
       isActive,
-      imageFile: file,
+      imageFile: file, // ✅ processed file
     };
 
     await onSubmit?.(slideObj);
@@ -133,7 +207,6 @@ export default function AddSlideModal({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* ✅ Serial dropdown fixed */}
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Serial No
@@ -166,17 +239,22 @@ export default function AddSlideModal({
               </div>
             </div>
 
+            {/* ✅ Image uploader */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Slide Image (1500×500)
+                Slide Image{" "}
+                <span className="text-[11px] text-gray-500 font-semibold">
+                  (WEBP, 1500×500, max 20KB)
+                </span>
               </label>
 
-              {/* ✅ 1500x500 ratio preview */}
               <div
                 ref={dropRef}
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed rounded-lg overflow-hidden cursor-pointer bg-gray-50 aspect-[3/1] flex items-center justify-center"
+                className={`border-2 border-dashed rounded-lg overflow-hidden cursor-pointer bg-gray-50 aspect-[3/1] flex items-center justify-center ${
+                  imageError ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
                 onClick={() =>
                   dropRef.current?.querySelector("input[type=file]")?.click()
                 }
@@ -199,19 +277,24 @@ export default function AddSlideModal({
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) {
-                      setFile(f);
-                      setPreview(URL.createObjectURL(f));
-                    }
+                    e.target.value = ""; // ✅ same file reselect
+                    if (!f) return;
+                    processFile(f);
                   }}
                 />
               </div>
 
-              {/* ✅ helper text */}
-              <p className="text-xs text-gray-400 mt-1">
-                Recommended size: 1500×500 (3:1). Different size হলে auto crop
-                হয়ে যাবে।
-              </p>
+              {imageError && (
+                <p className="text-[11px] text-red-600 mt-1 font-semibold">
+                  {imageError}
+                </p>
+              )}
+
+              {!filesReady && (
+                <p className="text-[11px] text-orange-600 mt-1 font-semibold">
+                  Processing image...
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
@@ -226,8 +309,12 @@ export default function AddSlideModal({
 
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 text-white rounded"
-                disabled={loading}
+                className={`px-4 py-2 rounded text-white ${
+                  loading || !filesReady || !!imageError
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+                disabled={loading || !filesReady || !!imageError}
               >
                 {loading ? "Saving..." : editId ? "Update" : "Save"}
               </button>

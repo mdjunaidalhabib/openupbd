@@ -4,8 +4,56 @@ import upload from "../../../utils/upload.js";
 import fs from "fs";
 import cloudinary from "../../../utils/cloudinary.js";
 import { deleteByPublicId } from "../../../utils/cloudinaryHelpers.js";
+import sharp from "sharp";
 
 const router = express.Router();
+
+/**
+ * ✅ SLIDER IMAGE RULE (SERVER-SIDE ENFORCE)
+ * - WEBP only
+ * - 1500×500 exactly
+ * - max 20KB
+ */
+const SLIDER_IMAGE_RULE = {
+  mime: "image/webp",
+  width: 1500,
+  height: 500,
+  maxBytes: 20 * 1024, // 20KB
+};
+
+/**
+ * ✅ validate uploaded image file (server-side)
+ * returns: "" if ok, otherwise returns error message string
+ */
+const validateSliderImageFile = async (file) => {
+  if (!file) return "";
+
+  // ✅ mime type check (multer gives mimetype)
+  if (file.mimetype !== SLIDER_IMAGE_RULE.mime) {
+    return "Only WEBP allowed (1500×500, max 20KB)";
+  }
+
+  // ✅ size check
+  if (file.size > SLIDER_IMAGE_RULE.maxBytes) {
+    return `Max 20KB allowed (Your file: ${Math.ceil(file.size / 1024)}KB)`;
+  }
+
+  // ✅ dimension check using sharp
+  try {
+    const meta = await sharp(file.path).metadata();
+    const w = meta.width || 0;
+    const h = meta.height || 0;
+
+    if (w !== SLIDER_IMAGE_RULE.width || h !== SLIDER_IMAGE_RULE.height) {
+      return `Must be 1500×500 (Your image: ${w}×${h})`;
+    }
+  } catch (err) {
+    console.error("Image metadata read failed:", err);
+    return "Invalid image file";
+  }
+
+  return "";
+};
 
 /**
  * ✅ helper: normalize serial/order to 1..n
@@ -68,6 +116,7 @@ router.patch("/reorder", async (req, res) => {
  * ✅ POST create/update slide (admin)
  * - auto shift order to avoid duplicates
  * - upload/remove image
+ * - ✅ VALIDATE image (WEBP, 1500×500, max 20KB)
  */
 router.post("/", upload.single("image"), async (req, res) => {
   try {
@@ -102,8 +151,29 @@ router.post("/", upload.single("image"), async (req, res) => {
       delete data.removeImage;
     }
 
-    // ✅ handle new image upload
+    // ✅ handle new image upload (WITH VALIDATION)
     if (req.file) {
+      // ✅ validate first
+      const imageErr = await validateSliderImageFile(req.file);
+      if (imageErr) {
+        // cleanup temp file
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch {}
+
+        return res.status(400).json({
+          message: imageErr,
+          code: "INVALID_SLIDER_IMAGE",
+          rule: {
+            type: "WEBP",
+            width: 1500,
+            height: 500,
+            maxKB: 20,
+          },
+        });
+      }
+
+      // ✅ delete old cloudinary image if exists
       if (slide?.srcPublicId) await deleteByPublicId(slide.srcPublicId);
 
       const result = await cloudinary.uploader.upload(req.file.path, {
@@ -115,6 +185,7 @@ router.post("/", upload.single("image"), async (req, res) => {
       slidePayload.src = result.secure_url;
       slidePayload.srcPublicId = result.public_id;
     } else if (slide) {
+      // ✅ keep old image if no new image uploaded
       slidePayload.src = slidePayload.src || slide.src;
       slidePayload.srcPublicId = slidePayload.srcPublicId || slide.srcPublicId;
     }
@@ -158,6 +229,14 @@ router.post("/", upload.single("image"), async (req, res) => {
     res.json({ message: "✅ Slide saved", slide, slides });
   } catch (err) {
     console.error("❌ Error saving slide:", err);
+
+    // ✅ if any error happened after upload, cleanup temp file
+    if (req.file?.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch {}
+    }
+
     res.status(500).json({ message: "Server error" });
   }
 });

@@ -2,33 +2,27 @@ import express from "express";
 import Admin from "../../models/Admin.js";
 import fs from "fs";
 
-import upload from "../../../utils/upload.js"; // ✅ same multer as navbar
-import cloudinary from "../../../utils/cloudinary.js";
-import { deleteByPublicId } from "../../../utils/cloudinaryHelpers.js";
+import upload from "../../../utils/cloudinary/upload.js";
+import cloudinary from "../../../utils/cloudinary/cloudinary.js";
+import { deleteByPublicId } from "../../../utils/cloudinary/cloudinaryHelpers.js";
 
 import {
   protect,
   superAdminOnly,
 } from "../../middlewares/adminAuthMiddleware.js";
-import { loginAdmin } from "../../../controllers/loginAdmin.js";
-import { logoutAdmin } from "../../../controllers/logoutAdmin.js";
+
+import { loginAdmin, logoutAdmin } from "../../../controllers/auth/index.js";
 
 const router = express.Router();
-
-/* =========================
-   AUTH ROUTES
-========================= */
 
 router.post("/login", loginAdmin);
 router.post("/logout", protect, logoutAdmin);
 
-// ✅ Verify admin session (protected) — fresh admin return
 router.get("/verify", protect, async (req, res) => {
   try {
     const freshAdmin = await Admin.findById(req.admin._id).select("-password");
 
     if (!freshAdmin) {
-      console.log("❌ Admin not found in DB");
       return res.status(401).json({ message: "Admin not found" });
     }
 
@@ -42,11 +36,6 @@ router.get("/verify", protect, async (req, res) => {
   }
 });
 
-/* =========================
-   PROFILE ROUTES
-========================= */
-
-// ✅ Get current admin profile
 router.get("/me", protect, async (req, res) => {
   try {
     res.json(req.admin);
@@ -56,17 +45,10 @@ router.get("/me", protect, async (req, res) => {
   }
 });
 
-/**
- * ✅ Update admin profile + optional avatar upload
- * FINAL path: PUT /admin/me
- * File key: avatar
- * JSON key: profile (stringified)
- */
 router.put("/me", protect, upload.single("avatar"), async (req, res) => {
   try {
     let data = { ...req.body };
 
-    // Parse profile JSON string
     if (data.profile && typeof data.profile === "string") {
       try {
         data = JSON.parse(data.profile);
@@ -78,7 +60,6 @@ router.put("/me", protect, upload.single("avatar"), async (req, res) => {
     const admin = await Admin.findById(req.admin._id);
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    // ✅ removeAvatar request
     const removeAvatar = data.removeAvatar === "true";
     if (removeAvatar && admin.avatarPublicId) {
       await deleteByPublicId(admin.avatarPublicId);
@@ -88,7 +69,6 @@ router.put("/me", protect, upload.single("avatar"), async (req, res) => {
       delete data.removeAvatar;
     }
 
-    // ✅ Handle avatar upload
     if (req.file) {
       if (admin.avatarPublicId) {
         await deleteByPublicId(admin.avatarPublicId);
@@ -104,7 +84,6 @@ router.put("/me", protect, upload.single("avatar"), async (req, res) => {
       admin.avatarPublicId = result.public_id;
     }
 
-    // ✅ update text fields
     if (data.name) admin.name = data.name;
     if (data.username) admin.username = data.username;
     if (data.phone) admin.phone = data.phone;
@@ -121,7 +100,6 @@ router.put("/me", protect, upload.single("avatar"), async (req, res) => {
   }
 });
 
-// ✅ Change password
 router.put("/me/password", protect, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

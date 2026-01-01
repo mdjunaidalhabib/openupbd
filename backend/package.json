@@ -36,6 +36,7 @@
     "path": "^0.12.7",
     "pdfkit": "^0.17.2",
     "puppeteer": "^24.33.0",
+    "sharp": "^0.34.5",
     "streamifier": "^0.1.1",
     "ua-parser-js": "^2.0.6"
   },

@@ -1,6 +1,54 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
+
+/* ================== ✅ RESIZE HELPER (300×300 WEBP) ================== */
+async function resizeToWebP(file, size = 300, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+
+      const ctx = canvas.getContext("2d");
+
+      // ✅ Cover crop (square fill)
+      const scale = Math.max(size / img.width, size / img.height);
+      const x = (size - img.width * scale) / 2;
+      const y = (size - img.height * scale) / 2;
+
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return reject("Blob creation failed");
+
+          const newFile = new File(
+            [blob],
+            file.name.replace(/\.\w+$/, ".webp"),
+            { type: "image/webp" }
+          );
+
+          resolve(newFile);
+        },
+        "image/webp",
+        quality
+      );
+    };
+
+    img.onerror = reject;
+    reader.onerror = reject;
+
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function CategoryModal({
   show,
@@ -31,6 +79,61 @@ export default function CategoryModal({
   // ✅ dropdown limit like slider
   const maxSerial = editId ? categoriesLength : categoriesLength + 1;
 
+  // ✅ image state
+  const [imageError, setImageError] = useState("");
+  const [filesReady, setFilesReady] = useState(true);
+
+  // ✅ NEW RULE (300×300 WEBP, max 20KB)
+  const CATEGORY_IMAGE_RULE = {
+    type: "image/webp",
+    width: 300,
+    height: 300,
+    maxBytes: 20 * 1024, // 20KB
+  };
+
+  const getImageSize = (file) =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        URL.revokeObjectURL(url);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Invalid image"));
+      };
+
+      img.src = url;
+    });
+
+  const validateCategoryImage = async (f) => {
+    if (!f) return "Please select an image";
+
+    // ✅ format must be webp
+    if (f.type !== CATEGORY_IMAGE_RULE.type) {
+      return "Only WEBP allowed (300×300, max 20KB)";
+    }
+
+    // ✅ size
+    if (f.size > CATEGORY_IMAGE_RULE.maxBytes) {
+      return `Max 20KB allowed (Your file: ${Math.ceil(f.size / 1024)}KB)`;
+    }
+
+    // ✅ dimension
+    const { width, height } = await getImageSize(f);
+    if (
+      width !== CATEGORY_IMAGE_RULE.width ||
+      height !== CATEGORY_IMAGE_RULE.height
+    ) {
+      return `Must be 300×300 (Your image: ${width}×${height})`;
+    }
+
+    return "";
+  };
+
   // ✅ New modal open => last serial + active default
   useEffect(() => {
     if (show && !editId) {
@@ -39,15 +142,58 @@ export default function CategoryModal({
     }
   }, [show, editId, categoriesLength, setOrder, setIsActive]);
 
+  // ✅ Reset image states on open/close
+  useEffect(() => {
+    if (!show) {
+      setImageError("");
+      setFilesReady(true);
+      return;
+    }
+    setImageError("");
+    setFilesReady(true);
+  }, [show]);
+
   if (!show) return null;
 
-  const handleDrop = (e) => {
+  /* ================== ✅ MAIN FILE PROCESSOR ================== */
+  const processFile = async (incomingFile) => {
+    if (!incomingFile) return;
+
+    setFilesReady(false);
+    setImageError("");
+
+    try {
+      // ✅ Convert ANY image -> 300×300 WEBP
+      const resized = await resizeToWebP(incomingFile, 300, 0.75);
+
+      // ✅ Validate resized
+      const err = await validateCategoryImage(resized);
+      if (err) {
+        setImageError(err);
+        setFile(null);
+        setPreview("");
+        setFilesReady(true);
+        return;
+      }
+
+      setFile(resized);
+      setPreview(URL.createObjectURL(resized));
+      setFilesReady(true);
+    } catch (e) {
+      console.error(e);
+      setImageError("Invalid image file");
+      setFile(null);
+      setPreview("");
+      setFilesReady(true);
+    }
+  };
+
+  const handleDrop = async (e) => {
     e.preventDefault();
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped) {
-      setFile(dropped);
-      setPreview(URL.createObjectURL(dropped));
-    }
+    if (!dropped) return;
+
+    processFile(dropped);
   };
 
   return (
@@ -112,14 +258,19 @@ export default function CategoryModal({
             {/* Image uploader */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Category Image
+                Category Image{" "}
+                <span className="text-[11px] text-gray-500 font-semibold">
+                  (WEBP, 300×300, max 20KB)
+                </span>
               </label>
 
               <div
                 ref={dropRef}
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed h-32 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer bg-gray-50"
+                className={`border-2 border-dashed h-32 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer bg-gray-50 ${
+                  imageError ? "border-red-500 bg-red-50" : "border-gray-300"
+                }`}
                 onClick={() =>
                   dropRef.current?.querySelector("input[type=file]")?.click()
                 }
@@ -140,15 +291,27 @@ export default function CategoryModal({
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const f = e.target.files?.[0];
-                    if (f) {
-                      setFile(f);
-                      setPreview(URL.createObjectURL(f));
-                    }
+                    e.target.value = ""; // ✅ same file reselect
+                    if (!f) return;
+
+                    processFile(f);
                   }}
                 />
               </div>
+
+              {imageError && (
+                <p className="text-[11px] text-red-600 mt-1 font-semibold">
+                  {imageError}
+                </p>
+              )}
+
+              {!filesReady && (
+                <p className="text-[11px] text-orange-600 mt-1 font-semibold">
+                  Processing image...
+                </p>
+              )}
             </div>
 
             {/* Buttons */}
@@ -164,8 +327,12 @@ export default function CategoryModal({
 
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 text-white rounded"
-                disabled={loading}
+                className={`px-4 py-2 rounded text-white ${
+                  loading || !filesReady || !!imageError
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+                disabled={loading || !filesReady || !!imageError}
               >
                 {loading ? "Saving..." : editId ? "Update" : "Save"}
               </button>

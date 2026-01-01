@@ -34,7 +34,7 @@ export default function RootLayout({ children }) {
           <CartProvider>
             <Navbar />
             <main className="flex-grow bg-pink-50">
-              <div className="mx-auto w-full max-w-[1280px]">
+              <div className="mx-auto w-full ">
                 {children}
               </div>
             </main>

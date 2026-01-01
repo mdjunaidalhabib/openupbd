@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { X } from "lucide-react";
 import Toast from "../Toast";
 import HeaderSerialStatus from "./HeaderSerialStatus";
@@ -29,14 +29,14 @@ export default function ProductForm({
   const [errors, setErrors] = useState({});
   const [categories, setCategories] = useState([]);
 
-  // ✅ NEW: drafts (mode switch এ data হারাবে না)
+  // drafts (mode switch data safe)
   const [baseDraft, setBaseDraft] = useState(EMPTY_DEFAULT_VARIANT);
   const [variantDrafts, setVariantDrafts] = useState([]);
 
-  // ✅ NEW: image load / normalize ready (save disable until ready)
+  // disable save until image normalize/preview ready
   const [filesReady, setFilesReady] = useState(true);
 
-  // ✅ NEW: snapshot for dirty tracking
+  // dirty tracking
   const initialSnapshotRef = useRef(null);
   const [initDone, setInitDone] = useState(false);
 
@@ -51,8 +51,8 @@ export default function ProductForm({
     reviews: [],
   });
 
-  // ✅ NEW: sanitize helper for compare (remove non-serializable / unstable)
-  const sanitizeFormForCompare = (f) => {
+  // ✅ sanitize helper for compare
+  const sanitizeFormForCompare = useCallback((f) => {
     const safeVariants = (Array.isArray(f?.variants) ? f.variants : []).map(
       (v) => ({
         name: v?.name || "",
@@ -88,14 +88,13 @@ export default function ProductForm({
       variants: safeVariants,
       reviews: safeReviews,
     };
-  };
+  }, []);
 
-  // ✅ NEW: isDirty state (no update = save disabled)
   const isDirty = useMemo(() => {
     if (!initialSnapshotRef.current) return false;
     const now = JSON.stringify(sanitizeFormForCompare(form));
     return now !== initialSnapshotRef.current;
-  }, [form]);
+  }, [form, sanitizeFormForCompare]);
 
   /* ---------------- Fetch Categories ---------------- */
   useEffect(() => {
@@ -124,29 +123,27 @@ export default function ProductForm({
       setVariantDrafts([]);
       setVariantMode("default");
 
-      // ✅ reset
       setFilesReady(true);
-
       setInitDone(true);
       return;
     }
 
     const rawVariants = product.colors || [];
 
-    // ✅ Product has variants
+    // ✅ has variants
     if (rawVariants.length > 0) {
       setVariantMode("variant");
 
       const mappedVariants = rawVariants.map((v) => ({
         ...v,
-
-        // fallback for old data
         price: v.price ?? product.price ?? "",
         oldPrice: v.oldPrice ?? product.oldPrice ?? "",
         stock: v.stock ?? product.stock ?? 0,
         sold: v.sold ?? product.sold ?? 0,
 
-        files: v.images || [], // string urls initially, VariantSection will normalize
+        // ✅ IMPORTANT: keep as string urls initially,
+        // VariantSection will normalize to {id, src}
+        files: v.images || [],
         isBase: false,
       }));
 
@@ -161,7 +158,6 @@ export default function ProductForm({
         files: product.images || [],
         isBase: true,
       };
-
       setBaseDraft(base);
 
       setForm({
@@ -175,12 +171,10 @@ export default function ProductForm({
         reviews: product.reviews || [],
       });
 
-      // ✅ reset
       setFilesReady(true);
-
       setInitDone(true);
     }
-    // ✅ Product has NO variants (default mode)
+    // ✅ default mode
     else {
       setVariantMode("default");
 
@@ -208,14 +202,12 @@ export default function ProductForm({
         reviews: product.reviews || [],
       });
 
-      // ✅ reset
       setFilesReady(true);
-
       setInitDone(true);
     }
   }, [product, productsLength]);
 
-  // ✅ NEW: snapshot only once per init
+  // snapshot once per init
   useEffect(() => {
     if (!initDone) return;
     initialSnapshotRef.current = JSON.stringify(sanitizeFormForCompare(form));
@@ -239,7 +231,6 @@ export default function ProductForm({
     if (!form.category) e.category = "ক্যাটাগরি নির্বাচন করুন";
 
     const list = Array.isArray(form.variants) ? form.variants : [];
-
     list.forEach((v, i) => {
       if (variantMode === "default") {
         if (!v.price) e.basePrice = "মূল্য দিতে হবে";
@@ -275,14 +266,8 @@ export default function ProductForm({
     };
 
     setVariantDrafts([firstVariant]);
-
-    setForm((p) => ({
-      ...p,
-      variants: [firstVariant],
-    }));
+    setForm((p) => ({ ...p, variants: [firstVariant] }));
     setVariantMode("variant");
-
-    // ✅ reset
     setFilesReady(true);
   };
 
@@ -303,8 +288,6 @@ export default function ProductForm({
     setBaseDraft(restoredBase);
     setForm((p) => ({ ...p, variants: [restoredBase] }));
     setVariantMode("default");
-
-    // ✅ reset
     setFilesReady(true);
   };
 
@@ -312,15 +295,12 @@ export default function ProductForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ if no update -> block submit
+    // no update block
     if (!isDirty) {
-      return setToast({
-        type: "error",
-        message: "কোনো পরিবর্তন করা হয়নি",
-      });
+      return setToast({ type: "error", message: "কোনো পরিবর্তন করা হয়নি" });
     }
 
-    // ✅ if files not ready -> block submit
+    // files normalize not ready
     if (!filesReady) {
       return setToast({
         type: "error",
@@ -343,26 +323,23 @@ export default function ProductForm({
       formData.append("category", form.category);
       formData.append("description", form.description || "");
       formData.append("additionalInfo", form.additionalInfo || "");
-      formData.append("order", form.order);
-      formData.append("isActive", form.isActive);
-      formData.append("rating", averageRating);
-      formData.append("reviews", JSON.stringify(form.reviews));
+      formData.append("order", String(form.order));
+      formData.append("isActive", String(form.isActive));
+      formData.append("rating", String(averageRating));
+      formData.append("reviews", JSON.stringify(form.reviews || []));
 
-      /* ---------------- DEFAULT MODE ---------------- */
       if (variantMode === "default") {
         const base = Array.isArray(form.variants) ? form.variants[0] : null;
 
-        formData.append("price", base?.price || 0);
-        formData.append("oldPrice", base?.oldPrice || 0);
-        formData.append("stock", base?.stock || 0);
-        formData.append("sold", base?.sold || 0);
+        formData.append("price", String(base?.price || 0));
+        formData.append("oldPrice", String(base?.oldPrice || 0));
+        formData.append("stock", String(base?.stock || 0));
+        formData.append("sold", String(base?.sold || 0));
 
         const existingImg = [];
 
         (base?.files || []).forEach((fileItem) => {
-          // ✅ if normalized {id, src}
           const src = fileItem?.src ?? fileItem;
-
           if (src instanceof File) {
             formData.append("images", src);
           } else if (typeof src === "string") {
@@ -373,7 +350,6 @@ export default function ProductForm({
         formData.append("existingImages", JSON.stringify(existingImg));
         formData.append("colors", JSON.stringify([]));
       } else {
-        /* ---------------- VARIANT MODE ---------------- */
         const variants = Array.isArray(form.variants) ? form.variants : [];
 
         // ✅ Upload new files for each variant
@@ -386,7 +362,7 @@ export default function ProductForm({
           });
         });
 
-        // ✅ existing images (string urls)
+        // ✅ existing image urls
         formData.append(
           "colors",
           JSON.stringify(
@@ -399,12 +375,7 @@ export default function ProductForm({
           )
         );
 
-        // ✅ keep main price for backward compatibility
-        formData.append("price", variants[0]?.price || 0);
-
-        // ✅ IMPORTANT:
-        // এখানে oldPrice/stock/sold পাঠানো লাগবে না
-        // কারণ backend updateProduct() এখন variants থেকে main fields sync করে
+        formData.append("price", String(variants[0]?.price || 0));
       }
 
       const url = product
@@ -417,13 +388,13 @@ export default function ProductForm({
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || "Failed to save");
       }
 
       setToast({ message: "সফলভাবে সংরক্ষিত হয়েছে", type: "success" });
 
-      // ✅ NEW: reset dirty snapshot after successful save
+      // reset dirty snapshot after save
       initialSnapshotRef.current = JSON.stringify(sanitizeFormForCompare(form));
 
       onSaved?.();
@@ -435,7 +406,6 @@ export default function ProductForm({
     }
   };
 
-  /* ---------------- UI ---------------- */
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
       <form
@@ -445,12 +415,12 @@ export default function ProductForm({
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 z-10"
+          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 z-30"
         >
           <X size={24} />
         </button>
 
-        {/* ✅ NEW: Sticky top right Save/Cancel bar (scroll করলে নড়বে না) */}
+        {/* Sticky header */}
         <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="text-sm font-bold text-gray-700 flex items-center gap-2">
@@ -547,7 +517,6 @@ export default function ProductForm({
               const nextVariants = Array.isArray(v) ? v : [];
               setForm((p) => ({ ...p, variants: nextVariants }));
 
-              // ✅ drafts sync
               if (variantMode === "default")
                 setBaseDraft(nextVariants[0] || EMPTY_DEFAULT_VARIANT);
               else setVariantDrafts(nextVariants);
@@ -555,7 +524,7 @@ export default function ProductForm({
             mode={variantMode}
             errors={errors}
             setErrors={setErrors}
-            onFilesReadyChange={setFilesReady} // ✅ NEW
+            onFilesReadyChange={setFilesReady}
           />
 
           <ReviewsSection
@@ -590,4 +559,4 @@ export default function ProductForm({
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </div>
   );
-} /////////////// kono ubdate na kora hole button diseble thakbe//// kono ubdate korlei buttone active hobe... save and cancel 2 tai upore dan pashe fixt thakbe.// jeno scrool korlew na sore jai... with best ui ....... ar akhon image dile sob image uplood kora jaina... ber ber image ar karone fald ase... ar karon ki.. ata fixt korte hobe,,,,, atar jonno valo pera lagse product add korte giya... ...................... all fixt kore full code daw
+}

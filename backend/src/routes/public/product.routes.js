@@ -4,9 +4,9 @@ import {
   getProductByIdPublic,
   getProductsByCategoryPublic,
   addReviewToProduct,
-  updateProductReview, // ✅ ADD
-  deleteProductReview, // ✅ ADD
-} from "../../../controllers/productController.js";
+  updateProductReview,
+  deleteProductReview,
+} from "../../../controllers/product/index.js";
 
 import { userProtect } from "../../middlewares/userProtect.js";
 
@@ -16,9 +16,8 @@ router.get("/", getProductsPublic);
 router.get("/category/:categoryId", getProductsByCategoryPublic);
 router.get("/:id", getProductByIdPublic);
 
-// ✅ Reviews
 router.post("/:id/review", userProtect, addReviewToProduct);
-router.put("/:id/review/:reviewId", userProtect, updateProductReview); // ✅ EDIT
-router.delete("/:id/review/:reviewId", userProtect, deleteProductReview); // ✅ DELETE
+router.put("/:id/review/:reviewId", userProtect, updateProductReview);
+router.delete("/:id/review/:reviewId", userProtect, deleteProductReview);
 
 export default router;

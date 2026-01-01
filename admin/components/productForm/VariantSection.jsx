@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   FaPlus,
   FaTrash,
@@ -24,6 +24,76 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+/* ---------------- RULES ---------------- */
+const IMAGE_RULE = {
+  type: "image/webp",
+  maxBytes: 60 * 1024, // 60KB
+  width: 600,
+  height: 600,
+};
+
+/* ---------------- Helpers ---------------- */
+const safeUrlId = (url) => {
+  try {
+    return btoa(url).replace(/=/g, "");
+  } catch {
+    return encodeURIComponent(url);
+  }
+};
+
+// ✅ Stable IDs (NO Date.now / Math.random)
+const createFileId = (f) => `file_${f.name}_${f.size}_${f.lastModified}`;
+const createUrlId = (u) => `url_${safeUrlId(u)}`;
+
+// ✅ normalize any input (string/File/normalized) => {id, src}
+const normalizeOne = (f) => {
+  if (!f) return null;
+
+  if (f && typeof f === "object" && "id" in f && "src" in f) {
+    return { id: String(f.id), src: f.src };
+  }
+
+  if (typeof f === "string") {
+    return { id: createUrlId(f), src: f };
+  }
+
+  if (f instanceof File) {
+    return { id: createFileId(f), src: f };
+  }
+
+  return null;
+};
+
+// ✅ Stable normalize
+const normalizeList = (files) => {
+  const used = new Set();
+  const list = (files || [])
+    .map(normalizeOne)
+    .filter(Boolean)
+    .map((it, idx) => {
+      let id = it.id;
+      if (used.has(id)) id = `${id}_${idx}`;
+      used.add(id);
+      return { ...it, id };
+    });
+  return list;
+};
+
+const getImageSize = (file) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Invalid image"));
+    };
+    img.src = url;
+  });
+
 /* ---------------- Sortable Image Item ---------------- */
 function SortableImage({ item, vIdx, removeFile }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
@@ -34,7 +104,6 @@ function SortableImage({ item, vIdx, removeFile }) {
     transition,
   };
 
-  // ✅ FIX: useEffect + useState (no more blob revoke timing bugs)
   const [imageUrl, setImageUrl] = useState("");
 
   useEffect(() => {
@@ -48,10 +117,7 @@ function SortableImage({ item, vIdx, removeFile }) {
     if (src instanceof File) {
       const url = URL.createObjectURL(src);
       setImageUrl(url);
-
-      return () => {
-        URL.revokeObjectURL(url);
-      };
+      return () => URL.revokeObjectURL(url);
     }
 
     setImageUrl("");
@@ -101,13 +167,11 @@ export default function VariantSection({
   mode,
   errors,
   setErrors,
-  onFilesReadyChange, // ✅ NEW PROP
+  onFilesReadyChange,
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const baseInput =
@@ -117,75 +181,33 @@ export default function VariantSection({
     "bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200";
   const errClass = "border-red-500 bg-red-50 focus:ring-red-100";
 
-  // ✅ safe encode id for URL
-  const safeUrlId = (url) => {
-    try {
-      return btoa(url).replace(/=/g, "");
-    } catch {
-      return encodeURIComponent(url);
-    }
-  };
+  // ✅ prevent normalize loop
+  const normalizedOnceRef = useRef(false);
 
-  // ✅ helper: normalize to {id, src}
-  const toFileItems = (files) => {
-    const used = new Set();
-
-    return (files || []).map((f, index) => {
-      // already normalized
-      if (f && typeof f === "object" && "id" in f && "src" in f) {
-        let id = String(f.id);
-        if (used.has(id)) id = `${id}_${index}_${Date.now()}`;
-        used.add(id);
-        return { ...f, id };
-      }
-
-      // string url
-      if (typeof f === "string") {
-        let id = `url_${safeUrlId(f)}`;
-        if (used.has(id)) id = `${id}_${index}_${Date.now()}`;
-        used.add(id);
-        return { id, src: f };
-      }
-
-      // File object
-      if (f instanceof File) {
-        const stamp = `${f.name}_${f.size}_${f.lastModified}`;
-        let id = `file_${stamp}_${index}`;
-        if (used.has(id)) id = `${id}_${Date.now()}_${Math.random()}`;
-        used.add(id);
-        return { id, src: f };
-      }
-
-      // unknown
-      const id = `unk_${Date.now()}_${index}`;
-      used.add(id);
-      return { id, src: "" };
-    });
-  };
-
-  /* ✅ FIX: normalize runs whenever variants changes */
+  // ✅ Normalize (only once on mount if needed)
   useEffect(() => {
-    const needsNormalize = variants.some((v) =>
-      (v.files || []).some(
-        (f) =>
-          typeof f === "string" ||
-          f instanceof File ||
-          (f && typeof f === "object" && !("src" in f))
-      )
+    if (normalizedOnceRef.current) return;
+
+    const needsNormalize = (variants || []).some((v) =>
+      (v.files || []).some((f) => typeof f === "string" || f instanceof File)
     );
 
-    if (!needsNormalize) return;
+    if (!needsNormalize) {
+      normalizedOnceRef.current = true;
+      return;
+    }
 
-    const next = variants.map((v) => ({
+    const next = (variants || []).map((v) => ({
       ...v,
-      files: toFileItems(v.files),
+      files: normalizeList(v.files),
     }));
 
     setVariants(next);
+    normalizedOnceRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variants]);
+  }, []);
 
-  // ✅ input update
+  // ✅ update input
   const update = (i, field, value) => {
     const next = [...variants];
     next[i] = { ...next[i], [field]: value };
@@ -209,36 +231,75 @@ export default function VariantSection({
     }
   };
 
-  /* ✅ FIX: raw File add, normalization effect handles rest */
-  const handleFileChange = (i, files) => {
-    // ✅ NEW: disable save until preview/normalize settled
+  // ✅ Validate rule for ANY variant/base
+  const validateFiles = async (fileItems) => {
+    for (const it of fileItems) {
+      const f = it?.src;
+      if (!(f instanceof File)) continue;
+
+      if (f.type !== IMAGE_RULE.type) {
+        return "Only WEBP allowed (600×600, max 60KB)";
+      }
+
+      if (f.size > IMAGE_RULE.maxBytes) {
+        return `Max 60KB allowed (Your file: ${Math.ceil(f.size / 1024)}KB)`;
+      }
+
+      const { width, height } = await getImageSize(f);
+      if (width !== IMAGE_RULE.width || height !== IMAGE_RULE.height) {
+        return `Must be 600×600 (Your image: ${width}×${height})`;
+      }
+    }
+    return null;
+  };
+
+  // ✅ Handle file add (normalize + merge) (validates for base + variants)
+  const handleFileChange = async (i, files) => {
+    const raw = Array.from(files || []);
+    if (raw.length === 0) return;
+
     onFilesReadyChange?.(false);
 
     const next = [...variants];
+    const current = Array.isArray(next[i].files) ? next[i].files : [];
+    const added = normalizeList(raw);
 
-    next[i].files = [...(next[i].files || []), ...Array.from(files || [])];
+    const merged = [...current, ...added];
 
-    setVariants(next);
-
-    const errKey = next[i].isBase ? "baseImages" : `variantImages_${i}`;
-    if (errors[errKey]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[errKey];
-        return newErrors;
-      });
+    // ✅ NOW validation runs for BOTH default + variant mode
+    try {
+      const errMsg = await validateFiles(merged);
+      if (errMsg) {
+        // base = baseImages, variants = variantImages_i
+        const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
+        setErrors((prev) => ({ ...prev, [key]: errMsg }));
+        onFilesReadyChange?.(true);
+        return;
+      } else {
+        const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
+        setErrors((prev) => {
+          const n = { ...prev };
+          delete n[key];
+          return n;
+        });
+      }
+    } catch {
+      const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
+      setErrors((prev) => ({ ...prev, [key]: "Invalid image file" }));
+      onFilesReadyChange?.(true);
+      return;
     }
 
-    // ✅ NEW: small delay so normalize + preview gets time
-    setTimeout(() => {
-      onFilesReadyChange?.(true);
-    }, 200);
+    next[i].files = merged;
+    setVariants(next);
+
+    onFilesReadyChange?.(true);
   };
 
   const removeFile = (vIdx, fileId) => {
     const next = [...variants];
-    const normalized = toFileItems(next[vIdx].files);
-    next[vIdx].files = normalized.filter((it) => it.id !== fileId);
+    const list = Array.isArray(next[vIdx].files) ? next[vIdx].files : [];
+    next[vIdx].files = list.filter((it) => it.id !== fileId);
     setVariants(next);
   };
 
@@ -247,7 +308,7 @@ export default function VariantSection({
     if (!active || !over || active.id === over.id) return;
 
     const next = [...variants];
-    const files = toFileItems(next[vIdx].files);
+    const files = Array.isArray(next[vIdx].files) ? next[vIdx].files : [];
 
     const oldIndex = files.findIndex((x) => x.id === active.id);
     const newIndex = files.findIndex((x) => x.id === over.id);
@@ -259,8 +320,12 @@ export default function VariantSection({
 
   const visibleVariants = useMemo(() => {
     return mode === "default"
-      ? variants.map((v, idx) => ({ v, idx })).filter(({ v }) => v.isBase)
-      : variants.map((v, idx) => ({ v, idx })).filter(({ v }) => !v.isBase);
+      ? (variants || [])
+          .map((v, idx) => ({ v, idx }))
+          .filter(({ v }) => v.isBase)
+      : (variants || [])
+          .map((v, idx) => ({ v, idx }))
+          .filter(({ v }) => !v.isBase);
   }, [variants, mode]);
 
   return (
@@ -274,7 +339,7 @@ export default function VariantSection({
           ? errors.baseImages
           : errors[`variantImages_${i}`];
 
-        const fileItems = toFileItems(v.files);
+        const fileItems = Array.isArray(v.files) ? v.files : [];
 
         return (
           <div
@@ -306,7 +371,6 @@ export default function VariantSection({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {/* Variant Name */}
               <div className="md:col-span-1">
                 <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                   Variant Name {v.isBase ? "" : "*"}
@@ -333,7 +397,6 @@ export default function VariantSection({
                 )}
               </div>
 
-              {/* Price */}
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                   Price *
@@ -354,7 +417,6 @@ export default function VariantSection({
                 )}
               </div>
 
-              {/* Old Price */}
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                   Old Price
@@ -369,7 +431,6 @@ export default function VariantSection({
                 />
               </div>
 
-              {/* Stock */}
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                   Stock
@@ -383,7 +444,6 @@ export default function VariantSection({
                 />
               </div>
 
-              {/* Sold */}
               <div>
                 <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                   Sold
@@ -398,7 +458,6 @@ export default function VariantSection({
               </div>
             </div>
 
-            {/* Images */}
             <div className="mt-5">
               <label
                 className={`text-xs font-bold uppercase tracking-wide block mb-2 ${
@@ -406,6 +465,9 @@ export default function VariantSection({
                 }`}
               >
                 Variant Images (Required) *
+                <span className="ml-2 text-[10px] font-semibold text-gray-500 normal-case">
+                  (WEBP, 600×600, max 60KB)
+                </span>
               </label>
 
               <div className="flex flex-wrap gap-3">
@@ -448,8 +510,11 @@ export default function VariantSection({
                 type="file"
                 multiple
                 hidden
-                accept="image/*"
-                onChange={(e) => handleFileChange(i, e.target.files)}
+                accept="image/webp"
+                onChange={(e) => {
+                  handleFileChange(i, e.target.files);
+                  e.target.value = "";
+                }}
               />
 
               {imgErr && (
