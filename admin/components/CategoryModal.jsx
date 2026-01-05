@@ -2,8 +2,21 @@
 
 import { useRef, useEffect, useState } from "react";
 
-/* ================== ✅ RESIZE HELPER (300×300 WEBP) ================== */
-async function resizeToWebP(file, size = 300, quality = 0.75) {
+/* ================== ✅ RULE (Dynamic) ================== */
+const CATEGORY_IMAGE_RULE = {
+  type: "image/webp",
+  width: 300,
+  height: 300,
+  maxBytes: 100 * 1024, // ✅ 100KB
+  quality: 0.75,
+};
+
+/* ================== ✅ RESIZE HELPER (Dynamic WEBP) ================== */
+async function resizeToWebP(
+  file,
+  size = CATEGORY_IMAGE_RULE.width,
+  quality = CATEGORY_IMAGE_RULE.quality
+) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -83,14 +96,6 @@ export default function CategoryModal({
   const [imageError, setImageError] = useState("");
   const [filesReady, setFilesReady] = useState(true);
 
-  // ✅ NEW RULE (300×300 WEBP, max 20KB)
-  const CATEGORY_IMAGE_RULE = {
-    type: "image/webp",
-    width: 300,
-    height: 300,
-    maxBytes: 20 * 1024, // 20KB
-  };
-
   const getImageSize = (file) =>
     new Promise((resolve, reject) => {
       const img = new Image();
@@ -112,14 +117,18 @@ export default function CategoryModal({
   const validateCategoryImage = async (f) => {
     if (!f) return "Please select an image";
 
+    const maxKB = Math.floor(CATEGORY_IMAGE_RULE.maxBytes / 1024);
+
     // ✅ format must be webp
     if (f.type !== CATEGORY_IMAGE_RULE.type) {
-      return "Only WEBP allowed (300×300, max 20KB)";
+      return `Only WEBP allowed (${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height}, max ${maxKB}KB)`;
     }
 
     // ✅ size
     if (f.size > CATEGORY_IMAGE_RULE.maxBytes) {
-      return `Max 20KB allowed (Your file: ${Math.ceil(f.size / 1024)}KB)`;
+      return `Max ${maxKB}KB allowed (Your file: ${Math.ceil(
+        f.size / 1024
+      )}KB)`;
     }
 
     // ✅ dimension
@@ -128,7 +137,7 @@ export default function CategoryModal({
       width !== CATEGORY_IMAGE_RULE.width ||
       height !== CATEGORY_IMAGE_RULE.height
     ) {
-      return `Must be 300×300 (Your image: ${width}×${height})`;
+      return `Must be ${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height} (Your image: ${width}×${height})`;
     }
 
     return "";
@@ -163,8 +172,12 @@ export default function CategoryModal({
     setImageError("");
 
     try {
-      // ✅ Convert ANY image -> 300×300 WEBP
-      const resized = await resizeToWebP(incomingFile, 300, 0.75);
+      // ✅ Convert ANY image -> RULE size WEBP (Dynamic)
+      const resized = await resizeToWebP(
+        incomingFile,
+        CATEGORY_IMAGE_RULE.width,
+        CATEGORY_IMAGE_RULE.quality
+      );
 
       // ✅ Validate resized
       const err = await validateCategoryImage(resized);
@@ -195,6 +208,8 @@ export default function CategoryModal({
 
     processFile(dropped);
   };
+
+  const maxKB = Math.floor(CATEGORY_IMAGE_RULE.maxBytes / 1024);
 
   return (
     <>
@@ -260,7 +275,8 @@ export default function CategoryModal({
               <label className="block text-sm font-medium mb-2">
                 Category Image{" "}
                 <span className="text-[11px] text-gray-500 font-semibold">
-                  (WEBP, 300×300, max 20KB)
+                  (WEBP, {CATEGORY_IMAGE_RULE.width}×
+                  {CATEGORY_IMAGE_RULE.height}, max {maxKB}KB)
                 </span>
               </label>
 

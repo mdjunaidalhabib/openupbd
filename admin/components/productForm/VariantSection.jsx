@@ -27,7 +27,7 @@ import { CSS } from "@dnd-kit/utilities";
 /* ---------------- RULES ---------------- */
 const IMAGE_RULE = {
   type: "image/webp",
-  maxBytes: 60 * 1024, // 60KB
+  maxBytes: 100 * 1024, // ✅ 100KB
   width: 600,
   height: 600,
 };
@@ -238,11 +238,13 @@ export default function VariantSection({
       if (!(f instanceof File)) continue;
 
       if (f.type !== IMAGE_RULE.type) {
-        return "Only WEBP allowed (600×600, max 60KB)";
+        return "Only WEBP allowed (600×600, max 100KB)";
       }
 
       if (f.size > IMAGE_RULE.maxBytes) {
-        return `Max 60KB allowed (Your file: ${Math.ceil(f.size / 1024)}KB)`;
+        return `Max ${Math.floor(
+          IMAGE_RULE.maxBytes / 1024
+        )}KB allowed (Your file: ${Math.ceil(f.size / 1024)}KB)`;
       }
 
       const { width, height } = await getImageSize(f);
@@ -253,7 +255,7 @@ export default function VariantSection({
     return null;
   };
 
-  // ✅ Handle file add (normalize + merge) (validates for base + variants)
+  // ✅ Handle file add (normalize + merge)
   const handleFileChange = async (i, files) => {
     const raw = Array.from(files || []);
     if (raw.length === 0) return;
@@ -266,11 +268,9 @@ export default function VariantSection({
 
     const merged = [...current, ...added];
 
-    // ✅ NOW validation runs for BOTH default + variant mode
     try {
       const errMsg = await validateFiles(merged);
       if (errMsg) {
-        // base = baseImages, variants = variantImages_i
         const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
         setErrors((prev) => ({ ...prev, [key]: errMsg }));
         onFilesReadyChange?.(true);
@@ -466,7 +466,8 @@ export default function VariantSection({
               >
                 Variant Images (Required) *
                 <span className="ml-2 text-[10px] font-semibold text-gray-500 normal-case">
-                  (WEBP, 600×600, max 60KB)
+                  (WEBP, 600×600, max {Math.floor(IMAGE_RULE.maxBytes / 1024)}
+                  KB)
                 </span>
               </label>
 

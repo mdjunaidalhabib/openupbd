@@ -9,48 +9,51 @@ const storage = multer.diskStorage({
 });
 
 /* ================== ✅ DEFAULT UPLOAD (GENERIC) ================== */
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 }, // ✅ 100KB
+});
 
 /* ================== ✅ CATEGORY UPLOAD ==================
-   RULE: WEBP | 300×300 | max 20KB
+   RULE: WEBP | 300×300 | max 100KB
 ================================================== */
 export const categoryUpload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 },
+  limits: { fileSize: 100 * 1024 }, // ✅ 100KB
   fileFilter: (req, file, cb) => {
     if (file.mimetype !== "image/webp") {
-      return cb(new Error("Only WEBP allowed (300×300, max 20KB)"), false);
+      return cb(new Error("Only WEBP allowed (300×300, max 100KB)"), false);
     }
     cb(null, true);
   },
 });
 
 /* ================== ✅ PRODUCT UPLOAD ==================
-   RULE: WEBP | 600×600 | max 60KB
+   RULE: WEBP | 600×600 | max 100KB
 ================================================== */
 export const productUpload = multer({
   storage,
   limits: {
-    fileSize: 60 * 1024, // ✅ 60KB per file
+    fileSize: 100 * 1024, // ✅ 100KB per file
     files: 40, // ✅ gallery + variants safety
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype !== "image/webp") {
-      return cb(new Error("Only WEBP allowed (600×600, max 60KB)"), false);
+      return cb(new Error("Only WEBP allowed (600×600, max 100KB)"), false);
     }
     cb(null, true);
   },
 });
 
 /* ================== ✅ SLIDER UPLOAD ==================
-   RULE: WEBP | 1500×500 | max 20KB
+   RULE: WEBP | 1500×500 | max 100KB
 ================================================== */
 export const sliderUpload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 },
+  limits: { fileSize: 100 * 1024 }, // ✅ 100KB
   fileFilter: (req, file, cb) => {
     if (file.mimetype !== "image/webp") {
-      return cb(new Error("Only WEBP allowed (1500×500, max 20KB)"), false);
+      return cb(new Error("Only WEBP allowed (1500×500, max 100KB)"), false);
     }
     cb(null, true);
   },

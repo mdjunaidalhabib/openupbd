@@ -2,6 +2,14 @@
 
 import { useRef, useState, useEffect } from "react";
 
+/* ================== ✅ SLIDER IMAGE RULE ================== */
+const SLIDER_IMAGE_RULE = {
+  type: "image/webp",
+  width: 1500,
+  height: 500,
+  maxBytes: 100 * 1024, // ✅ 100KB
+};
+
 export default function AddSlideModal({
   showModal,
   closeModal,
@@ -11,7 +19,7 @@ export default function AddSlideModal({
   initialData = null,
   slidesLength = 0,
 
-  // ✅ NEW: image processor from parent
+  // ✅ image processor from parent
   processSliderImage,
 }) {
   const dropRef = useRef(null);
@@ -24,12 +32,14 @@ export default function AddSlideModal({
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState("");
 
-  // ✅ NEW states (same CategoryModal system)
+  // ✅ states
   const [imageError, setImageError] = useState("");
   const [filesReady, setFilesReady] = useState(true);
 
   // ✅ dropdown limit
   const maxSerial = editId ? slidesLength : slidesLength + 1;
+
+  const maxKB = Math.floor(SLIDER_IMAGE_RULE.maxBytes / 1024);
 
   // ✅ Edit mode / initialData load
   useEffect(() => {
@@ -111,20 +121,26 @@ export default function AddSlideModal({
         return;
       }
 
-      // ✅ Convert to webp (1500×500 <= 20kb)
+      // ✅ Convert to WEBP (Rule applied from parent processor)
       const resized = await processSliderImage(incomingFile);
 
-      if (resized.type !== "image/webp") {
-        setImageError("Only WEBP allowed (1500×500, max 20KB)");
+      // ✅ format must be webp
+      if (resized.type !== SLIDER_IMAGE_RULE.type) {
+        setImageError(
+          `Only WEBP allowed (${SLIDER_IMAGE_RULE.width}×${SLIDER_IMAGE_RULE.height}, max ${maxKB}KB)`
+        );
         setFile(null);
         setPreview("");
         setFilesReady(true);
         return;
       }
 
-      if (resized.size > 20 * 1024) {
+      // ✅ size validate
+      if (resized.size > SLIDER_IMAGE_RULE.maxBytes) {
         setImageError(
-          `Max 20KB allowed (Your file: ${Math.ceil(resized.size / 1024)}KB)`
+          `Max ${maxKB}KB allowed (Your file: ${Math.ceil(
+            resized.size / 1024
+          )}KB)`
         );
         setFile(null);
         setPreview("");
@@ -244,7 +260,8 @@ export default function AddSlideModal({
               <label className="block text-sm font-medium mb-2">
                 Slide Image{" "}
                 <span className="text-[11px] text-gray-500 font-semibold">
-                  (WEBP, 1500×500, max 20KB)
+                  (WEBP, {SLIDER_IMAGE_RULE.width}×{SLIDER_IMAGE_RULE.height},
+                  max {maxKB}KB)
                 </span>
               </label>
 

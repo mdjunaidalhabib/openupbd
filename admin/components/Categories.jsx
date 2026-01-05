@@ -5,7 +5,16 @@ import Toast from "../components/Toast";
 import CategoriesSkeleton from "../components/Skeleton/CategoriesSkeleton";
 import CategoryModal from "./CategoryModal";
 
-/* ================== ✅ RESIZE HELPER (300×300 WEBP) ================== */
+/* ================== ✅ CATEGORY IMAGE RULE ================== */
+const CATEGORY_IMAGE_RULE = {
+  type: "image/webp",
+  width: 300,
+  height: 300,
+  maxBytes: 100 * 1024, // ✅ 100KB
+  quality: 0.75,
+};
+
+/* ================== ✅ RESIZE HELPER (Dynamic WEBP) ================== */
 async function resizeToWebP(file, size = 300, quality = 0.75) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -130,26 +139,33 @@ export default function CategoriesPage() {
     setLoading(false);
   };
 
-  // ================== ✅ FILE CHANGE (300×300 WEBP) ==================
+  // ================== ✅ FILE CHANGE (Dynamic RULE) ==================
   const handleFileChange = async (selectedFile) => {
     if (!selectedFile) return;
 
     try {
-      const resized = await resizeToWebP(selectedFile, 300, 0.75);
+      const resized = await resizeToWebP(
+        selectedFile,
+        CATEGORY_IMAGE_RULE.width,
+        CATEGORY_IMAGE_RULE.quality
+      );
 
       // ✅ preview for UI
       setPreview(URL.createObjectURL(resized));
       setFile(resized);
 
-      // ✅ size check (20KB)
-      if (resized.size > 20 * 1024) {
+      const maxKB = Math.floor(CATEGORY_IMAGE_RULE.maxBytes / 1024);
+      const currentKB = Math.ceil(resized.size / 1024);
+
+      // ✅ size check (dynamic max)
+      if (resized.size > CATEGORY_IMAGE_RULE.maxBytes) {
         setToast({
-          message: "⚠ Image is still bigger than 20KB (reduce quality)",
+          message: `⚠ Image is still bigger than ${maxKB}KB (Current: ${currentKB}KB). Reduce quality.`,
           type: "error",
         });
       } else {
         setToast({
-          message: "✅ Image resized to 300×300 WEBP",
+          message: `✅ Image resized to ${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height} WEBP (≈ ${currentKB}KB)`,
           type: "success",
         });
       }

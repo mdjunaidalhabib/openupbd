@@ -4,12 +4,23 @@ import toast, { Toaster } from "react-hot-toast";
 import AddSlideModal from "./AddSlideModal";
 import SliderPanelSkeleton from "./Skeleton/SliderSkeleton";
 
-/* ================== ✅ RESIZE HELPER (1500×500 WEBP <= 20KB) ================== */
+/* ================== ✅ SLIDER IMAGE RULE ================== */
+const SLIDER_IMAGE_RULE = {
+  type: "image/webp",
+  width: 1500,
+  height: 500,
+  maxBytes: 100 * 1024, // ✅ 100KB
+  startQuality: 0.85,
+  minQuality: 0.25,
+  qualityStep: 0.07,
+};
+
+/* ================== ✅ RESIZE HELPER (Dynamic 1500×500 WEBP <= maxBytes) ================== */
 async function resizeToWebP_1500x500(
   file,
-  width = 1500,
-  height = 500,
-  maxBytes = 20 * 1024
+  width = SLIDER_IMAGE_RULE.width,
+  height = SLIDER_IMAGE_RULE.height,
+  maxBytes = SLIDER_IMAGE_RULE.maxBytes
 ) {
   const readAsDataURL = (f) =>
     new Promise((resolve, reject) => {
@@ -34,7 +45,7 @@ async function resizeToWebP_1500x500(
           if (!blob) return reject(new Error("Blob creation failed"));
           resolve(blob);
         },
-        "image/webp",
+        SLIDER_IMAGE_RULE.type,
         quality
       );
     });
@@ -47,23 +58,23 @@ async function resizeToWebP_1500x500(
   canvas.height = height;
   const ctx = canvas.getContext("2d");
 
-  // ✅ Cover crop for 1500×500
+  // ✅ Cover crop for width × height
   const scale = Math.max(width / img.width, height / img.height);
   const x = (width - img.width * scale) / 2;
   const y = (height - img.height * scale) / 2;
   ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
 
-  // ✅ Auto reduce quality until <= maxBytes (min 0.25)
-  let quality = 0.85;
+  // ✅ Auto reduce quality until <= maxBytes
+  let quality = SLIDER_IMAGE_RULE.startQuality;
   let blob = await toWebP(canvas, quality);
 
-  while (blob.size > maxBytes && quality > 0.25) {
-    quality -= 0.07;
+  while (blob.size > maxBytes && quality > SLIDER_IMAGE_RULE.minQuality) {
+    quality -= SLIDER_IMAGE_RULE.qualityStep;
     blob = await toWebP(canvas, quality);
   }
 
   return new File([blob], file.name.replace(/\.\w+$/, ".webp"), {
-    type: "image/webp",
+    type: SLIDER_IMAGE_RULE.type,
   });
 }
 
@@ -117,7 +128,7 @@ export default function AdminSliderPanel() {
       const payload = structuredClone(slideObj);
       const formData = new FormData();
 
-      // ✅ imageFile already processed (webp 1500x500 <= 20kb)
+      // ✅ imageFile already processed (webp 1500x500 <= maxBytes)
       if (payload.imageFile) {
         formData.append("image", payload.imageFile);
         delete payload.imageFile;
@@ -305,7 +316,7 @@ export default function AdminSliderPanel() {
             </button>
 
             <button
-              className={`px-2.5 py-1 rounded-md border text-xs leading-none lg:px-4 lg:py--2 lg:text-base lg:rounded-lg ${
+              className={`px-2.5 py-1 rounded-md border text-xs leading-none lg:px-4 lg:py-2 lg:text-base lg:rounded-lg ${
                 filter === "hidden" ? "bg-gray-600 text-white" : "bg-white"
               }`}
               onClick={() => setFilter("hidden")}
@@ -440,7 +451,14 @@ export default function AdminSliderPanel() {
         editId={editSlide?._id || null}
         initialData={editSlide}
         slidesLength={slides.length}
-        processSliderImage={resizeToWebP_1500x500}
+        processSliderImage={(file) =>
+          resizeToWebP_1500x500(
+            file,
+            SLIDER_IMAGE_RULE.width,
+            SLIDER_IMAGE_RULE.height,
+            SLIDER_IMAGE_RULE.maxBytes
+          )
+        }
       />
 
       {/* ✅ Single DELETE POPUP */}
