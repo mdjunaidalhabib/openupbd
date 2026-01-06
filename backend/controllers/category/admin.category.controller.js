@@ -5,87 +5,123 @@ import fs from "fs";
 import sharp from "sharp";
 import { toBool, normalizeCategoryOrders } from "../../utils/category/index.js";
 
-/**
- * ✅ CATEGORY IMAGE RULE (SERVER-SIDE ENFORCE)
- * - WEBP only
- * - 300×300
- * - max 20KB
- */
+/* ================== ✅ CATEGORY IMAGE RULE ==================
+   ✅ UPDATED RULE (SAME AS FRONTEND)
+   INPUT : jpeg/png/webp allowed
+   OUTPUT: 300×300 WEBP under 100KB
+================================================== */
 const CATEGORY_IMAGE_RULE = {
   mime: "image/webp",
   width: 300,
   height: 300,
-  maxBytes: 20 * 1024,
+  maxBytes: 100 * 1024, // ✅ 100KB
+  allowedInputTypes: ["image/webp", "image/jpeg", "image/png"],
 };
 
+/* ================== ✅ HELPERS ================== */
 const safeUnlink = (filePath) => {
   if (!filePath) return;
   try {
-    fs.unlinkSync(filePath);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   } catch {}
 };
 
 /**
- * ✅ validate category image file (server-side)
- * returns "" if ok else message
+ * ✅ Convert ANY image -> 300×300 WEBP under 100KB
+ * Returns new temp output file path
  */
-const validateCategoryImageFile = async (file) => {
+const convertToCategoryWebp = async (inputPath) => {
+  const outputPath = inputPath.replace(/\.\w+$/, "") + `__300x300.webp`;
+
+  let quality = 90;
+
+  // ✅ cover crop + resize + webp
+  let buffer = await sharp(inputPath)
+    .resize(CATEGORY_IMAGE_RULE.width, CATEGORY_IMAGE_RULE.height, {
+      fit: "cover",
+      position: "centre",
+    })
+    .webp({ quality })
+    .toBuffer();
+
+  // ✅ quality loop until under 100KB
+  while (buffer.length > CATEGORY_IMAGE_RULE.maxBytes && quality > 30) {
+    quality -= 8;
+    buffer = await sharp(inputPath)
+      .resize(CATEGORY_IMAGE_RULE.width, CATEGORY_IMAGE_RULE.height, {
+        fit: "cover",
+        position: "centre",
+      })
+      .webp({ quality })
+      .toBuffer();
+  }
+
+  if (buffer.length > CATEGORY_IMAGE_RULE.maxBytes) {
+    throw new Error(
+      `Could not compress under ${Math.floor(
+        CATEGORY_IMAGE_RULE.maxBytes / 1024
+      )}KB`
+    );
+  }
+
+  fs.writeFileSync(outputPath, buffer);
+  return outputPath;
+};
+
+/**
+ * ✅ Validate input file (jpeg/png/webp)
+ */
+const validateCategoryInputFile = async (file) => {
   if (!file) return "";
 
-  // ✅ format
-  if (file.mimetype !== CATEGORY_IMAGE_RULE.mime) {
-    return "Only WEBP allowed (300×300, max 20KB)";
+  if (!CATEGORY_IMAGE_RULE.allowedInputTypes.includes(file.mimetype)) {
+    return "Only jpeg/png/webp allowed (Auto convert to 300×300 WEBP)";
   }
 
-  // ✅ size
-  if (file.size > CATEGORY_IMAGE_RULE.maxBytes) {
-    return `Max 20KB allowed (Your file: ${Math.ceil(file.size / 1024)}KB)`;
-  }
-
-  // ✅ dimension
-  try {
-    const meta = await sharp(file.path).metadata();
-    const w = meta.width || 0;
-    const h = meta.height || 0;
-
-    if (w !== CATEGORY_IMAGE_RULE.width || h !== CATEGORY_IMAGE_RULE.height) {
-      return `Must be 300×300 (Your image: ${w}×${h})`;
-    }
-  } catch (err) {
-    console.error("Image metadata read failed:", err);
-    return "Invalid image file";
+  // ✅ multer already limited, but safe check
+  if (file.size > 5 * 1024 * 1024) {
+    return "File too large";
   }
 
   return "";
 };
 
+/* ================== ✅ CREATE CATEGORY ================== */
 export const createCategory = async (req, res) => {
   try {
     let imageUrl = "";
     let imagePublicId = "";
 
-    // ✅ IMAGE UPLOAD + VALIDATION
+    // ✅ IMAGE UPLOAD + AUTO CONVERT
     if (req.file) {
-      const imageErr = await validateCategoryImageFile(req.file);
-      if (imageErr) {
+      const err = await validateCategoryInputFile(req.file);
+      if (err) {
         safeUnlink(req.file.path);
         return res.status(400).json({
-          error: imageErr,
+          error: err,
           code: "INVALID_CATEGORY_IMAGE",
           rule: {
-            type: "WEBP",
+            input: "jpeg/png/webp",
+            output: "WEBP",
             width: 300,
             height: 300,
-            maxKB: 20,
+            maxKB: 100,
           },
         });
       }
 
-      const result = await cloudinary.uploader.upload(req.file.path, {
+      // ✅ Convert to 300×300 WEBP under 100KB
+      const convertedPath = await convertToCategoryWebp(req.file.path);
+
+      // ✅ upload converted
+      const result = await cloudinary.uploader.upload(convertedPath, {
         folder: "categories",
+        resource_type: "image",
       });
 
+      // ✅ cleanup temp files
       safeUnlink(req.file.path);
+      safeUnlink(convertedPath);
 
       imageUrl = result.secure_url;
       imagePublicId = result.public_id;
@@ -112,7 +148,7 @@ export const createCategory = async (req, res) => {
     const category = new Category({
       name,
       image: imageUrl,
-      imagePublicId, // ✅ optional (if you want, otherwise ignore)
+      imagePublicId,
       order: desiredOrder,
       isActive,
     });
@@ -123,47 +159,58 @@ export const createCategory = async (req, res) => {
     res.status(201).json(category);
   } catch (err) {
     console.error("❌ Error creating category:", err);
-
-    // ✅ cleanup temp if any
     safeUnlink(req.file?.path);
-
     res.status(400).json({ error: err.message });
   }
 };
 
+/* ================== ✅ UPDATE CATEGORY ================== */
 export const updateCategory = async (req, res) => {
   try {
     const category = await Category.findById(req.params.id);
-    if (!category) return res.status(404).json({ error: "Category not found" });
+    if (!category) {
+      safeUnlink(req.file?.path);
+      return res.status(404).json({ error: "Category not found" });
+    }
 
     // ✅ handle new image upload
     if (req.file) {
-      const imageErr = await validateCategoryImageFile(req.file);
-      if (imageErr) {
+      const err = await validateCategoryInputFile(req.file);
+      if (err) {
         safeUnlink(req.file.path);
         return res.status(400).json({
-          error: imageErr,
+          error: err,
           code: "INVALID_CATEGORY_IMAGE",
           rule: {
-            type: "WEBP",
+            input: "jpeg/png/webp",
+            output: "WEBP",
             width: 300,
             height: 300,
-            maxKB: 20,
+            maxKB: 100,
           },
         });
       }
 
-      // ✅ delete old image if exists
-      if (category.image) await deleteFromCloudinary(category.image);
+      // ✅ Convert to 300×300 WEBP under 100KB
+      const convertedPath = await convertToCategoryWebp(req.file.path);
 
-      const result = await cloudinary.uploader.upload(req.file.path, {
+      // ✅ delete old image
+      if (category.image) {
+        await deleteFromCloudinary(category.image, "categories");
+      }
+
+      // ✅ upload converted
+      const result = await cloudinary.uploader.upload(convertedPath, {
         folder: "categories",
+        resource_type: "image",
       });
 
+      // ✅ cleanup temp
       safeUnlink(req.file.path);
+      safeUnlink(convertedPath);
 
       category.image = result.secure_url;
-      category.imagePublicId = result.public_id; // ✅ optional
+      category.imagePublicId = result.public_id;
     }
 
     if (req.body.name) category.name = req.body.name.trim();
@@ -172,6 +219,7 @@ export const updateCategory = async (req, res) => {
       category.isActive = toBool(req.body.isActive);
     }
 
+    // ✅ ORDER UPDATE
     if (req.body.order !== undefined) {
       const total = await Category.countDocuments();
       let desiredOrder = Number(req.body.order || category.order);
@@ -204,14 +252,12 @@ export const updateCategory = async (req, res) => {
     res.json(category);
   } catch (err) {
     console.error("❌ Error updating category:", err);
-
-    // ✅ cleanup temp if any
     safeUnlink(req.file?.path);
-
     res.status(400).json({ error: err.message });
   }
 };
 
+/* ================== ✅ DELETE CATEGORY ================== */
 export const deleteCategory = async (req, res) => {
   try {
     const category = await Category.findById(req.params.id);
@@ -219,11 +265,14 @@ export const deleteCategory = async (req, res) => {
 
     const deletedOrder = category.order;
 
-    if (category.image)
+    // ✅ delete image from cloudinary
+    if (category.image) {
       await deleteFromCloudinary(category.image, "categories");
+    }
 
     await category.deleteOne();
 
+    // ✅ shift orders after delete
     await Category.updateMany(
       { order: { $gt: deletedOrder } },
       { $inc: { order: -1 } }
@@ -240,6 +289,7 @@ export const deleteCategory = async (req, res) => {
   }
 };
 
+/* ================== ✅ ADMIN READ ================== */
 export const getCategoriesAdmin = async (req, res) => {
   try {
     const categories = await Category.find().sort({ order: 1, createdAt: 1 });

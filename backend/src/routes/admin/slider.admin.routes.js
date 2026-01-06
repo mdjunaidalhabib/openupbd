@@ -1,6 +1,6 @@
 import express from "express";
 import Slider from "../../models/Slider.js";
-import upload from "../../../utils/upload.js";
+import upload from "../../../utils/upload.js"; // multer
 import fs from "fs";
 import cloudinary from "../../../utils/cloudinary.js";
 import { deleteByPublicId } from "../../../utils/cloudinaryHelpers.js";
@@ -10,46 +10,76 @@ const router = express.Router();
 
 /**
  * ✅ SLIDER IMAGE RULE (SERVER-SIDE ENFORCE)
- * - WEBP only
+ * - INPUT: jpeg/png/webp allowed
+ * - OUTPUT: WEBP only
  * - 1500×500 exactly
- * - max 20KB
+ * - max 100KB
  */
 const SLIDER_IMAGE_RULE = {
-  mime: "image/webp",
   width: 1500,
   height: 500,
-  maxBytes: 20 * 1024, // 20KB
+  maxBytes: 100 * 1024, // ✅ 100KB
+  allowedInputTypes: ["image/webp", "image/jpeg", "image/png"],
 };
 
 /**
- * ✅ validate uploaded image file (server-side)
- * returns: "" if ok, otherwise returns error message string
+ * ✅ safe unlink
  */
-const validateSliderImageFile = async (file) => {
+const safeUnlink = (filePath) => {
+  if (!filePath) return;
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch {}
+};
+
+/**
+ * ✅ Convert ANY input -> 1500×500 WEBP under 100KB
+ * returns outputPath
+ */
+const convertToSliderWebp = async (inputPath) => {
+  const outputPath = inputPath.replace(/\.\w+$/, "") + "__1500x500.webp";
+
+  let quality = 90;
+
+  let buffer = await sharp(inputPath)
+    .resize(SLIDER_IMAGE_RULE.width, SLIDER_IMAGE_RULE.height, {
+      fit: "cover",
+      position: "centre",
+    })
+    .webp({ quality })
+    .toBuffer();
+
+  while (buffer.length > SLIDER_IMAGE_RULE.maxBytes && quality > 25) {
+    quality -= 7;
+    buffer = await sharp(inputPath)
+      .resize(SLIDER_IMAGE_RULE.width, SLIDER_IMAGE_RULE.height, {
+        fit: "cover",
+        position: "centre",
+      })
+      .webp({ quality })
+      .toBuffer();
+  }
+
+  if (buffer.length > SLIDER_IMAGE_RULE.maxBytes) {
+    throw new Error(
+      `Could not compress under ${Math.floor(
+        SLIDER_IMAGE_RULE.maxBytes / 1024
+      )}KB`
+    );
+  }
+
+  fs.writeFileSync(outputPath, buffer);
+  return outputPath;
+};
+
+/**
+ * ✅ validate INPUT (jpeg/png/webp allowed)
+ */
+const validateSliderInputFile = (file) => {
   if (!file) return "";
 
-  // ✅ mime type check (multer gives mimetype)
-  if (file.mimetype !== SLIDER_IMAGE_RULE.mime) {
-    return "Only WEBP allowed (1500×500, max 20KB)";
-  }
-
-  // ✅ size check
-  if (file.size > SLIDER_IMAGE_RULE.maxBytes) {
-    return `Max 20KB allowed (Your file: ${Math.ceil(file.size / 1024)}KB)`;
-  }
-
-  // ✅ dimension check using sharp
-  try {
-    const meta = await sharp(file.path).metadata();
-    const w = meta.width || 0;
-    const h = meta.height || 0;
-
-    if (w !== SLIDER_IMAGE_RULE.width || h !== SLIDER_IMAGE_RULE.height) {
-      return `Must be 1500×500 (Your image: ${w}×${h})`;
-    }
-  } catch (err) {
-    console.error("Image metadata read failed:", err);
-    return "Invalid image file";
+  if (!SLIDER_IMAGE_RULE.allowedInputTypes.includes(file.mimetype)) {
+    return "Only jpeg/png/webp allowed (Auto convert to 1500×500 WEBP)";
   }
 
   return "";
@@ -57,22 +87,22 @@ const validateSliderImageFile = async (file) => {
 
 /**
  * ✅ helper: normalize serial/order to 1..n
- * (gap fill + duplicates fix)
  */
 const normalizeOrders = async () => {
   const slides = await Slider.find().sort({ order: 1, createdAt: 1 });
+
   const ops = slides.map((s, i) => ({
     updateOne: {
       filter: { _id: s._id },
       update: { $set: { order: i + 1 } },
     },
   }));
+
   if (ops.length) await Slider.bulkWrite(ops);
 };
 
 /**
  * ✅ GET all slides (admin)
- * sort: order asc
  */
 router.get("/", async (req, res) => {
   try {
@@ -85,8 +115,6 @@ router.get("/", async (req, res) => {
 
 /**
  * ✅ Reorder (bulk update)
- * ⚠️ MUST be before "/:id"
- * frontend payload: { reordered: [{ _id, order }] }
  */
 router.patch("/reorder", async (req, res) => {
   try {
@@ -101,7 +129,6 @@ router.patch("/reorder", async (req, res) => {
 
     if (ops.length) await Slider.bulkWrite(ops);
 
-    // ✅ reorder শেষে normalize করে দিচ্ছি
     await normalizeOrders();
 
     const slides = await Slider.find().sort({ order: 1 });
@@ -116,9 +143,11 @@ router.patch("/reorder", async (req, res) => {
  * ✅ POST create/update slide (admin)
  * - auto shift order to avoid duplicates
  * - upload/remove image
- * - ✅ VALIDATE image (WEBP, 1500×500, max 20KB)
+ * - ✅ auto convert to 1500×500 WEBP under 100KB
  */
 router.post("/", upload.single("image"), async (req, res) => {
+  let convertedPath = null;
+
   try {
     let data = { ...req.body };
 
@@ -143,7 +172,9 @@ router.post("/", upload.single("image"), async (req, res) => {
 
     const newOrder = Number(slidePayload.order ?? 1);
 
-    // ✅ removeImage request
+    /**
+     * ✅ removeImage request
+     */
     if (removeImage && slide?.srcPublicId) {
       await deleteByPublicId(slide.srcPublicId);
       slidePayload.src = "";
@@ -151,36 +182,45 @@ router.post("/", upload.single("image"), async (req, res) => {
       delete data.removeImage;
     }
 
-    // ✅ handle new image upload (WITH VALIDATION)
+    /**
+     * ✅ handle new image upload (AUTO CONVERT + UPLOAD)
+     */
     if (req.file) {
-      // ✅ validate first
-      const imageErr = await validateSliderImageFile(req.file);
-      if (imageErr) {
-        // cleanup temp file
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch {}
+      const inputErr = validateSliderInputFile(req.file);
+
+      if (inputErr) {
+        safeUnlink(req.file.path);
 
         return res.status(400).json({
-          message: imageErr,
+          message: inputErr,
           code: "INVALID_SLIDER_IMAGE",
           rule: {
-            type: "WEBP",
+            input: "jpeg/png/webp",
+            output: "WEBP",
             width: 1500,
             height: 500,
-            maxKB: 20,
+            maxKB: 100,
           },
         });
       }
 
-      // ✅ delete old cloudinary image if exists
-      if (slide?.srcPublicId) await deleteByPublicId(slide.srcPublicId);
+      // ✅ convert server-side
+      convertedPath = await convertToSliderWebp(req.file.path);
 
-      const result = await cloudinary.uploader.upload(req.file.path, {
+      // ✅ delete old cloudinary image if exists
+      if (slide?.srcPublicId) {
+        await deleteByPublicId(slide.srcPublicId);
+      }
+
+      // ✅ upload converted webp
+      const result = await cloudinary.uploader.upload(convertedPath, {
         folder: "slider_images",
+        resource_type: "image",
       });
 
-      fs.unlinkSync(req.file.path);
+      // ✅ cleanup local temp
+      safeUnlink(req.file.path);
+      safeUnlink(convertedPath);
 
       slidePayload.src = result.secure_url;
       slidePayload.srcPublicId = result.public_id;
@@ -230,20 +270,16 @@ router.post("/", upload.single("image"), async (req, res) => {
   } catch (err) {
     console.error("❌ Error saving slide:", err);
 
-    // ✅ if any error happened after upload, cleanup temp file
-    if (req.file?.path) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch {}
-    }
+    // ✅ cleanup temp files
+    safeUnlink(req.file?.path);
+    safeUnlink(convertedPath);
 
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message || "Server error" });
   }
 });
 
 /**
- * ✅ DELETE ALL slides (admin)
- * NOTE: MUST be above "/:id"
+ * ✅ DELETE ALL slides
  */
 router.delete("/delete-all", async (req, res) => {
   try {
@@ -254,7 +290,6 @@ router.delete("/delete-all", async (req, res) => {
     }
 
     await Slider.deleteMany({});
-
     res.json({ message: "✅ All slides deleted" });
   } catch (err) {
     console.error("❌ Delete all error:", err);
@@ -264,7 +299,6 @@ router.delete("/delete-all", async (req, res) => {
 
 /**
  * ✅ TOGGLE active/hidden
- * NOTE: MUST be above "/:id"
  */
 router.patch("/:id/toggle", async (req, res) => {
   try {
@@ -282,7 +316,6 @@ router.patch("/:id/toggle", async (req, res) => {
 
 /**
  * ✅ DELETE single slide
- * delete করলে auto order reset হবে
  */
 router.delete("/:id", async (req, res) => {
   try {
@@ -293,7 +326,7 @@ router.delete("/:id", async (req, res) => {
 
     await slide.deleteOne();
 
-    // ✅ gap fill / normalize after delete
+    // ✅ normalize after delete
     await normalizeOrders();
 
     const slides = await Slider.find().sort({ order: 1 });

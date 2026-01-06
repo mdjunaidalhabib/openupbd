@@ -11,62 +11,97 @@ const CATEGORY_IMAGE_RULE = {
   width: 300,
   height: 300,
   maxBytes: 100 * 1024, // ✅ 100KB
-  quality: 0.75,
+  allowedInputTypes: ["image/webp", "image/jpeg", "image/png"],
+  startQuality: 0.88, // ✅ start quality
+  minQuality: 0.3, // ✅ min quality
+  qualityStep: 0.08, // ✅ loop step
 };
 
-/* ================== ✅ RESIZE HELPER (Dynamic WEBP) ================== */
-async function resizeToWebP(file, size = 300, quality = 0.75) {
-  return new Promise((resolve, reject) => {
+/* ================== ✅ HELPERS ================== */
+const loadImageFromFile = (file) =>
+  new Promise((resolve, reject) => {
     const img = new Image();
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      img.src = e.target.result;
-    };
+    const url = URL.createObjectURL(file);
 
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-
-      const ctx = canvas.getContext("2d");
-
-      // ✅ Cover crop (square fill)
-      const scale = Math.max(size / img.width, size / img.height);
-      const x = (size - img.width * scale) / 2;
-      const y = (size - img.height * scale) / 2;
-
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject("Blob creation failed");
-
-          const newFile = new File(
-            [blob],
-            file.name.replace(/\.\w+$/, ".webp"),
-            {
-              type: "image/webp",
-            }
-          );
-
-          resolve(newFile);
-        },
-        "image/webp",
-        quality
-      );
+      URL.revokeObjectURL(url);
+      resolve(img);
     };
 
-    img.onerror = reject;
-    reader.onerror = reject;
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Invalid image"));
+    };
 
-    reader.readAsDataURL(file);
+    img.src = url;
   });
-}
+
+/**
+ * ✅ Auto Convert:
+ * - jpeg/png/webp -> webp
+ * - 300×300 center crop (square)
+ * - quality loop under maxBytes
+ */
+const convertToCategoryWebpUnderLimit = async (
+  file,
+  rule = CATEGORY_IMAGE_RULE
+) => {
+  if (!file) throw new Error("No file selected");
+
+  if (!rule.allowedInputTypes.includes(file.type)) {
+    throw new Error("Only jpeg/png/webp allowed");
+  }
+
+  const img = await loadImageFromFile(file);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = rule.width;
+  canvas.height = rule.height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  // ✅ center crop to square
+  const sw = img.naturalWidth;
+  const sh = img.naturalHeight;
+  const side = Math.min(sw, sh);
+
+  const sx = Math.floor((sw - side) / 2);
+  const sy = Math.floor((sh - side) / 2);
+
+  ctx.clearRect(0, 0, rule.width, rule.height);
+  ctx.drawImage(img, sx, sy, side, side, 0, 0, rule.width, rule.height);
+
+  // ✅ quality loop to keep under maxBytes
+  let quality = rule.startQuality;
+  let blob = await new Promise((res) => canvas.toBlob(res, rule.type, quality));
+  if (!blob) throw new Error("Conversion failed");
+
+  while (blob.size > rule.maxBytes && quality > rule.minQuality) {
+    quality -= rule.qualityStep;
+    blob = await new Promise((res) => canvas.toBlob(res, rule.type, quality));
+    if (!blob) throw new Error("Conversion failed");
+  }
+
+  if (blob.size > rule.maxBytes) {
+    throw new Error(
+      `Could not compress under ${Math.floor(rule.maxBytes / 1024)}KB`
+    );
+  }
+
+  // ✅ blob -> File
+  const newName =
+    (file.name || "category").replace(/\.(png|jpg|jpeg|webp)$/i, "").trim() +
+    ".webp";
+
+  return new File([blob], newName, {
+    type: rule.type,
+    lastModified: Date.now(),
+  });
+};
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
-
   const [filter, setFilter] = useState("all"); // all / active / hidden
 
   const [showModal, setShowModal] = useState(false);
@@ -131,6 +166,9 @@ export default function CategoriesPage() {
 
     setName("");
     setFile(null);
+
+    // ✅ revoke preview URL if needed
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
     setPreview("");
 
     setOrder(1);
@@ -139,39 +177,41 @@ export default function CategoriesPage() {
     setLoading(false);
   };
 
-  // ================== ✅ FILE CHANGE (Dynamic RULE) ==================
+  // ================== ✅ FILE CHANGE (Auto Convert to WEBP) ==================
   const handleFileChange = async (selectedFile) => {
     if (!selectedFile) return;
 
     try {
-      const resized = await resizeToWebP(
+      // ✅ convert to 300×300 webp under 100KB
+      const converted = await convertToCategoryWebpUnderLimit(
         selectedFile,
-        CATEGORY_IMAGE_RULE.width,
-        CATEGORY_IMAGE_RULE.quality
+        CATEGORY_IMAGE_RULE
       );
 
-      // ✅ preview for UI
-      setPreview(URL.createObjectURL(resized));
-      setFile(resized);
+      // ✅ preview
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+      const blobUrl = URL.createObjectURL(converted);
+      setPreview(blobUrl);
+
+      // ✅ set file
+      setFile(converted);
 
       const maxKB = Math.floor(CATEGORY_IMAGE_RULE.maxBytes / 1024);
-      const currentKB = Math.ceil(resized.size / 1024);
+      const currentKB = Math.ceil(converted.size / 1024);
 
-      // ✅ size check (dynamic max)
-      if (resized.size > CATEGORY_IMAGE_RULE.maxBytes) {
-        setToast({
-          message: `⚠ Image is still bigger than ${maxKB}KB (Current: ${currentKB}KB). Reduce quality.`,
-          type: "error",
-        });
-      } else {
-        setToast({
-          message: `✅ Image resized to ${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height} WEBP (≈ ${currentKB}KB)`,
-          type: "success",
-        });
-      }
+      setToast({
+        message: `✅ Converted: ${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height} WEBP (≈ ${currentKB}KB / max ${maxKB}KB)`,
+        type: "success",
+      });
     } catch (err) {
       console.error(err);
-      setToast({ message: "❌ Image processing failed", type: "error" });
+      setToast({
+        message: err?.message || "❌ Image processing failed",
+        type: "error",
+      });
+      setFile(null);
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+      setPreview("");
     }
   };
 
@@ -204,7 +244,11 @@ export default function CategoriesPage() {
       closeModal();
       loadCategories();
     } else {
-      setToast({ message: "❌ Error saving category", type: "error" });
+      const errData = await res.json().catch(() => ({}));
+      setToast({
+        message: errData?.error || "❌ Error saving category",
+        type: "error",
+      });
     }
 
     setLoading(false);
@@ -218,6 +262,8 @@ export default function CategoriesPage() {
     setOrder(c.order || 1);
     setIsActive(c.isActive ?? true);
 
+    // ✅ show existing url preview
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
     setPreview(c.image || "");
     setFile(null);
 
@@ -241,7 +287,11 @@ export default function CategoriesPage() {
       setDeleteModal(null);
       loadCategories();
     } else {
-      setToast({ message: "❌ Error deleting category", type: "error" });
+      const errData = await res.json().catch(() => ({}));
+      setToast({
+        message: errData?.error || "❌ Error deleting category",
+        type: "error",
+      });
     }
     setDeleting(false);
   };
@@ -251,7 +301,7 @@ export default function CategoriesPage() {
     try {
       setPageLoading(true);
 
-      const newStatus = !hasAnyActive; // any active? => hide all, else show all
+      const newStatus = !hasAnyActive;
 
       await Promise.all(
         categories.map((c) =>
@@ -305,6 +355,7 @@ export default function CategoriesPage() {
               setEditId(null);
               setName("");
               setFile(null);
+              if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
               setPreview("");
               setOrder(categories.length + 1);
               setIsActive(true);

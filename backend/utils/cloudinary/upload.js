@@ -14,46 +14,53 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 }, // ✅ 100KB
 });
 
-/* ================== ✅ CATEGORY UPLOAD ==================
-   RULE: WEBP | 300×300 | max 100KB
-================================================== */
+/* ================== ✅ CATEGORY UPLOAD ================== */
 export const categoryUpload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 }, // ✅ 100KB
+  limits: { fileSize: 5 * 1024 * 1024 }, // ✅ input can be larger (server will compress)
   fileFilter: (req, file, cb) => {
-    if (file.mimetype !== "image/webp") {
-      return cb(new Error("Only WEBP allowed (300×300, max 100KB)"), false);
+    const allowed = ["image/webp", "image/jpeg", "image/png"];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error("Only jpeg/png/webp allowed"), false);
     }
     cb(null, true);
   },
 });
 
-/* ================== ✅ PRODUCT UPLOAD ==================
-   RULE: WEBP | 600×600 | max 100KB
-================================================== */
+/* ================== ✅ PRODUCT UPLOAD ================== */
 export const productUpload = multer({
   storage,
   limits: {
-    fileSize: 100 * 1024, // ✅ 100KB per file
-    files: 40, // ✅ gallery + variants safety
+    fileSize: 5 * 1024 * 1024, // ✅ input can be larger (server will compress)
+    files: 40,
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype !== "image/webp") {
-      return cb(new Error("Only WEBP allowed (600×600, max 100KB)"), false);
+    const allowed = ["image/webp", "image/jpeg", "image/png"];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(
+        new Error("Only jpeg/png/webp allowed (Auto convert to 600×600 WEBP)"),
+        false
+      );
     }
     cb(null, true);
   },
 });
 
 /* ================== ✅ SLIDER UPLOAD ==================
-   RULE: WEBP | 1500×500 | max 100KB
+   ✅ UPDATED RULE:
+   INPUT : jpeg/png/webp allowed
+   OUTPUT: controller will convert to 1500×500 WEBP under 100KB
 ================================================== */
 export const sliderUpload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 }, // ✅ 100KB
+  limits: { fileSize: 5 * 1024 * 1024 }, // ✅ input can be larger
   fileFilter: (req, file, cb) => {
-    if (file.mimetype !== "image/webp") {
-      return cb(new Error("Only WEBP allowed (1500×500, max 100KB)"), false);
+    const allowed = ["image/webp", "image/jpeg", "image/png"];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(
+        new Error("Only jpeg/png/webp allowed (Auto convert to 1500×500 WEBP)"),
+        false
+      );
     }
     cb(null, true);
   },

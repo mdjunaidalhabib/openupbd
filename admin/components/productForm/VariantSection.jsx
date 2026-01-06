@@ -23,6 +23,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { convertToWebpUnderLimit } from "../../utils/imageConvert";
 
 /* ---------------- RULES ---------------- */
 const IMAGE_RULE = {
@@ -30,6 +31,10 @@ const IMAGE_RULE = {
   maxBytes: 100 * 1024, // ✅ 100KB
   width: 600,
   height: 600,
+  allowedInputTypes: ["image/webp", "image/jpeg", "image/png"],
+  startQuality: 0.92,
+  minQuality: 0.3,
+  qualityStep: 0.07,
 };
 
 /* ---------------- Helpers ---------------- */
@@ -41,11 +46,9 @@ const safeUrlId = (url) => {
   }
 };
 
-// ✅ Stable IDs (NO Date.now / Math.random)
 const createFileId = (f) => `file_${f.name}_${f.size}_${f.lastModified}`;
 const createUrlId = (u) => `url_${safeUrlId(u)}`;
 
-// ✅ normalize any input (string/File/normalized) => {id, src}
 const normalizeOne = (f) => {
   if (!f) return null;
 
@@ -64,7 +67,6 @@ const normalizeOne = (f) => {
   return null;
 };
 
-// ✅ Stable normalize
 const normalizeList = (files) => {
   const used = new Set();
   const list = (files || [])
@@ -78,21 +80,6 @@ const normalizeList = (files) => {
     });
   return list;
 };
-
-const getImageSize = (file) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Invalid image"));
-    };
-    img.src = url;
-  });
 
 /* ---------------- Sortable Image Item ---------------- */
 function SortableImage({ item, vIdx, removeFile }) {
@@ -207,7 +194,6 @@ export default function VariantSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ update input
   const update = (i, field, value) => {
     const next = [...variants];
     next[i] = { ...next[i], [field]: value };
@@ -231,31 +217,23 @@ export default function VariantSection({
     }
   };
 
-  // ✅ Validate rule for ANY variant/base
+  // ✅ Validate AFTER conversion
   const validateFiles = async (fileItems) => {
     for (const it of fileItems) {
       const f = it?.src;
       if (!(f instanceof File)) continue;
 
-      if (f.type !== IMAGE_RULE.type) {
-        return "Only WEBP allowed (600×600, max 100KB)";
-      }
+      if (f.type !== IMAGE_RULE.type)
+        return "Auto convert failed (WEBP required)";
 
       if (f.size > IMAGE_RULE.maxBytes) {
-        return `Max ${Math.floor(
-          IMAGE_RULE.maxBytes / 1024
-        )}KB allowed (Your file: ${Math.ceil(f.size / 1024)}KB)`;
-      }
-
-      const { width, height } = await getImageSize(f);
-      if (width !== IMAGE_RULE.width || height !== IMAGE_RULE.height) {
-        return `Must be 600×600 (Your image: ${width}×${height})`;
+        return `Max ${Math.floor(IMAGE_RULE.maxBytes / 1024)}KB allowed`;
       }
     }
     return null;
   };
 
-  // ✅ Handle file add (normalize + merge)
+  // ✅ Handle file add (auto convert + normalize + merge)
   const handleFileChange = async (i, files) => {
     const raw = Array.from(files || []);
     if (raw.length === 0) return;
@@ -264,11 +242,28 @@ export default function VariantSection({
 
     const next = [...variants];
     const current = Array.isArray(next[i].files) ? next[i].files : [];
-    const added = normalizeList(raw);
-
-    const merged = [...current, ...added];
 
     try {
+      const converted = [];
+
+      for (const f of raw) {
+        if (!IMAGE_RULE.allowedInputTypes.includes(f.type)) {
+          const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
+          setErrors((prev) => ({
+            ...prev,
+            [key]: "Only jpeg/png/webp allowed",
+          }));
+          onFilesReadyChange?.(true);
+          return;
+        }
+
+        const webpFile = await convertToWebpUnderLimit(f, IMAGE_RULE);
+        converted.push(webpFile);
+      }
+
+      const added = normalizeList(converted);
+      const merged = [...current, ...added];
+
       const errMsg = await validateFiles(merged);
       if (errMsg) {
         const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
@@ -283,17 +278,18 @@ export default function VariantSection({
           return n;
         });
       }
-    } catch {
+
+      next[i].files = merged;
+      setVariants(next);
+    } catch (err) {
       const key = next[i].isBase ? "baseImages" : `variantImages_${i}`;
-      setErrors((prev) => ({ ...prev, [key]: "Invalid image file" }));
+      setErrors((prev) => ({
+        ...prev,
+        [key]: err?.message || "Failed to convert image",
+      }));
+    } finally {
       onFilesReadyChange?.(true);
-      return;
     }
-
-    next[i].files = merged;
-    setVariants(next);
-
-    onFilesReadyChange?.(true);
   };
 
   const removeFile = (vIdx, fileId) => {
@@ -466,8 +462,8 @@ export default function VariantSection({
               >
                 Variant Images (Required) *
                 <span className="ml-2 text-[10px] font-semibold text-gray-500 normal-case">
-                  (WEBP, 600×600, max {Math.floor(IMAGE_RULE.maxBytes / 1024)}
-                  KB)
+                  (jpeg/png/webp → Auto 600×600 WEBP, max{" "}
+                  {Math.floor(IMAGE_RULE.maxBytes / 1024)}KB)
                 </span>
               </label>
 
@@ -511,7 +507,7 @@ export default function VariantSection({
                 type="file"
                 multiple
                 hidden
-                accept="image/webp"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={(e) => {
                   handleFileChange(i, e.target.files);
                   e.target.value = "";

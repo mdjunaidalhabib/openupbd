@@ -1,67 +1,19 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { convertToWebpUnderLimit } from "../utils/imageConvert";
 
 /* ================== ✅ RULE (Dynamic) ================== */
 const CATEGORY_IMAGE_RULE = {
   type: "image/webp",
   width: 300,
   height: 300,
-  maxBytes: 100 * 1024, // ✅ 100KB
-  quality: 0.75,
+  maxBytes: 100 * 1024,
+  allowedInputTypes: ["image/webp", "image/jpeg", "image/png"],
+  startQuality: 0.88,
+  minQuality: 0.3,
+  qualityStep: 0.08,
 };
-
-/* ================== ✅ RESIZE HELPER (Dynamic WEBP) ================== */
-async function resizeToWebP(
-  file,
-  size = CATEGORY_IMAGE_RULE.width,
-  quality = CATEGORY_IMAGE_RULE.quality
-) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      img.src = e.target.result;
-    };
-
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-
-      const ctx = canvas.getContext("2d");
-
-      // ✅ Cover crop (square fill)
-      const scale = Math.max(size / img.width, size / img.height);
-      const x = (size - img.width * scale) / 2;
-      const y = (size - img.height * scale) / 2;
-
-      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject("Blob creation failed");
-
-          const newFile = new File(
-            [blob],
-            file.name.replace(/\.\w+$/, ".webp"),
-            { type: "image/webp" }
-          );
-
-          resolve(newFile);
-        },
-        "image/webp",
-        quality
-      );
-    };
-
-    img.onerror = reject;
-    reader.onerror = reject;
-
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function CategoryModal({
   show,
@@ -96,53 +48,6 @@ export default function CategoryModal({
   const [imageError, setImageError] = useState("");
   const [filesReady, setFilesReady] = useState(true);
 
-  const getImageSize = (file) =>
-    new Promise((resolve, reject) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-
-      img.onload = () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        URL.revokeObjectURL(url);
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Invalid image"));
-      };
-
-      img.src = url;
-    });
-
-  const validateCategoryImage = async (f) => {
-    if (!f) return "Please select an image";
-
-    const maxKB = Math.floor(CATEGORY_IMAGE_RULE.maxBytes / 1024);
-
-    // ✅ format must be webp
-    if (f.type !== CATEGORY_IMAGE_RULE.type) {
-      return `Only WEBP allowed (${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height}, max ${maxKB}KB)`;
-    }
-
-    // ✅ size
-    if (f.size > CATEGORY_IMAGE_RULE.maxBytes) {
-      return `Max ${maxKB}KB allowed (Your file: ${Math.ceil(
-        f.size / 1024
-      )}KB)`;
-    }
-
-    // ✅ dimension
-    const { width, height } = await getImageSize(f);
-    if (
-      width !== CATEGORY_IMAGE_RULE.width ||
-      height !== CATEGORY_IMAGE_RULE.height
-    ) {
-      return `Must be ${CATEGORY_IMAGE_RULE.width}×${CATEGORY_IMAGE_RULE.height} (Your image: ${width}×${height})`;
-    }
-
-    return "";
-  };
-
   // ✅ New modal open => last serial + active default
   useEffect(() => {
     if (show && !editId) {
@@ -172,31 +77,25 @@ export default function CategoryModal({
     setImageError("");
 
     try {
-      // ✅ Convert ANY image -> RULE size WEBP (Dynamic)
-      const resized = await resizeToWebP(
+      const converted = await convertToWebpUnderLimit(
         incomingFile,
-        CATEGORY_IMAGE_RULE.width,
-        CATEGORY_IMAGE_RULE.quality
+        CATEGORY_IMAGE_RULE
       );
 
-      // ✅ Validate resized
-      const err = await validateCategoryImage(resized);
-      if (err) {
-        setImageError(err);
-        setFile(null);
-        setPreview("");
-        setFilesReady(true);
-        return;
-      }
+      setFile(converted);
 
-      setFile(resized);
-      setPreview(URL.createObjectURL(resized));
-      setFilesReady(true);
+      // ✅ preview (revoke old)
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+      setPreview(URL.createObjectURL(converted));
     } catch (e) {
       console.error(e);
-      setImageError("Invalid image file");
+
+      setImageError(e?.message || "Invalid image file");
       setFile(null);
+
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
       setPreview("");
+    } finally {
       setFilesReady(true);
     }
   };
@@ -275,7 +174,7 @@ export default function CategoryModal({
               <label className="block text-sm font-medium mb-2">
                 Category Image{" "}
                 <span className="text-[11px] text-gray-500 font-semibold">
-                  (WEBP, {CATEGORY_IMAGE_RULE.width}×
+                  (jpeg/png/webp → Auto WEBP, {CATEGORY_IMAGE_RULE.width}×
                   {CATEGORY_IMAGE_RULE.height}, max {maxKB}KB)
                 </span>
               </label>
@@ -305,13 +204,12 @@ export default function CategoryModal({
 
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp"
                   className="hidden"
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
-                    e.target.value = ""; // ✅ same file reselect
+                    e.target.value = "";
                     if (!f) return;
-
                     processFile(f);
                   }}
                 />

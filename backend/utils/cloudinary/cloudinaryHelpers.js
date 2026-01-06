@@ -1,84 +1,90 @@
 import cloudinary from "./cloudinary.js";
 
-// ✅ URL থেকে ডিলিট
-export const deleteFromCloudinary = async (imageUrl, folder = "products") => {
+/**
+ * ✅ Extract cloudinary public_id from ANY Cloudinary URL
+ * Supports:
+ * - transformed urls (.../upload/w_600,h_600,.../v123/folder/name.webp)
+ * - normal urls (.../upload/v123/folder/name.webp)
+ * - nested folders
+ */
+const extractPublicIdFromUrl = (imageUrl) => {
+  try {
+    if (!imageUrl || typeof imageUrl !== "string") return null;
+
+    const clean = imageUrl.split("?")[0];
+
+    const parts = clean.split("/upload/");
+    if (parts.length < 2) return null;
+
+    let afterUpload = parts[1]; // transformations + v123 + folder path
+
+    // ✅ find /v123/ segment
+    const vIndex = afterUpload.search(/\/v\d+\//);
+
+    if (vIndex !== -1) {
+      // remove transformations part, keep after v123/
+      afterUpload = afterUpload.slice(vIndex + 1); // remove leading "/"
+      afterUpload = afterUpload.replace(/^v\d+\//, "");
+    } else {
+      // no version: could be transformations only or direct folder path
+      // if first segment looks like transformation (contains ",")
+      const segs = afterUpload.split("/");
+      if (segs[0].includes(",")) {
+        afterUpload = segs.slice(1).join("/");
+      }
+    }
+
+    // ✅ remove extension
+    const publicId = afterUpload.replace(/\.(jpg|jpeg|png|webp|gif|svg)$/i, "");
+
+    return publicId || null;
+  } catch {
+    return null;
+  }
+};
+
+/* ✅ URL থেকে ডিলিট */
+export const deleteFromCloudinary = async (imageUrl) => {
   try {
     if (!imageUrl) return;
 
-    const publicId = imageUrl.split("/").slice(-1)[0].split(".")[0];
+    const publicId = extractPublicIdFromUrl(imageUrl);
 
-    await cloudinary.uploader.destroy(`${folder}/${publicId}`, {
+    if (!publicId) {
+      console.warn("⚠️ Could not extract public_id from:", imageUrl);
+      return;
+    }
+
+    const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: "image",
       invalidate: true,
     });
 
-    // ✅ Recursive folder delete
-    const deleteFolderIfEmpty = async (folderPath) => {
-      const { resources, folders } = await cloudinary.api.resources({
-        type: "upload",
-        prefix: folderPath + "/",
-        max_results: 1,
-      });
+    if (result?.result !== "ok" && result?.result !== "not found") {
+      console.warn("⚠️ Cloudinary delete response:", result);
+    }
 
-      const isEmpty =
-        resources.length === 0 && (!folders || folders.length === 0);
-
-      if (isEmpty) {
-        await cloudinary.api.delete_folder(folderPath);
-
-        const parent = folderPath.includes("/")
-          ? folderPath.split("/").slice(0, -1).join("/")
-          : null;
-
-        if (parent) await deleteFolderIfEmpty(parent);
-      }
-    };
-
-    await deleteFolderIfEmpty(folder);
+    return result;
   } catch (error) {
     console.error("❌ Cloudinary deleteFromCloudinary error:", error);
   }
 };
 
-// ✅ public_id দিয়ে ডিলিট (Footer/Navbar Logo / Admin avatar)
+/* ✅ public_id দিয়ে ডিলিট (Footer/Navbar Logo / Admin avatar) */
 export const deleteByPublicId = async (publicId) => {
   try {
     if (!publicId) return;
 
-    await cloudinary.uploader.destroy(publicId, {
+    const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: "image",
       invalidate: true,
     });
 
-    // ✅ folder empty হলে ডিলিট
-    const folder = publicId.includes("/")
-      ? publicId.split("/").slice(0, -1).join("/")
-      : null;
+    if (result?.result !== "ok" && result?.result !== "not found") {
+      console.warn("⚠️ Cloudinary delete response:", result);
+    }
 
-    if (!folder) return;
-
-    const deleteFolderIfEmpty = async (folderPath) => {
-      const { resources, folders } = await cloudinary.api.resources({
-        type: "upload",
-        prefix: folderPath + "/",
-        max_results: 1,
-      });
-
-      const isEmpty =
-        resources.length === 0 && (!folders || folders.length === 0);
-
-      if (isEmpty) {
-        await cloudinary.api.delete_folder(folderPath);
-
-        const parent = folderPath.includes("/")
-          ? folderPath.split("/").slice(0, -1).join("/")
-          : null;
-
-        if (parent) await deleteFolderIfEmpty(parent);
-      }
-    };
-
-    await deleteFolderIfEmpty(folder);
+    return result;
   } catch (error) {
     console.error("❌ Cloudinary deleteByPublicId error:", error);
   }

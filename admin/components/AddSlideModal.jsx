@@ -260,8 +260,8 @@ export default function AddSlideModal({
               <label className="block text-sm font-medium mb-2">
                 Slide Image{" "}
                 <span className="text-[11px] text-gray-500 font-semibold">
-                  (WEBP, {SLIDER_IMAGE_RULE.width}×{SLIDER_IMAGE_RULE.height},
-                  max {maxKB}KB)
+                  (jpeg/png/webp → Auto WEBP, {SLIDER_IMAGE_RULE.width}×
+                  {SLIDER_IMAGE_RULE.height}, max {maxKB}KB)
                 </span>
               </label>
 

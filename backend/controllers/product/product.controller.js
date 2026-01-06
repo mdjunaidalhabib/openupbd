@@ -1,6 +1,7 @@
 import Product from "../../src/models/Product.js";
 import fs from "fs";
 import sharp from "sharp";
+import path from "path";
 import { deleteFromCloudinary } from "../../utils/cloudinary/cloudinaryHelpers.js";
 import {
   toNumber,
@@ -16,7 +17,8 @@ const PRODUCT_IMAGE_RULE = {
   mime: "image/webp",
   width: 600,
   height: 600,
-  maxBytes: 60 * 1024, // ✅ 60KB
+  maxBytes: 100 * 1024, // ✅ 100KB (same as frontend)
+  allowedInputTypes: ["image/webp", "image/jpeg", "image/png"],
 };
 
 /* ================== ✅ HELPERS ================== */
@@ -40,43 +42,80 @@ const cleanupReqFiles = (req) => {
   for (const f of files) safeUnlink(f.path);
 };
 
-const validateProductImageFile = async (file) => {
-  if (!file) return "";
+/**
+ * ✅ Convert ANY (jpeg/png/webp) => 600×600 WEBP <= 100KB
+ * - center crop
+ * - resize
+ * - compress loop
+ * - overwrite file.path so uploadToCloudinary uploads converted file
+ */
+const convertAndOverwriteProductImage = async (file) => {
+  if (!file?.path) throw new Error("Invalid upload file");
 
-  // ✅ mimetype (multer already filtered, but keep safety)
-  if (file.mimetype !== PRODUCT_IMAGE_RULE.mime) {
-    return "Only WEBP allowed (600×600, max 60KB)";
+  // ✅ input mimetype check (extra safety)
+  if (!PRODUCT_IMAGE_RULE.allowedInputTypes.includes(file.mimetype)) {
+    throw new Error("Only jpeg/png/webp allowed");
   }
 
-  // ✅ size (multer already limited, but keep safety)
-  if (file.size > PRODUCT_IMAGE_RULE.maxBytes) {
-    return `Max 60KB allowed (Your file: ${Math.ceil(file.size / 1024)}KB)`;
-  }
+  const inputPath = file.path;
+  const outputPath = inputPath.replace(/\.[^/.]+$/, "") + "_converted.webp";
 
-  // ✅ dimension check
-  try {
-    const meta = await sharp(file.path).metadata();
-    const w = meta.width || 0;
-    const h = meta.height || 0;
-
-    if (w !== PRODUCT_IMAGE_RULE.width || h !== PRODUCT_IMAGE_RULE.height) {
-      return `Must be 600×600 (Your image: ${w}×${h})`;
+  // ✅ sharp pipeline (center crop)
+  const base = sharp(inputPath).resize(
+    PRODUCT_IMAGE_RULE.width,
+    PRODUCT_IMAGE_RULE.height,
+    {
+      fit: "cover",
+      position: "centre",
     }
-  } catch (e) {
-    console.error("❌ sharp metadata failed:", e);
-    return "Invalid image file";
+  );
+
+  // ✅ compress loop
+  let quality = 90;
+  let buffer = await base.webp({ quality }).toBuffer();
+
+  while (buffer.length > PRODUCT_IMAGE_RULE.maxBytes && quality > 30) {
+    quality -= 7;
+    buffer = await sharp(inputPath)
+      .resize(PRODUCT_IMAGE_RULE.width, PRODUCT_IMAGE_RULE.height, {
+        fit: "cover",
+        position: "centre",
+      })
+      .webp({ quality })
+      .toBuffer();
   }
 
-  return "";
+  if (buffer.length > PRODUCT_IMAGE_RULE.maxBytes) {
+    throw new Error(
+      `Could not compress under ${Math.floor(
+        PRODUCT_IMAGE_RULE.maxBytes / 1024
+      )}KB`
+    );
+  }
+
+  // ✅ write file
+  fs.writeFileSync(outputPath, buffer);
+
+  // ✅ remove original
+  safeUnlink(inputPath);
+
+  // ✅ overwrite multer file
+  file.path = outputPath;
+  file.mimetype = PRODUCT_IMAGE_RULE.mime;
+  file.size = buffer.length;
+  file.originalname =
+    (file.originalname || "image").replace(/\.(png|jpg|jpeg|webp)$/i, "") +
+    ".webp";
 };
 
-const validateAllFiles = async (req) => {
+/**
+ * ✅ Convert all req.files before uploading cloudinary
+ */
+const convertAllReqFiles = async (req) => {
   const files = req.files || [];
   for (const f of files) {
-    const err = await validateProductImageFile(f);
-    if (err) return err;
+    await convertAndOverwriteProductImage(f);
   }
-  return "";
 };
 
 /* ================== ✅ ADMIN READ ================== */
@@ -85,6 +124,7 @@ export const getProductsAdmin = async (req, res) => {
     const products = await Product.find()
       .populate("category")
       .sort({ createdAt: -1 });
+
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err?.message || "Server error" });
@@ -104,16 +144,8 @@ export const getProductByIdAdmin = async (req, res) => {
 /* ================== ✅ CREATE ================== */
 export const createProduct = async (req, res) => {
   try {
-    // ✅ validate uploaded files first
-    const fileErr = await validateAllFiles(req);
-    if (fileErr) {
-      cleanupReqFiles(req);
-      return res.status(400).json({
-        error: fileErr,
-        code: "INVALID_PRODUCT_IMAGE",
-        rule: { type: "WEBP", width: 600, height: 600, maxKB: 60 },
-      });
-    }
+    // ✅ convert ALL uploaded files first (guaranteed webp 600×600 <= 100KB)
+    await convertAllReqFiles(req);
 
     const {
       name,
@@ -152,7 +184,7 @@ export const createProduct = async (req, res) => {
 
       for (let file of galleryFiles) {
         const uploaded = await uploadToCloudinary(file, "products/gallery");
-        galleryImages.push(uploaded.optimizedUrl); // ✅ optimizedUrl
+        galleryImages.push(uploaded.optimizedUrl);
         safeUnlink(file.path);
       }
 
@@ -254,16 +286,8 @@ export const createProduct = async (req, res) => {
 /* ================== ✅ UPDATE ================== */
 export const updateProduct = async (req, res) => {
   try {
-    // ✅ validate uploaded files first
-    const fileErr = await validateAllFiles(req);
-    if (fileErr) {
-      cleanupReqFiles(req);
-      return res.status(400).json({
-        error: fileErr,
-        code: "INVALID_PRODUCT_IMAGE",
-        rule: { type: "WEBP", width: 600, height: 600, maxKB: 60 },
-      });
-    }
+    // ✅ convert ALL uploaded files first (guaranteed webp 600×600 <= 100KB)
+    await convertAllReqFiles(req);
 
     const product = await Product.findById(req.params.id);
     if (!product) {
