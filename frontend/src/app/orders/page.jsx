@@ -241,6 +241,14 @@ export default function OrdersPage() {
                 </p>
                 <p className="text-xs mt-1">Total: ৳{order.total}</p>
 
+                {/* ✅ Cancel Reason */}
+                {order.status === "cancelled" && order.cancelReason && (
+                  <p className="text-[11px] mt-1 text-red-600 leading-tight">
+                    <span className="font-semibold">Reason:</span>{" "}
+                    {order.cancelReason}
+                  </p>
+                )}
+
                 <div className="flex gap-2 mt-3">
                   <Link
                     href={`/orders/${order._id}`}
@@ -293,8 +301,23 @@ export default function OrdersPage() {
                   <tr key={order._id} className="border-t">
                     <td className="p-3">{order.orderId || order._id}</td>
                     <td className="p-3">{formatDateTime(order.createdAt)}</td>
-                    <td className="p-3">{order.status}</td>
+
+                    {/* ✅ Status + Cancel Reason */}
+                    <td className="p-3">
+                      <div className="font-semibold capitalize">
+                        {order.status}
+                      </div>
+
+                      {order.status === "cancelled" && order.cancelReason && (
+                        <div className="text-[11px] text-red-600 leading-tight mt-1">
+                          <span className="font-semibold">Reason:</span>{" "}
+                          {order.cancelReason}
+                        </div>
+                      )}
+                    </td>
+
                     <td className="p-3">৳{order.total}</td>
+
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
                         <Link

@@ -2,13 +2,16 @@ import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
   {
+    /* ===========================
+       ✅ ITEMS
+    ============================ */
     items: [
       {
         productId: { type: String, required: true },
-        name: { type: String },
-        price: { type: Number },
-        qty: { type: Number },
-        image: { type: String },
+        name: { type: String, default: "" },
+        price: { type: Number, default: 0 },
+        qty: { type: Number, default: 1 },
+        image: { type: String, default: "" },
 
         // ✅ Optional but useful
         color: { type: String, default: null },
@@ -16,11 +19,17 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
+    /* ===========================
+       ✅ TOTALS
+    ============================ */
     subtotal: { type: Number, required: true },
     deliveryCharge: { type: Number, required: true, default: 120 },
     discount: { type: Number, default: 0 },
     total: { type: Number, required: true },
 
+    /* ===========================
+       ✅ BILLING
+    ============================ */
     billing: {
       name: { type: String, required: true },
       phone: { type: String, required: true },
@@ -28,10 +37,30 @@ const orderSchema = new mongoose.Schema(
       note: { type: String, default: "" },
     },
 
+    /* ===========================
+       ✅ OPTIONAL META
+    ============================ */
     promoCode: { type: String, default: null },
     userId: { type: String, default: null },
 
-    // ✅ Payment Method (Only COD & BKASH)
+    /* ===========================
+       ✅ WHO CREATED THIS ORDER
+       (User checkout / Admin panel)
+    ============================ */
+    createdBy: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
+      index: true,
+    },
+
+    // ✅ Optional admin info
+    createdByName: { type: String, default: null },
+    createdById: { type: String, default: null },
+
+    /* ===========================
+       ✅ PAYMENT
+    ============================ */
     paymentMethod: {
       type: String,
       enum: ["cod", "bkash"],
@@ -39,7 +68,6 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ Payment Status
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed"],
@@ -47,7 +75,9 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ Order Status (processing বাদ)
+    /* ===========================
+       ✅ ORDER STATUS
+    ============================ */
     status: {
       type: String,
       enum: [

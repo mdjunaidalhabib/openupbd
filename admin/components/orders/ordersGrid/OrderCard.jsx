@@ -1,10 +1,10 @@
 "use client";
+
 import { Edit3, Trash2, Send, ChevronDown, ChevronUp } from "lucide-react";
 import Badge from "../Badge";
 
 import {
   STATUS_LABEL,
-  STATUS_COLORS,
   STATUS_OPTIONS,
   LOCKED_STATUSES,
   STATUS_FLOW,
@@ -28,6 +28,8 @@ export default function OrderCard({
   const itemCount = o.items?.reduce((s, it) => s + (it.qty || 0), 0) || 0;
   const firstTwo = o.items?.slice(0, 2) || [];
   const moreCount = (o.items?.length || 0) - firstTwo.length;
+
+  const isAdminCreated = o?.createdBy === "admin";
 
   const handleStatusUpdate = async (id, newStatus, order) => {
     try {
@@ -60,29 +62,49 @@ export default function OrderCard({
           onClick={() => setOpenId(expanded ? null : o._id)}
           className="flex-1 flex justify-between items-center text-left min-w-0"
         >
-          {/* Left: Name, Badge, Date (All in one or two lines) */}
+          {/* LEFT */}
           <div className="flex-1 min-w-0 pr-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
+            {/* NAME + STATUS */}
+            <div className="flex items-center gap-1.5 flex-wrap leading-none">
               <span className="text-[13px] font-bold text-gray-900 capitalize truncate">
                 {o.billing?.name || "Unknown"}
               </span>
-              <Badge type={o.status}>{STATUS_LABEL[o.status]}</Badge>
+
+              {/* ✅ Badge is keeping compact */}
+              <div className="leading-none">
+                <Badge type={o.status}>{STATUS_LABEL[o.status]}</Badge>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+            {/* ✅ Cancel Reason */}
+            {o.status === "cancelled" && o.cancelReason && (
+              <div className="text-[11px] text-red-600 leading-none mt-0.5">
+                <span className="font-semibold">Reason:</span> {o.cancelReason}
+              </div>
+            )}
+
+            {/* ✅ META ROW (Created by এখানে বসানো হয়েছে) */}
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-0 text-[10px] text-gray-400 leading-none mt-0.5">
+              {/* ✅ Created by (NO EXTRA LINE / GAP) */}
+              {isAdminCreated && (
+                <span className="text-blue-700 font-semibold">
+                  Created by : {o?.createdByName || "Admin"}
+                </span>
+              )}
+
               <span className="font-mono">#{o._id.slice(-6)}</span>
               <span>• {formatOrderTime(o)}</span>
               <span>• {itemCount} items</span>
             </div>
           </div>
 
-          {/* Right: Price & Toggle (Smaller) */}
+          {/* RIGHT */}
           <div className="text-right shrink-0 flex flex-col items-end">
             <div className="text-[14px] font-black text-gray-900 leading-tight">
               ৳{o.total}
             </div>
             <div
-              className={`flex items-center gap-0.5 text-[9px] font-bold uppercase ${
+              className={`flex items-center gap-0.5 text-[9px] font-bold uppercase leading-none ${
                 expanded ? "text-blue-600" : "text-gray-400"
               }`}
             >

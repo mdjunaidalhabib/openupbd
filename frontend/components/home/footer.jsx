@@ -194,13 +194,14 @@ export default function Footer() {
 
       <hr className="border-t border-gray-400 mt-6" />
 
-      <div className="mt-2 text-center text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis px-2">
-        <span>
-          © {new Date().getFullYear()} All Rights Reserved{" "}
-          {brand.title}
+      <div className="mt-2 text-center text-xs text-gray-700 px-2 whitespace-normal break-words sm:whitespace-nowrap sm:overflow-hidden sm:text-ellipsis">
+        <span className="block sm:inline">
+          © {new Date().getFullYear()} All Rights Reserved {brand.title}
         </span>
-        <span className="mx-1 text-gray-400">•</span>
-        <span className="text-gray-600">
+
+        <span className="hidden sm:inline mx-1 text-gray-400">•</span>
+
+        <span className="block sm:inline text-gray-600">
           Developed by{" "}
           <a
             href="https://hikmahit.com"

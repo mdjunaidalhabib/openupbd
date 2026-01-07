@@ -334,7 +334,7 @@ export default function ProfilePage() {
       <Toast message={toastMsg} type={toastType} onClose={closeToast} />
 
       <div className="min-h-[70vh] px-4 py-10">
-        <div className="mx-auto w-full max-w-4xl rounded-3xl border border-pink-200 bg-pink-50 p-4 shadow-sm">
+        <div className="mx-auto w-full max-w-4xl rounded-3xl border border-pink-200 bg-pink-50 p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               {/* ✅ Avatar fixed for mobile */}
@@ -514,7 +514,7 @@ export default function ProfilePage() {
             </div>
 
             {!editMode ? (
-              <div className="mt-4 rounded-xl border bg-gray-50 p-3 text-xs text-gray-600">
+              <div className="mt-4 rounded-xl border border-purple-300 bg-purple-100 p-3 text-xs text-gray-600">
                 Want to update your details? Click{" "}
                 <span className="font-semibold text-blue-600">Edit</span> to
                 make changes.

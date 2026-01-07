@@ -21,6 +21,148 @@ const STATUS_FLOW = {
  * GET all orders
  * ================================
  */
+/**
+ * ================================
+ * ✅ CREATE order (ADMIN)
+ * POST /admin/orders
+ * ================================
+ */
+import Product from "../../models/Product.js"; // ✅ add (আপনার product model path ঠিক করে দিবেন)
+
+router.post("/", async (req, res) => {
+  try {
+    const {
+      items = [],
+      deliveryCharge = 120,
+      discount = 0,
+      billing = {},
+      promoCode = null,
+      userId = null,
+
+      paymentMethod = "cod",
+      paymentStatus = "pending",
+      status = "pending",
+
+      // ✅ NEW: createdBy fields
+      createdBy = "admin",
+      createdByName = "Admin",
+      createdById = null,
+    } = req.body;
+
+    // ✅ Validate billing
+    if (
+      !billing?.name?.trim() ||
+      !billing?.phone?.trim() ||
+      !billing?.address?.trim()
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Billing name, phone & address are required" });
+    }
+
+    // ✅ Validate items basic
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "At least 1 item is required" });
+    }
+
+    // ✅ Resolve products from DB (safe)
+    const productIds = items.map((it) => String(it.productId));
+    const products = await Product.find({ _id: { $in: productIds } });
+
+    const productMap = new Map();
+    products.forEach((p) => productMap.set(String(p._id), p));
+
+    const finalItems = [];
+    let subtotal = 0;
+
+    for (const it of items) {
+      const pid = String(it.productId || "");
+      const qty = Number(it.qty || 0);
+      const color = it.color ? String(it.color) : null;
+
+      if (!pid || qty <= 0) continue;
+
+      const p = productMap.get(pid);
+      if (!p) continue;
+
+      // ✅ color variant match
+      const variant =
+        color && Array.isArray(p.colors)
+          ? p.colors.find(
+              (c) =>
+                String(c?.name || "")
+                  .trim()
+                  .toLowerCase() === String(color).trim().toLowerCase()
+            )
+          : null;
+
+      const price = Number(p.price || 0);
+      const name = p.name || "Product";
+      const image =
+        variant?.images?.[0] ||
+        p.image ||
+        (Array.isArray(p.images) ? p.images[0] : null) ||
+        null;
+
+      subtotal += price * qty;
+
+      finalItems.push({
+        productId: pid,
+        name,
+        price,
+        qty,
+        image,
+        color: variant?.name || color || null,
+        stock: variant?.stock ?? p.stock ?? 0,
+      });
+    }
+
+    if (!finalItems.length) {
+      return res.status(400).json({ error: "No valid items found" });
+    }
+
+    const total = Math.max(
+      0,
+      Number(subtotal) + Number(deliveryCharge || 0) - Number(discount || 0)
+    );
+
+    const created = await Order.create({
+      items: finalItems,
+      subtotal,
+      deliveryCharge,
+      discount,
+      total,
+
+      billing: {
+        name: billing.name.trim(),
+        phone: billing.phone.trim(),
+        address: billing.address.trim(),
+        note: billing.note?.trim() || "",
+      },
+
+      promoCode,
+      userId,
+      paymentMethod,
+      paymentStatus,
+      status,
+
+      // ✅ IMPORTANT: Save createdBy
+      createdBy,
+      createdByName,
+      createdById,
+    });
+
+    res.status(201).json(created);
+  } catch (err) {
+    console.error("❌ Failed to create order:", err);
+    res.status(400).json({
+      error: "Failed to create order",
+      details: err.message,
+    });
+  }
+});
+
+
 router.get("/", async (req, res) => {
   try {
     const filter = {};
@@ -171,6 +313,22 @@ router.put("/:id", async (req, res) => {
     if (req.body.cancelReason !== undefined)
       updateData.cancelReason = req.body.cancelReason;
 
+    // ✅ DISCOUNT UPDATE + TOTAL RECALC
+    if (req.body.discount !== undefined) {
+      let discount = Number(req.body.discount);
+
+      if (isNaN(discount) || discount < 0) discount = 0;
+
+      const subtotal = Number(current.subtotal || 0);
+      const delivery = Number(current.deliveryCharge || 0);
+
+      const maxAllowedDiscount = subtotal + delivery;
+      if (discount > maxAllowedDiscount) discount = maxAllowedDiscount;
+
+      updateData.discount = discount;
+      updateData.total = subtotal + delivery - discount;
+    }
+
     if (req.body.billing) {
       updateData.billing = {
         name: req.body.billing.name?.trim()
@@ -229,6 +387,7 @@ router.put("/:id", async (req, res) => {
     });
   }
 });
+
 
 /**
  * ================================

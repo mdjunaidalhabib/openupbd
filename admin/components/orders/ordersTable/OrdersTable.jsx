@@ -136,6 +136,8 @@ export default function OrdersTable({
                 const locked = LOCKED_STATUSES.includes(o.status);
                 const allowedNext = STATUS_FLOW[o.status] || [];
 
+                const isAdminCreated = o?.createdBy === "admin";
+
                 return (
                   <tr
                     key={o._id}
@@ -158,7 +160,20 @@ export default function OrdersTable({
                       <div className="font-mono text-xs text-gray-500">
                         #{o._id}
                       </div>
-                      <div className="text-xs text-gray-500">
+
+                      {/* ✅ CREATED BY ADMIN BADGE */}
+                      {isAdminCreated && (
+                        <div className="mt-1 inline-flex items-center gap-1 text-[10px]  text-blue-700">
+                          Created by :
+                          {o?.createdByName ? (
+                            <span className="text-blue-700 font-semibold">
+                              {o.createdByName}
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+
+                      <div className="text-xs text-gray-500 mt-1">
                         {formatOrderTime(o)}
                       </div>
                     </td>
@@ -180,6 +195,7 @@ export default function OrdersTable({
                             <img
                               src={it.image || "/placeholder.png"}
                               className="w-8 h-8 rounded-md border"
+                              alt=""
                             />
                             <div className="min-w-0">
                               <p className="text-xs font-semibold truncate">
@@ -201,7 +217,7 @@ export default function OrdersTable({
                     </td>
 
                     {/* TOTALS */}
-                    <td className="p-1 text-xs space-y-1 min-w-[70px]">
+                    <td className="p-1 text-xs space-y-1 min-w-[90px]">
                       <div className="flex justify-between">
                         <span className="text-gray-500">Subtotal</span>
                         <span>৳{o.subtotal}</span>
@@ -260,6 +276,14 @@ export default function OrdersTable({
                           </option>
                         ))}
                       </select>
+
+                      {/* ✅ Cancel Reason */}
+                      {o.status === "cancelled" && o.cancelReason && (
+                        <div className="mt-1 text-[11px] text-red-600">
+                          <span className="font-semibold">Reason:</span>{" "}
+                          {o.cancelReason}
+                        </div>
+                      )}
                     </td>
 
                     {/* ACTIONS */}

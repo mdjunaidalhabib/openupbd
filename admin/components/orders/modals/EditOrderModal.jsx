@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Toast from "../../Toast";
 import ModalWrapper from "./ModalWrapper";
 
@@ -14,15 +14,43 @@ export default function EditOrderModal({
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // ✅ initial snapshot to detect changes
+  const [initialForm, setInitialForm] = useState(null);
+
   const [touched, setTouched] = useState({
     name: false,
     phone: false,
     address: false,
     cancelReason: false,
+    discount: false,
   });
 
   const [submitted, setSubmitted] = useState(false);
 
+  // ✅ When modal opens, take snapshot once
+  useEffect(() => {
+    if (open) {
+      setInitialForm(form ? JSON.stringify(form) : null);
+
+      // reset validation UI on open
+      setSubmitted(false);
+      setTouched({
+        name: false,
+        phone: false,
+        address: false,
+        cancelReason: false,
+        discount: false,
+      });
+    }
+  }, [open]); // ✅ only when open changes
+
+  // ✅ detect change
+  const isDirty = useMemo(() => {
+    if (!initialForm) return false;
+    return JSON.stringify(form) !== initialForm;
+  }, [form, initialForm]);
+
+  // ✅ IMPORTANT: return null AFTER hooks (prevents hooks mismatch error)
   if (!open) return null;
 
   const showToast = (message, type = "error", ms = 2000) => {
@@ -37,6 +65,17 @@ export default function EditOrderModal({
         ...prev.billing,
         [field]: value,
       },
+    }));
+  };
+
+  // ✅ discount change handler (force number)
+  const handleDiscountChange = (value) => {
+    let num = Number(value);
+    if (isNaN(num) || num < 0) num = 0;
+
+    setForm((prev) => ({
+      ...prev,
+      discount: num,
     }));
   };
 
@@ -68,11 +107,17 @@ export default function EditOrderModal({
       return;
     }
 
+    // ✅ no changes = no save
+    if (!isDirty) {
+      showToast("ℹ️ কোনো পরিবর্তন হয়নি!", "error", 1800);
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await onSave(form);
 
-      if (result) {
+      if (result?.success || result === true) {
         onClose();
         showToast("✅ Order updated successfully!", "success", 1500);
       } else {
@@ -134,6 +179,27 @@ export default function EditOrderModal({
                   trackingId: e.target.value,
                 }))
               }
+            />
+          </div>
+
+          {/* ✅ Discount */}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Discount (৳)
+            </label>
+
+            <input
+              type="number"
+              min="0"
+              className="border rounded px-3 py-2 w-full"
+              value={Number(form.discount || 0)}
+              onBlur={() =>
+                setTouched((t) => ({
+                  ...t,
+                  discount: true,
+                }))
+              }
+              onChange={(e) => handleDiscountChange(e.target.value)}
             />
           </div>
 
@@ -281,8 +347,8 @@ export default function EditOrderModal({
 
           <button
             onClick={handleSave}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
+            disabled={loading || !isDirty} // ✅ disabled until change
+            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : "Save"}
           </button>

@@ -1,6 +1,6 @@
 export default function Badge({ children, type }) {
   const base =
-    "inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold border whitespace-nowrap w-fit uppercase tracking-tighter";
+    "inline-flex items-center justify-center rounded-full px-2 sm:py-0.5 text-[10px] font-bold border whitespace-nowrap w-fit uppercase tracking-tighter";
 
   const colors = {
     pending: "border-yellow-200 text-yellow-700 bg-yellow-50",
