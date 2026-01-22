@@ -1,6 +1,6 @@
 import express from "express";
 import CourierSetting from "../../models/CourierSetting.js";
-import Order from "../../models/Order.js"; // ✅ ADD
+import Order from "../../models/Order.js";
 
 const router = express.Router();
 
@@ -27,7 +27,24 @@ async function getActiveCourier(courier = "steadfast") {
     throw err;
   }
 
+  if (!setting.apiKey || !setting.secretKey) {
+    const err = new Error("Courier apiKey/secretKey missing in DB");
+    err.code = "COURIER_KEYS_MISSING";
+    throw err;
+  }
+
   return setting;
+}
+
+/* ======================================================
+   🧰 Helper: Safe parse JSON
+====================================================== */
+function safeJsonParse(raw) {
+  try {
+    return { ok: true, data: JSON.parse(raw) };
+  } catch (e) {
+    return { ok: false, error: e };
+  }
 }
 
 /* ======================================================
@@ -35,9 +52,11 @@ async function getActiveCourier(courier = "steadfast") {
    POST /admin/api/send-order
 ====================================================== */
 router.post("/send-order", async (req, res) => {
+  const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
   try {
     const {
-      invoice, // orderId
+      invoice, // orderId (Mongo _id)
       name,
       phone,
       address,
@@ -49,6 +68,8 @@ router.post("/send-order", async (req, res) => {
     /* ---------- VALIDATION ---------- */
     if (!invoice || !name || !phone || !address || cod_amount === undefined) {
       return res.status(400).json({
+        ok: false,
+        requestId,
         error: "invoice, name, phone, address, cod_amount are required",
       });
     }
@@ -56,7 +77,11 @@ router.post("/send-order", async (req, res) => {
     /* ---------- LOAD ORDER ---------- */
     const order = await Order.findById(invoice);
     if (!order) {
-      return res.status(404).json({ error: "Order not found" });
+      return res.status(404).json({
+        ok: false,
+        requestId,
+        error: "Order not found",
+      });
     }
 
     /* ---------- LOAD COURIER (KEYS FROM DB) ---------- */
@@ -67,13 +92,19 @@ router.post("/send-order", async (req, res) => {
 
     if (!baseUrl || !/^https?:\/\//i.test(baseUrl)) {
       return res.status(500).json({
-        error: "Courier service URL not configured in env",
+        ok: false,
+        requestId,
+        error:
+          "STEADFAST_BASE_URL env is missing or invalid (must start with http/https)",
+        envValue: baseUrl || null,
       });
     }
 
+    const url = `${baseUrl.replace(/\/+$/, "")}/create_order`;
+
     /* ---------- STEADFAST PAYLOAD ---------- */
     const payload = {
-      invoice: String(invoice),
+      invoice: String(order._id), // reference string
       recipient_name: name,
       recipient_phone: phone,
       recipient_address: address,
@@ -83,44 +114,84 @@ router.post("/send-order", async (req, res) => {
       item_description: item_description || "",
     };
 
+    console.log("📦 STEADFAST SEND", { requestId, url, payload });
+
     /* ---------- STEADFAST API CALL ---------- */
-    const resp = await fetch(`${baseUrl}/create_order`, {
+    const resp = await fetch(url, {
       method: "POST",
       headers: {
         "Api-Key": courier.apiKey,
         "Secret-Key": courier.secretKey,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify(payload),
     });
 
-    const data = await resp.json();
+    const contentType = resp.headers.get("content-type") || "";
+    const raw = await resp.text();
 
-    if (!resp.ok || data?.status !== 200) {
+    // 🔥 LOG everything for debugging
+    console.log("📨 STEADFAST RESPONSE", {
+      requestId,
+      httpStatus: resp.status,
+      contentType,
+      raw: raw?.slice(0, 500), // keep console clean
+    });
+
+    // Try JSON parse (even if content-type is wrong)
+    const parsed = safeJsonParse(raw);
+    const data = parsed.ok ? parsed.data : null;
+
+    // ✅ If HTTP error OR API indicates error
+    const apiStatus = data?.status; // many APIs use {status: 200}
+    const apiOk = apiStatus === undefined ? true : apiStatus === 200;
+
+    if (!resp.ok || !apiOk) {
       return res.status(502).json({
-        error: data?.message || "Steadfast API error",
-        details: data,
+        ok: false,
+        requestId,
+        error: data?.message || "Steadfast API error (or non-OK HTTP)",
+        steadfast: {
+          url,
+          httpStatus: resp.status,
+          contentType,
+          rawResponse: raw,
+          parsed: data,
+        },
       });
     }
 
     /* ======================================================
-       ✅ UPDATE ORDER STATUS HERE (IMPORTANT FIX)
+       ✅ UPDATE ORDER STATUS
     ====================================================== */
     order.status = "send_to_courier";
-    order.trackingId = data?.consignment?.tracking_code || "";
+    order.trackingId =
+      data?.consignment?.tracking_code || data?.tracking_code || "";
     await order.save();
 
     /* ---------- SUCCESS ---------- */
     return res.json({
       ok: true,
+      requestId,
       message: "Courier order created & status updated",
       trackingCode: order.trackingId,
+      courierResponse: data,
       order,
     });
   } catch (err) {
-    console.error("🚨 COURIER ERROR:", err);
+    console.error("🚨 COURIER ERROR:", { requestId, err });
+
+    if (err?.code === "COURIER_NOT_CONFIGURED") {
+      return res.status(400).json({ ok: false, requestId, error: err.message });
+    }
+    if (err?.code === "COURIER_KEYS_MISSING") {
+      return res.status(400).json({ ok: false, requestId, error: err.message });
+    }
 
     return res.status(500).json({
+      ok: false,
+      requestId,
       error: err.message || "Courier service error",
     });
   }

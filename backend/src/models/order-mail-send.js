@@ -2,9 +2,15 @@ import mongoose from "mongoose";
 
 const OrderMailSendSchema = new mongoose.Schema(
   {
-    adminEmail: { type: String, default: "" },
+    enabled: { type: Boolean, default: true },
+    emails: [
+      {
+        email: { type: String, required: true },
+        active: { type: Boolean, default: false },
+      },
+    ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.OrderMailSend ||

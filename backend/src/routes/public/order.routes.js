@@ -229,7 +229,7 @@ router.post("/", async (req, res) => {
     */
     try {
       await Promise.all(
-        items.map((item) => updateInventoryForItem(item, "decrease"))
+        items.map((item) => updateInventoryForItem(item, "decrease")),
       );
     } catch (stockErr) {
       console.error("❌ Stock/Sold Update Error:", stockErr);
@@ -248,9 +248,13 @@ router.post("/", async (req, res) => {
     }
 
     // ✅ Admin Email Notify (DB settings)
+    // Admin Email Notify (DB settings)
     try {
       const settings = await getOrderMailSendSettings();
-      const adminEmail = settings?.adminEmail?.trim();
+
+      // DB তে active email খুঁজে বের করা
+      const activeEmailObj = settings.emails.find((e) => e.active);
+      const adminEmail = activeEmailObj?.email?.trim();
 
       if (adminEmail) {
         await sendAdminOrderEmail({
@@ -268,7 +272,7 @@ router.post("/", async (req, res) => {
           paymentMethod: savedOrder?.paymentMethod,
         });
       } else {
-        console.warn("⚠️ Admin email is not set in DB (order-mail-send)");
+        console.warn("⚠️ No active admin email set in DB");
       }
     } catch (mailErr) {
       console.error("❌ Admin Email Send Failed:", mailErr);
