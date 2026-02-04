@@ -1,36 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-/* ===============================
-   COURIER → ORDER STATUS MAPPING
-================================ */
-const mapCourierToOrderStatus = (delivery_status) => {
-  if (!delivery_status) return null;
-
-  const s = delivery_status.toLowerCase();
-
-  if (
-    s === "delivered" ||
-    s === "partial_delivered" ||
-    s === "delivered_approval_pending" ||
-    s === "partial_delivered_approval_pending"
-  ) {
-    return "delivered";
-  }
-
-  if (s === "cancelled" || s === "cancelled_approval_pending") {
-    return "cancelled";
-  }
-
-  return null;
-};
-
 export default function useOrders(API) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   /* ===============================
-     🔁 QUEUE (SERIAL EXECUTION)
+     🔁 QUEUE
      =============================== */
   const queueRef = useRef(Promise.resolve());
 
@@ -53,11 +29,6 @@ export default function useOrders(API) {
      🗑 DELETE LOADING
      =============================== */
   const [deleting, setDeleting] = useState(false);
-
-  /* ===============================
-     🚚 COURIER STATUS CACHE
-     =============================== */
-  const [courierStatusMap, setCourierStatusMap] = useState({});
 
   /* ===============================
      Auto hide toast
@@ -89,7 +60,7 @@ export default function useOrders(API) {
   }, []);
 
   /* ===============================
-     Update status (single)
+     Update status (single) – SILENT SUPPORT
      =============================== */
   const updateStatus = (id, payload, options = {}) =>
     enqueue(async () => {
@@ -104,7 +75,7 @@ export default function useOrders(API) {
         if (!res.ok) throw new Error(updated?.error);
 
         setOrders((prev) =>
-          prev.map((o) => (o._id === updated._id ? updated : o)),
+          prev.map((o) => (o._id === updated._id ? updated : o))
         );
 
         if (!options.silent) {
@@ -113,6 +84,7 @@ export default function useOrders(API) {
 
         return updated;
       } catch (err) {
+        // ❗ error কখনো silent হবে না
         setToast({
           message: err?.message || "❌ Status update failed",
           type: "error",
@@ -147,8 +119,8 @@ export default function useOrders(API) {
             prev.map((o) =>
               data.updated.includes(o._id)
                 ? { ...o, status: payload.status }
-                : o,
-            ),
+                : o
+            )
           );
 
           setToast({
@@ -167,56 +139,68 @@ export default function useOrders(API) {
     });
 
   /* ===============================
-     🚚 SEND TO COURIER (SINGLE)
+     🚚 COURIER (SINGLE) – FINAL & SAFE
      =============================== */
-  const sendCourierDirect = (order) =>
-    enqueue(async () => {
-      try {
-        if (!order) throw new Error("Invalid order");
+const sendCourierDirect = (order) =>
+  enqueue(async () => {
+    try {
+      if (!order) throw new Error("Invalid order");
 
-        const res = await fetch(`${API}/admin/api/send-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            invoice: order._id,
-            name: order.billing?.name,
-            phone: order.billing?.phone,
-            address: order.billing?.address,
-            cod_amount: order.total,
-          }),
-        });
+      /* 1️⃣ CREATE COURIER ORDER */
+      const res = await fetch(`${API}/admin/api/send-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice: order._id,
+          name: order.billing?.name,
+          phone: order.billing?.phone,
+          address: order.billing?.address,
+          cod_amount: order.total,
+        }),
+      });
 
-        const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) {
-          throw new Error(
-            data?.error || data?.message || "Courier sending failed",
-          );
-        }
-
-        if (data.order) {
-          setOrders((prev) =>
-            prev.map((o) => (o._id === data.order._id ? data.order : o)),
-          );
-        }
-
-        setToast({
-          message: "🚚 Courier order created",
-          type: "success",
-        });
-
-        return data;
-      } catch (err) {
-        setToast({
-          message: err?.message || "Courier সেটিং পাওয়া যায়নি বা inactive",
-          type: "error",
-        });
-        throw err;
+      if (!res.ok) {
+        throw new Error(
+          data?.error || data?.message || "Courier sending failed"
+        );
       }
-    });
+
+      /* 2️⃣ LOCAL STATE SYNC (IMPORTANT) */
+      if (data.order) {
+        setOrders((prev) =>
+          prev.map((o) => (o._id === data.order._id ? data.order : o))
+        );
+      }
+
+      /* 3️⃣ SUCCESS TOAST */
+      setToast({
+        message: "🚚 Courier order created & status updated",
+        type: "success",
+      });
+
+      return data;
+    } catch (err) {
+      const msg = err?.message?.toLowerCase() || "";
+
+      const friendlyMessage =
+        msg.includes("courier") || msg.includes("setting")
+          ? "Courier সেটিং পাওয়া যায়নি বা inactive"
+          : err.message;
+
+      setToast({
+        message: friendlyMessage,
+        type: "error",
+      });
+
+      throw err;
+    }
+  });
+
 
   /* ===============================
-     🚚 SEND TO COURIER (BULK)
+     Courier (bulk)
      =============================== */
   const sendCourierMany = (orders) =>
     setConfirm({
@@ -245,47 +229,6 @@ export default function useOrders(API) {
     });
 
   /* ===============================
-     📦 FETCH COURIER STATUS (STEADFAST)
-     =============================== */
-const fetchCourierStatus = async (order) => {
-  if (!order?.trackingId) return;
-
-  try {
-    const res = await fetch(
-      `${API}/admin/api/steadfast/status/${order.trackingId}`,
-    );
-
-    const data = await res.json().catch(() => ({}));
-    const courierStatus = data?.delivery_status; // ✅ backend returns this
-
-    if (!courierStatus) return;
-
-    setCourierStatusMap((prev) => ({
-      ...prev,
-      [order._id]: courierStatus,
-    }));
-
-    const mappedStatus = mapCourierToOrderStatus(courierStatus);
-
-    if (mappedStatus && order.status !== mappedStatus) {
-      await updateStatus(order._id, { status: mappedStatus }, { silent: true });
-    }
-  } catch {
-    // silent
-  }
-};
-
-
-  /* ===============================
-     AUTO SYNC COURIER STATUS
-     =============================== */
-  useEffect(() => {
-    orders
-      .filter((o) => o.status === "send_to_courier" && o.trackingId)
-      .forEach(fetchCourierStatus);
-  }, [orders]);
-
-  /* ===============================
      🗑 DELETE (single)
      =============================== */
   const handleDelete = async (order) => {
@@ -310,7 +253,7 @@ const fetchCourierStatus = async (order) => {
   };
 
   /* ===============================
-     DELETE (bulk)
+     Delete (bulk)
      =============================== */
   const deleteMany = (ids) =>
     setConfirm({
@@ -360,8 +303,6 @@ const fetchCourierStatus = async (order) => {
     // courier
     sendCourierDirect,
     sendCourierMany,
-    fetchCourierStatus,
-    courierStatusMap,
 
     // delete
     handleDelete,

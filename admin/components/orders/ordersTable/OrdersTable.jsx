@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Badge from "../Badge";
 
 import {
@@ -15,7 +15,6 @@ import { formatOrderTime } from "../shared/utils";
 import useOrdersManager from "../hooks/useOrdersManager";
 import StatusTabs from "./StatusTabs";
 import BulkActions from "./BulkActions";
-import CourierTrackModal from "../modals/CourierTrackModal";
 
 export default function OrdersTable({
   orders,
@@ -26,17 +25,10 @@ export default function OrdersTable({
   onBulkStatusChange,
   onBulkDelete,
   onBulkSendCourier,
-
-  // 🆕 from useOrders
-  courierStatusMap = {},
-  fetchCourierStatus,
 }) {
   const [tabStatus, setTabStatus] = useState("");
   const [q, setQ] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
-
-  // 🆕 Track modal state
-  const [trackOrder, setTrackOrder] = useState(null);
 
   const manager = useOrdersManager({
     orders,
@@ -45,18 +37,9 @@ export default function OrdersTable({
   });
 
   /* ===============================
-     AUTO FETCH COURIER STATUS
-  =============================== */
-  useEffect(() => {
-    if (!fetchCourierStatus) return;
-
-    manager.filteredOrders
-      .filter((o) => o.status === "send_to_courier" && o.trackingId)
-      .forEach(fetchCourierStatus);
-  }, [manager.filteredOrders, fetchCourierStatus]);
-
-  /* ===============================
      SINGLE ORDER STATUS CHANGE
+     READY → SEND_TO_COURIER হলে
+     auto courier create হবে
   =============================== */
   const handleChange = async (id, payload, order) => {
     setUpdatingId(id);
@@ -152,9 +135,8 @@ export default function OrdersTable({
               {manager.filteredOrders.map((o) => {
                 const locked = LOCKED_STATUSES.includes(o.status);
                 const allowedNext = STATUS_FLOW[o.status] || [];
-                const isAdminCreated = o?.createdBy === "admin";
 
-                const courierStatus = courierStatusMap[o._id];
+                const isAdminCreated = o?.createdBy === "admin";
 
                 return (
                   <tr
@@ -179,12 +161,15 @@ export default function OrdersTable({
                         #{o._id}
                       </div>
 
+                      {/* ✅ CREATED BY ADMIN BADGE */}
                       {isAdminCreated && (
-                        <div className="mt-1 text-[10px] text-blue-700">
-                          Created by{" "}
-                          <span className="font-semibold">
-                            {o.createdByName}
-                          </span>
+                        <div className="mt-1 inline-flex items-center gap-1 text-[10px]  text-blue-700">
+                          Created by :
+                          {o?.createdByName ? (
+                            <span className="text-blue-700 font-semibold">
+                              {o.createdByName}
+                            </span>
+                          ) : null}
                         </div>
                       )}
 
@@ -222,19 +207,34 @@ export default function OrdersTable({
                             </div>
                           </div>
                         ))}
+
+                        {o.items?.length > 2 && (
+                          <div className="text-[11px] text-gray-500">
+                            +{o.items.length - 2} more items
+                          </div>
+                        )}
                       </div>
                     </td>
 
                     {/* TOTALS */}
-                    <td className="p-1 text-xs space-y-1">
+                    <td className="p-1 text-xs space-y-1 min-w-[90px]">
                       <div className="flex justify-between">
-                        <span>Subtotal</span>
+                        <span className="text-gray-500">Subtotal</span>
                         <span>৳{o.subtotal}</span>
                       </div>
+
                       <div className="flex justify-between">
-                        <span>Delivery</span>
+                        <span className="text-gray-500">Delivery</span>
                         <span>৳{o.deliveryCharge}</span>
                       </div>
+
+                      {!!o.discount && (
+                        <div className="flex justify-between text-red-600">
+                          <span>Discount</span>
+                          <span>-৳{o.discount}</span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between font-bold border-t pt-1">
                         <span>Total</span>
                         <span>৳{o.total}</span>
@@ -247,46 +247,14 @@ export default function OrdersTable({
                     </td>
 
                     {/* STATUS */}
-                    <td className="p-2 space-y-1">
+                    <td className="p-0">
                       <span
-                        className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                        className={`text-[11px] px-1 py-0.5 mr-2 rounded-full border ${
                           STATUS_BADGE_COLOR[o.status]
                         }`}
                       >
                         {STATUS_LABEL[o.status]}
                       </span>
-
-                      {/* 🆕 COURIER STATUS + TRACK + REFRESH */}
-                      {o.status === "send_to_courier" && o.trackingId && (
-                        <div className="text-[11px] flex items-center flex-wrap gap-2">
-                          <span className="font-semibold text-gray-600">
-                            Courier:
-                          </span>
-
-                          <span className="font-bold text-purple-700">
-                            {courierStatus || "Checking..."}
-                          </span>
-
-                          <button
-                            onClick={() => setTrackOrder(o)}
-                            className="h-7 px-3 rounded-full text-[11px] font-bold border bg-white hover:bg-gray-50"
-                          >
-                            Track
-                          </button>
-
-                          <button
-                            onClick={() => fetchCourierStatus?.(o)}
-                            disabled={!fetchCourierStatus}
-                            className={`h-7 px-3 rounded-full text-[11px] font-bold border ${
-                              !fetchCourierStatus
-                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : "bg-gray-900 text-white hover:opacity-90"
-                            }`}
-                          >
-                            Refresh
-                          </button>
-                        </div>
-                      )}
 
                       <select
                         className="mt-1 border rounded px-2 py-1 text-sm"
@@ -301,7 +269,7 @@ export default function OrdersTable({
                         </option>
 
                         {STATUS_OPTIONS.filter((s) =>
-                          allowedNext.includes(s),
+                          allowedNext.includes(s)
                         ).map((s) => (
                           <option key={s} value={s}>
                             {STATUS_LABEL[s]}
@@ -309,9 +277,11 @@ export default function OrdersTable({
                         ))}
                       </select>
 
+                      {/* ✅ Cancel Reason */}
                       {o.status === "cancelled" && o.cancelReason && (
-                        <div className="text-[11px] text-red-600">
-                          <b>Reason:</b> {o.cancelReason}
+                        <div className="mt-1 text-[11px] text-red-600">
+                          <span className="font-semibold">Reason:</span>{" "}
+                          {o.cancelReason}
                         </div>
                       )}
                     </td>
@@ -339,17 +309,6 @@ export default function OrdersTable({
           </table>
         )}
       </div>
-
-      <CourierTrackModal
-        order={trackOrder}
-        status={trackOrder ? courierStatusMap[trackOrder._id] : null}
-        onClose={() => setTrackOrder(null)}
-        onRefresh={
-          trackOrder && fetchCourierStatus
-            ? () => fetchCourierStatus(trackOrder)
-            : null
-        }
-      />
     </div>
   );
 }

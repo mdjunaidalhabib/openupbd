@@ -26,7 +26,7 @@ router.use("/footer", footerAdminRoutes);
 router.use("/sliders", slidersAdminRoutes);
 router.use("/", courierSettingsAdminRoutes);
 router.use("/categories", categoryAdminRoutes);
-router.use("/api/steadfast", steadfastRoutes);
+router.use("/api", steadfastRoutes);
 router.use("/DeliveryCharge", deliveryChargeAdmin);
 router.use("/order-mail-send", orderMailSend);
 

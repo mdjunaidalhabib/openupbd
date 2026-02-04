@@ -48,15 +48,15 @@ function safeJsonParse(raw) {
 }
 
 /* ======================================================
-   🚚 SEND ORDER → STEADFAST
-   POST /admin/api/steadfast/send-order
+   🚚 SINGLE ORDER → Steadfast
+   POST /admin/api/send-order
 ====================================================== */
 router.post("/send-order", async (req, res) => {
   const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   try {
     const {
-      invoice,
+      invoice, // orderId (Mongo _id)
       name,
       phone,
       address,
@@ -65,6 +65,7 @@ router.post("/send-order", async (req, res) => {
       item_description,
     } = req.body || {};
 
+    /* ---------- VALIDATION ---------- */
     if (!invoice || !name || !phone || !address || cod_amount === undefined) {
       return res.status(400).json({
         ok: false,
@@ -73,28 +74,37 @@ router.post("/send-order", async (req, res) => {
       });
     }
 
+    /* ---------- LOAD ORDER ---------- */
     const order = await Order.findById(invoice);
     if (!order) {
-      return res
-        .status(404)
-        .json({ ok: false, requestId, error: "Order not found" });
+      return res.status(404).json({
+        ok: false,
+        requestId,
+        error: "Order not found",
+      });
     }
 
+    /* ---------- LOAD COURIER (KEYS FROM DB) ---------- */
     const courier = await getActiveCourier("steadfast");
+
+    /* ---------- LOAD BASE URL FROM ENV ---------- */
     const baseUrl = process.env.STEADFAST_BASE_URL;
 
     if (!baseUrl || !/^https?:\/\//i.test(baseUrl)) {
       return res.status(500).json({
         ok: false,
         requestId,
-        error: "STEADFAST_BASE_URL missing or invalid",
+        error:
+          "STEADFAST_BASE_URL env is missing or invalid (must start with http/https)",
+        envValue: baseUrl || null,
       });
     }
 
     const url = `${baseUrl.replace(/\/+$/, "")}/create_order`;
 
+    /* ---------- STEADFAST PAYLOAD ---------- */
     const payload = {
-      invoice: String(order._id),
+      invoice: String(order._id), // reference string
       recipient_name: name,
       recipient_phone: phone,
       recipient_address: address,
@@ -104,6 +114,9 @@ router.post("/send-order", async (req, res) => {
       item_description: item_description || "",
     };
 
+    console.log("📦 STEADFAST SEND", { requestId, url, payload });
+
+    /* ---------- STEADFAST API CALL ---------- */
     const resp = await fetch(url, {
       method: "POST",
       headers: {
@@ -115,128 +128,71 @@ router.post("/send-order", async (req, res) => {
       body: JSON.stringify(payload),
     });
 
+    const contentType = resp.headers.get("content-type") || "";
     const raw = await resp.text();
+
+    // 🔥 LOG everything for debugging
+    console.log("📨 STEADFAST RESPONSE", {
+      requestId,
+      httpStatus: resp.status,
+      contentType,
+      raw: raw?.slice(0, 500), // keep console clean
+    });
+
+    // Try JSON parse (even if content-type is wrong)
     const parsed = safeJsonParse(raw);
     const data = parsed.ok ? parsed.data : null;
 
-    if (!resp.ok || (data?.status && data.status !== 200)) {
+    // ✅ If HTTP error OR API indicates error
+    const apiStatus = data?.status; // many APIs use {status: 200}
+    const apiOk = apiStatus === undefined ? true : apiStatus === 200;
+
+    if (!resp.ok || !apiOk) {
       return res.status(502).json({
         ok: false,
         requestId,
-        error: data?.message || "Steadfast API error",
-        raw,
-      });
-    }
-
-    // ✅ Save CID only (consignment_id)
-    const cid = data?.consignment?.consignment_id;
-    order.status = "send_to_courier";
-    order.trackingId = cid ? String(cid) : null;
-
-    await order.save();
-
-    return res.json({
-      ok: true,
-      requestId,
-      message: "Courier order created",
-      order,
-      courierResponse: data,
-    });
-  } catch (err) {
-    console.error("🚨 COURIER ERROR:", err);
-    return res.status(500).json({
-      ok: false,
-      error: err.message || "Courier service error",
-    });
-  }
-});
-
-/* ======================================================
-   📦 CHECK COURIER STATUS (STEADFAST)
-   GET /admin/api/steadfast/status/:id
-   - id can be CID or trackingCode
-====================================================== */
-router.get("/status/:id", async (req, res) => {
-  const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  try {
-    const { id } = req.params;
-    if (!id) {
-      return res
-        .status(400)
-        .json({ ok: false, requestId, error: "ID is required" });
-    }
-
-    const courier = await getActiveCourier("steadfast");
-    const baseUrl = process.env.STEADFAST_BASE_URL;
-
-    if (!baseUrl || !/^https?:\/\//i.test(baseUrl)) {
-      return res.status(500).json({
-        ok: false,
-        requestId,
-        error: "STEADFAST_BASE_URL missing or invalid",
-      });
-    }
-
-    const cleanBase = baseUrl.replace(/\/+$/, "");
-
-    // ✅ First try CID endpoint
-    const urlByCid = `${cleanBase}/status_by_cid/${id}`;
-
-    const call = async (url) => {
-      const resp = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Api-Key": courier.apiKey,
-          "Secret-Key": courier.secretKey,
-          Accept: "application/json",
+        error: data?.message || "Steadfast API error (or non-OK HTTP)",
+        steadfast: {
+          url,
+          httpStatus: resp.status,
+          contentType,
+          rawResponse: raw,
+          parsed: data,
         },
       });
-
-      const raw = await resp.text();
-      const parsed = safeJsonParse(raw);
-      const data = parsed.ok ? parsed.data : null;
-
-      return { resp, raw, data };
-    };
-
-    console.log("🔎 STEADFAST STATUS CHECK (CID)", { requestId, urlByCid });
-
-    let result = await call(urlByCid);
-
-    // যদি CID না হয়/ফেইল করে, trackingcode দিয়ে try করবে
-    if (!result.data?.delivery_status) {
-      const urlByTracking = `${cleanBase}/status_by_trackingcode/${id}`;
-      console.log("🔎 STEADFAST STATUS CHECK (TRACKING)", {
-        requestId,
-        urlByTracking,
-      });
-      result = await call(urlByTracking);
     }
 
-    const delivery_status = result.data?.delivery_status;
+    /* ======================================================
+       ✅ UPDATE ORDER STATUS
+    ====================================================== */
+    order.status = "send_to_courier";
+    order.trackingId =
+      data?.consignment?.tracking_code || data?.tracking_code || "";
+    await order.save();
 
-    if (!delivery_status) {
-      return res.status(502).json({
-        ok: false,
-        requestId,
-        error: "Failed to fetch courier status",
-        tried: ["status_by_cid", "status_by_trackingcode"],
-        raw: result.raw,
-      });
-    }
-
+    /* ---------- SUCCESS ---------- */
     return res.json({
       ok: true,
       requestId,
-      delivery_status,
-      raw: result.data,
+      message: "Courier order created & status updated",
+      trackingCode: order.trackingId,
+      courierResponse: data,
+      order,
     });
   } catch (err) {
-    console.error("🚨 STATUS CHECK ERROR:", err);
+    console.error("🚨 COURIER ERROR:", { requestId, err });
+
+    if (err?.code === "COURIER_NOT_CONFIGURED") {
+      return res.status(400).json({ ok: false, requestId, error: err.message });
+    }
+    if (err?.code === "COURIER_KEYS_MISSING") {
+      return res.status(400).json({ ok: false, requestId, error: err.message });
+    }
+
     return res.status(500).json({
       ok: false,
-      error: err.message || "Courier status error",
+      requestId,
+      error: err.message || "Courier service error",
     });
   }
 });
