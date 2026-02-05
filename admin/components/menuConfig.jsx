@@ -6,6 +6,7 @@ import {
   ChartBarStacked,
   SlidersHorizontal,
   User,
+  Eye,
   Settings,
   LayoutDashboard,
 } from "lucide-react";
@@ -36,6 +37,12 @@ export const navItems = [
     href: "/admin/profile",
   },
 
+  {
+    icon: <Eye size={18} />,
+    label: "Visitor",
+    href: "/admin/analytics",
+  },
+
   { icon: <Settings size={18} />, label: "Settings", href: "/admin/settings" },
 ];
 
@@ -52,17 +59,17 @@ export const settingsChildren = [
   },
   {
     icon: <LayoutDashboard size={16} />,
-    label: "deliveryCharge",
+    label: "Delivery Charge",
     href: "/admin/deliveryCharge",
   },
   {
     icon: <LayoutDashboard size={16} />,
-    label: "order-mail-send",
+    label: "Order Mail Send",
     href: "/admin/order-mail-send",
   },
   {
     icon: <LayoutDashboard size={16} />,
-    label: "courier-setup",
+    label: "Courier Setup",
     href: "/admin/courier-setup",
   },
 ];

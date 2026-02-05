@@ -12,6 +12,8 @@ import invoiceRoute from "./invoice.js";
 import deliveryCharge from "./deliveryCharge.js";
 import profileUploadRoutes from "./profileUpload.routes.js";
 import userRoutes from "./user.routes.js";
+import visitRoutes from "./analytics.js";
+
 
 
 
@@ -29,6 +31,8 @@ router.use("/api", invoiceRoute);
 router.use("/deliveryCharge", deliveryCharge);
 router.use("/profile", profileUploadRoutes);
 router.use("/users", userRoutes); 
+router.use("/visit", visitRoutes); 
+
 
 
 

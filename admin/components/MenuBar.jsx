@@ -48,7 +48,7 @@ export default function MenuBar({
                     className={`w-full flex items-center justify-between gap-2 px-4 py-2 rounded transition ${
                       parentActive
                         ? "bg-gray-200 font-semibold text-blue-600"
-                        : "hover:bg-gray-100"
+                        : "hover:bg-rose-50"
                     }`}
                   >
                     <span className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export default function MenuBar({
                                 className={`flex items-center gap-2 ml-6 px-4 py-2 rounded transition text-sm ${
                                   active
                                     ? "bg-rose-50 font-semibold text-rose-600"
-                                    : "hover:bg-gray-100"
+                                    : "hover:bg-rose-50"
                                 }`}
                               >
                                 {cIcon}
@@ -107,7 +107,7 @@ export default function MenuBar({
                 className={`flex items-center gap-2 px-4 py-2 rounded transition ${
                   active
                     ? "bg-rose-50 font-semibold text-rose-600"
-                    : "hover:bg-gray-100"
+                    : "hover:bg-rose-50"
                 }`}
               >
                 {icon}
