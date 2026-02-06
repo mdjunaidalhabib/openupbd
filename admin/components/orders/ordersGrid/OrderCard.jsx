@@ -1,7 +1,7 @@
 "use client";
 
 import { Edit3, Trash2, Send, ChevronDown, ChevronUp } from "lucide-react";
-import Badge from "../Badge";
+import Badge from "../../Badge";
 
 import {
   STATUS_LABEL,
@@ -198,7 +198,7 @@ export default function OrderCard({
               </option>
               {STATUS_OPTIONS.filter(
                 (s) =>
-                  (STATUS_FLOW[o.status] || []).includes(s) && s !== o.status
+                  (STATUS_FLOW[o.status] || []).includes(s) && s !== o.status,
               ).map((s) => (
                 <option key={s} value={s}>
                   {STATUS_LABEL[s]}

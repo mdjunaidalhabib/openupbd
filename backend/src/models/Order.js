@@ -53,8 +53,6 @@ const orderSchema = new mongoose.Schema(
       default: "user",
       index: true,
     },
-
-    // ✅ Optional admin info
     createdByName: { type: String, default: null },
     createdById: { type: String, default: null },
 
@@ -67,7 +65,6 @@ const orderSchema = new mongoose.Schema(
       default: "cod",
       index: true,
     },
-
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed"],
@@ -91,10 +88,25 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
+    /* ===========================
+       ✅ COURIER INFO (OPTION–B)
+    ============================ */
+    courier: {
+      provider: { type: String, default: null },
+      trackingId: { type: String, default: null },
+      consignmentId: { type: String, default: null },
+      status: { type: String, default: null },
+      rawResponse: { type: mongoose.Schema.Types.Mixed, default: null },
+      sentAt: { type: Date, default: null },
+    },
+
+    /* ===========================
+       ✅ LEGACY FIELD FOR COMPATIBILITY
+    ============================ */
     trackingId: { type: String, default: null },
     cancelReason: { type: String, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);

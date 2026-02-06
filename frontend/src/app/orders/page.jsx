@@ -5,8 +5,9 @@ import { useUser } from "../../../context/UserContext";
 import { apiFetch } from "../../../utils/api";
 import Toast from "../../../components/home/Toast";
 import EditOrderForm from "../../../components/orders/EditOrderForm";
+import CourierStatus from "../../../../admin/components/CourierStatus";
 
-// ✅ Custom date-time formatter
+// ✅ Date formatter
 const formatDateTime = (dateString) => {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
@@ -31,19 +32,19 @@ export default function OrdersPage() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("lifetime");
 
-  // 🔔 toast
+  // Toast
   const [toast, setToast] = useState(null);
 
-  // ✏️ edit modal
+  // Edit modal
   const [editOrder, setEditOrder] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // pagination
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // ===============================
-  // Toast helper (same old pattern)
+  // Toast helper
   // ===============================
   const showToast = (message, type = "success", time = 2000) => {
     setToast({ message, type });
@@ -101,7 +102,7 @@ export default function OrdersPage() {
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   // ===============================
@@ -116,7 +117,7 @@ export default function OrdersPage() {
       });
 
       setOrders((prev) =>
-        prev.map((o) => (o._id === updated._id ? updated : o))
+        prev.map((o) => (o._id === updated._id ? updated : o)),
       );
 
       setEditOrder(null);
@@ -129,7 +130,7 @@ export default function OrdersPage() {
   };
 
   // ===============================
-  // Cancel order (NOT delete)
+  // Cancel order
   // ===============================
   const cancelOrder = async (orderId) => {
     if (!confirm("Cancel this order?")) return;
@@ -144,7 +145,7 @@ export default function OrdersPage() {
       });
 
       setOrders((prev) =>
-        prev.map((o) => (o._id === updated._id ? updated : o))
+        prev.map((o) => (o._id === updated._id ? updated : o)),
       );
 
       showToast("🚫 Order cancelled");
@@ -182,7 +183,6 @@ export default function OrdersPage() {
   // ===============================
   return (
     <>
-      {/* 🔔 Toast */}
       {toast && (
         <Toast
           message={toast.message}
@@ -191,7 +191,6 @@ export default function OrdersPage() {
         />
       )}
 
-      {/* ✏️ Edit Modal */}
       {editOrder && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-sm p-4">
@@ -206,10 +205,10 @@ export default function OrdersPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto mt-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto mt-10 px-4">
         {/* Header */}
         <div className="flex justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">My Orders</h1>
+          <h1 className="text-2xl font-bold">My Orders</h1>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -221,78 +220,69 @@ export default function OrdersPage() {
           </select>
         </div>
 
-        {/* 📱 Mobile Card View */}
-        <div className="grid gap-4 sm:hidden">
-          {paginatedOrders.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No orders found.
-            </div>
-          ) : (
-            paginatedOrders.map((order) => (
-              <div
-                key={order._id}
-                className="bg-white rounded-lg p-3 border shadow-sm"
-              >
-                <p className="font-semibold text-sm">
-                  #{order.orderId || order._id}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatDateTime(order.createdAt)}
-                </p>
-                <p className="text-xs mt-1">Total: ৳{order.total}</p>
+        {/* ===================== */}
+        {/* Orders Responsive */}
+        {/* ===================== */}
+        <div className="bg-white shadow rounded-lg">
+          {/* 📱 Mobile */}
+          <div className="md:hidden divide-y">
+            {paginatedOrders.map((order) => (
+              <div key={order._id} className="p-3 space-y-1 text-xs">
+                <div className="flex justify-between font-medium">
+                  <span>Order</span>
+                  <span className="truncate max-w-[60%]">
+                    {order.orderId || order._id}
+                  </span>
+                </div>
 
-                {/* ✅ Cancel Reason */}
-                {order.status === "cancelled" && order.cancelReason && (
-                  <p className="text-[11px] mt-1 text-red-600 leading-tight">
-                    <span className="font-semibold">Reason:</span>{" "}
-                    {order.cancelReason}
-                  </p>
-                )}
+                <div className="flex justify-between text-gray-500">
+                  <span>Date</span>
+                  <span>{formatDateTime(order.createdAt)}</span>
+                </div>
 
-                <div className="flex gap-2 mt-3">
+                <div className="pb-1">
+                  <CourierStatus trackingId={order.courier?.trackingId} />
+                </div>
+
+                <div className="flex gap-1">
                   <Link
                     href={`/orders/${order._id}`}
-                    className="flex-1 bg-blue-600 text-white text-xs py-1.5 rounded text-center"
+                    className="flex-1 text-center bg-blue-600 text-white rounded py-1.5 text-xs"
                   >
-                    🧾 View
+                    View
                   </Link>
 
                   {order.status === "pending" && (
                     <>
                       <button
                         onClick={() => setEditOrder(order)}
-                        className="flex-1 bg-yellow-500 text-white text-xs py-1.5 rounded"
+                        className="flex-1 bg-yellow-500 text-white rounded py-1.5 text-xs"
                       >
-                        ✏️ Edit
+                        Edit
                       </button>
                       <button
                         onClick={() => cancelOrder(order._id)}
-                        className="flex-1 bg-red-600 text-white text-xs py-1.5 rounded"
+                        className="flex-1 bg-red-600 text-white rounded py-1.5 text-xs"
                       >
-                        🚫 Cancel
+                        Cancel
                       </button>
                     </>
                   )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
 
-        {/* 💻 Desktop Table View */}
-        <div className="hidden sm:block bg-white shadow rounded-lg overflow-x-auto">
-          {paginatedOrders.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No orders found.
-            </div>
-          ) : (
+          {/* 🖥 Desktop */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100">
                 <tr>
                   <th className="p-3 text-left">Order ID</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Total</th>
+                  <th className="p-3 text-left">Date</th>
+                  <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-left">Total</th>
+                  <th className="p-3 text-left">Courier</th>
                   <th className="p-3 text-center">Actions</th>
                 </tr>
               </thead>
@@ -301,55 +291,40 @@ export default function OrdersPage() {
                   <tr key={order._id} className="border-t">
                     <td className="p-3">{order.orderId || order._id}</td>
                     <td className="p-3">{formatDateTime(order.createdAt)}</td>
-
-                    {/* ✅ Status + Cancel Reason */}
-                    <td className="p-3">
-                      <div className="font-semibold capitalize">
-                        {order.status}
-                      </div>
-
-                      {order.status === "cancelled" && order.cancelReason && (
-                        <div className="text-[11px] text-red-600 leading-tight mt-1">
-                          <span className="font-semibold">Reason:</span>{" "}
-                          {order.cancelReason}
-                        </div>
-                      )}
-                    </td>
-
+                    <td className="p-3 capitalize">{order.status}</td>
                     <td className="p-3">৳{order.total}</td>
-
-                    <td className="p-3 text-center">
-                      <div className="flex justify-center gap-2">
-                        <Link
-                          href={`/orders/${order._id}`}
-                          className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
-                        >
-                          View
-                        </Link>
-
-                        {order.status === "pending" && (
-                          <>
-                            <button
-                              onClick={() => setEditOrder(order)}
-                              className="px-3 py-1 bg-yellow-500 text-white rounded text-xs"
-                            >
-                              ✏️ Edit
-                            </button>
-                            <button
-                              onClick={() => cancelOrder(order._id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs"
-                            >
-                              🚫 Cancel
-                            </button>
-                          </>
-                        )}
-                      </div>
+                    <td className="p-3">
+                      <CourierStatus trackingId={order.courier?.trackingId} />
+                    </td>
+                    <td className="p-3 flex justify-center gap-2">
+                      <Link
+                        href={`/orders/${order._id}`}
+                        className="px-3 py-1 bg-blue-600 text-white rounded"
+                      >
+                        View
+                      </Link>
+                      {order.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() => setEditOrder(order)}
+                            className="px-3 py-1 bg-yellow-500 text-white rounded"
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={() => cancelOrder(order._id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded"
+                          >
+                            🚫 Cancel
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
+          </div>
         </div>
 
         {/* Pagination */}

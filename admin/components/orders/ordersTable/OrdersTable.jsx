@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import Badge from "../Badge";
+import Badge from "../../Badge";
+import CourierStatus from "../../CourierStatus";
 
 import {
   STATUS_LABEL,
@@ -135,7 +136,6 @@ export default function OrdersTable({
               {manager.filteredOrders.map((o) => {
                 const locked = LOCKED_STATUSES.includes(o.status);
                 const allowedNext = STATUS_FLOW[o.status] || [];
-
                 const isAdminCreated = o?.createdBy === "admin";
 
                 return (
@@ -161,15 +161,14 @@ export default function OrdersTable({
                         #{o._id}
                       </div>
 
-                      {/* ✅ CREATED BY ADMIN BADGE */}
                       {isAdminCreated && (
-                        <div className="mt-1 inline-flex items-center gap-1 text-[10px]  text-blue-700">
+                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-blue-700">
                           Created by :
-                          {o?.createdByName ? (
-                            <span className="text-blue-700 font-semibold">
+                          {o?.createdByName && (
+                            <span className="font-semibold">
                               {o.createdByName}
                             </span>
-                          ) : null}
+                          )}
                         </div>
                       )}
 
@@ -246,10 +245,10 @@ export default function OrdersTable({
                       <Badge>{o.paymentMethod?.toUpperCase()}</Badge>
                     </td>
 
-                    {/* STATUS */}
-                    <td className="p-0">
+                    {/* STATUS + COURIER */}
+                    <td className="p-2">
                       <span
-                        className={`text-[11px] px-1 py-0.5 mr-2 rounded-full border ${
+                        className={`text-[11px] px-1 py-0.5 rounded-full border ${
                           STATUS_BADGE_COLOR[o.status]
                         }`}
                       >
@@ -257,7 +256,7 @@ export default function OrdersTable({
                       </span>
 
                       <select
-                        className="mt-1 border rounded px-2 py-1 text-sm"
+                        className="mt-1 border rounded px-2 py-1 text-sm w-full"
                         value={o.status}
                         disabled={locked || updatingId === o._id}
                         onChange={(e) =>
@@ -269,7 +268,7 @@ export default function OrdersTable({
                         </option>
 
                         {STATUS_OPTIONS.filter((s) =>
-                          allowedNext.includes(s)
+                          allowedNext.includes(s),
                         ).map((s) => (
                           <option key={s} value={s}>
                             {STATUS_LABEL[s]}
@@ -277,7 +276,10 @@ export default function OrdersTable({
                         ))}
                       </select>
 
-                      {/* ✅ Cancel Reason */}
+                      {/* 🚚 COURIER STATUS (OPTION–B FIX) */}
+                      <CourierStatus trackingId={o.courier?.trackingId} />
+
+                      {/* ❌ Cancel Reason */}
                       {o.status === "cancelled" && o.cancelReason && (
                         <div className="mt-1 text-[11px] text-red-600">
                           <span className="font-semibold">Reason:</span>{" "}

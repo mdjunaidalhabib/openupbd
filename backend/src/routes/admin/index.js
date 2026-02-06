@@ -12,6 +12,8 @@ import slidersAdminRoutes from "./slider.admin.routes.js";
 import steadfastRoutes from "./steadfast.admin.routes.js";
 import deliveryChargeAdmin from "./deliveryCharge.admin.js";
 import orderMailSend from "./order-mail-send.js";
+import courierStatusRouter from "./courierStatus.js";
+import courierLiveRouter from "./courierLive.js";
 
 
 
@@ -29,6 +31,9 @@ router.use("/categories", categoryAdminRoutes);
 router.use("/api", steadfastRoutes);
 router.use("/DeliveryCharge", deliveryChargeAdmin);
 router.use("/order-mail-send", orderMailSend);
+router.use("/api/courier", courierStatusRouter);
+router.use("/api/courier", courierLiveRouter);
+
 
 
 
