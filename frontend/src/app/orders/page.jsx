@@ -5,7 +5,7 @@ import { useUser } from "../../../context/UserContext";
 import { apiFetch } from "../../../utils/api";
 import Toast from "../../../components/home/Toast";
 import EditOrderForm from "../../../components/orders/EditOrderForm";
-import CourierStatus from "../../../../admin/components/CourierStatus";
+import CourierStatus from "../../../components/CourierStatus";
 
 // ✅ Date formatter
 const formatDateTime = (dateString) => {
