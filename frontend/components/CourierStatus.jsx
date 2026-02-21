@@ -7,9 +7,10 @@ function Modal({ isOpen, onClose, children }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-6">
-      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-4 border-b bg-gray-50">
+      {/* ✅ same UI, just add flex + max height */}
+      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[85vh]">
+        {/* Header (same) */}
+        <div className="flex items-center justify-between px-8 py-4 border-b bg-gray-50 rounded-t-2xl">
           <h2 className="text-lg font-semibold text-gray-800">
             📦 Tracking Updates
           </h2>
@@ -21,8 +22,8 @@ function Modal({ isOpen, onClose, children }) {
           </button>
         </div>
 
-        {/* Body (No Scroll) */}
-        <div className="p-8">{children}</div>
+        {/* ✅ Body scroll enabled (same padding) */}
+        <div className="p-8 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -126,15 +127,17 @@ export default function CourierStatus({ trackingId, courier }) {
 
               return (
                 <div key={idx} className="relative">
-                  {/* Dot */}
+                  {/* Dot (same) */}
                   <div className="absolute -left-[11px] top-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] shadow">
                     ✓
                   </div>
 
-                  {/* Compact Card */}
+                  {/* Card (same) */}
                   <div className="bg-gray-50 border rounded-lg px-4 py-2 shadow-sm">
                     <div className="text-xs text-gray-500 mb-1">{date}</div>
-                    <div className="text-sm font-medium text-gray-800 leading-snug">
+
+                    {/* ✅ wrap long text */}
+                    <div className="text-sm font-medium text-gray-800 leading-snug break-words whitespace-pre-wrap">
                       {message}
                     </div>
                   </div>

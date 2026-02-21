@@ -7,22 +7,25 @@ function Modal({ isOpen, onClose, children }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-6">
-      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl relative">
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b bg-gray-50">
+      {/* Modal Container */}
+      <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl relative flex flex-col max-h-[85vh]">
+        {/* Header (Fixed) */}
+        <div className="flex items-center justify-between px-8 py-5 border-b bg-gray-50 rounded-t-2xl">
           <h2 className="text-xl font-semibold text-gray-800">
             📦 Tracking Updates
           </h2>
+
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-800 text-xl"
+            aria-label="Close modal"
           >
             ✕
           </button>
         </div>
 
-        {/* Body (Scroll Removed) */}
-        <div className="p-10">{children}</div>
+        {/* Body (Scrollable) */}
+        <div className="p-6 sm:p-10 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -61,7 +64,7 @@ export default function CourierStatus({ trackingId, courier }) {
 
         setStatus(data?.status || "unknown");
       } catch (err) {
-        setError(err.message);
+        setError(err?.message || "Failed to load status");
       } finally {
         setLoading(false);
       }
@@ -92,7 +95,7 @@ export default function CourierStatus({ trackingId, courier }) {
 
       setEvents(sorted);
     } catch (err) {
-      setEventsError(err.message);
+      setEventsError(err?.message || "Failed to load events");
     } finally {
       setEventsLoading(false);
     }
@@ -147,16 +150,17 @@ export default function CourierStatus({ trackingId, courier }) {
 
               return (
                 <div key={idx} className="relative">
-                  {/* Dot (smaller) */}
+                  {/* Dot */}
                   <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px] shadow">
                     ✓
                   </div>
 
-                  {/* Compact Card */}
+                  {/* Card */}
                   <div className="bg-gray-50 border rounded-lg px-5 py-3 shadow-sm">
                     <div className="text-xs text-gray-500 mb-1">{date}</div>
 
-                    <div className="text-sm font-medium text-gray-800 leading-snug">
+                    {/* IMPORTANT: Wrap long text */}
+                    <div className="text-sm font-medium text-gray-800 leading-snug break-words whitespace-pre-wrap">
                       {message}
                     </div>
                   </div>
