@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Badge from "./Badge";
 
 function Modal({ isOpen, onClose, children }) {
@@ -31,7 +31,13 @@ function Modal({ isOpen, onClose, children }) {
   );
 }
 
-export default function CourierStatus({ trackingId, courier }) {
+export default function CourierStatus({
+  trackingId,
+  courier,
+  orderId,
+  orderStatus,
+  onFinalStatus,
+}) {
   const activeTrackingId = courier?.trackingId || trackingId;
 
   const [status, setStatus] = useState(courier?.status || null);
@@ -43,9 +49,34 @@ export default function CourierStatus({ trackingId, courier }) {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState(null);
 
+  // ✅ guard: same order/tracking এ বারবার final status sync বন্ধ
+  const notifiedFinalRef = useRef(false);
+
+  // ✅ trackingId change হলে আবার allow (নতুন courier হলে)
+  useEffect(() => {
+    notifiedFinalRef.current = false;
+  }, [activeTrackingId]);
+
   const displayStatus = (status || courier?.status || "unknown")
     .replaceAll("_", " ")
     .toUpperCase();
+
+  const normalizeFinalStatus = (raw) => {
+    const s = String(raw || "")
+      .toLowerCase()
+      .trim();
+
+    if (!s) return null;
+
+    // delivered variations: delivered, delivered_success, delivered to customer etc.
+    if (s === "delivered" || s.includes("deliver")) return "delivered";
+
+    // cancelled variations: cancelled, canceled, cancel, order_cancelled etc.
+    if (s === "cancelled" || s === "canceled" || s.includes("cancel"))
+      return "cancelled";
+
+    return null;
+  };
 
   /* ================= FETCH STATUS ================= */
   useEffect(() => {
@@ -62,7 +93,23 @@ export default function CourierStatus({ trackingId, courier }) {
         const res = await fetch(url, { cache: "no-store" });
         const data = await res.json();
 
-        setStatus(data?.status || "unknown");
+        const nextStatus = data?.status || "unknown";
+        setStatus(nextStatus);
+
+        // ✅ FINAL STATUS SYNC (DELIVERED/CANCELLED)
+        const finalStatus = normalizeFinalStatus(nextStatus);
+
+        if (
+          finalStatus &&
+          typeof onFinalStatus === "function" &&
+          orderId &&
+          orderStatus &&
+          orderStatus !== finalStatus &&
+          !notifiedFinalRef.current
+        ) {
+          notifiedFinalRef.current = true;
+          onFinalStatus(orderId, finalStatus);
+        }
       } catch (err) {
         setError(err?.message || "Failed to load status");
       } finally {
@@ -71,7 +118,7 @@ export default function CourierStatus({ trackingId, courier }) {
     };
 
     fetchCourierStatus();
-  }, [activeTrackingId]);
+  }, [activeTrackingId, onFinalStatus, orderId, orderStatus]);
 
   /* ================= FETCH EVENTS ================= */
   const fetchEvents = async () => {

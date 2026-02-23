@@ -61,6 +61,43 @@ export default function OrdersTable({
     }
   };
 
+  /* ===============================
+     COURIER FINAL STATUS SYNC
+     CourierStatus যদি DELIVERED/CANCELLED হয়
+     তাহলে Order status auto update হবে
+  =============================== */
+  const handleCourierFinalStatus = async (orderId, finalStatus) => {
+    if (!orderId || !finalStatus) return;
+    if (updatingId === orderId) return;
+
+    setUpdatingId(orderId);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      // ✅ backend sync endpoint call
+      await fetch(`${apiUrl}/admin/api/sync-courier-final`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId,
+          finalStatus,
+        }),
+      });
+
+      // ✅ parent handler call (UI instant update)
+      await onStatusChange(orderId, { status: finalStatus });
+
+      manager.setSelected([]);
+    } catch (err) {
+      console.error("Courier final sync failed:", err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   return (
     <div className="hidden md:block space-y-3">
       {/* ================= HEADER ================= */}
@@ -180,7 +217,8 @@ export default function OrdersTable({
                     {/* CUSTOMER */}
                     <td className="p-2">
                       <div className="font-semibold">{o.billing?.name}</div>
-                      <div className="text-gray-600">{o.billing?.phone}</div>
+                      <div>{o.billing?.phone}</div>
+                      <div>{o.billing?.address}</div>
                     </td>
 
                     {/* ITEMS */}
@@ -276,10 +314,18 @@ export default function OrdersTable({
                         ))}
                       </select>
 
-                      {/* 🚚 COURIER STATUS (OPTION–B FIX) */}
-                      <CourierStatus trackingId={o.courier?.trackingId} />
+                      <CourierStatus
+                        trackingId={o.courier?.trackingId}
+                        courier={o.courier}
+                        orderId={o._id}
+                        orderStatus={o.status}
+                        onFinalStatus={(orderId, finalStatus) => {
+                          if (LOCKED_STATUSES.includes(o.status)) return;
+                          if (o.status === finalStatus) return;
+                          handleCourierFinalStatus(orderId, finalStatus);
+                        }}
+                      />
 
-                      {/* ❌ Cancel Reason */}
                       {o.status === "cancelled" && o.cancelReason && (
                         <div className="mt-1 text-[11px] text-red-600">
                           <span className="font-semibold">Reason:</span>{" "}

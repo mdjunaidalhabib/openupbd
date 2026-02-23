@@ -3,15 +3,6 @@ import Order from "../../models/Order.js";
 import CourierSetting from "../../models/CourierSetting.js";
 
 const router = express.Router();
-
-/* ======================================================
-   🪵 DEBUG LOGGER
-====================================================== */
-router.use((req, res, next) => {
-  console.log("🚚 COURIER ROUTE HIT:", req.method, req.originalUrl);
-  next();
-});
-
 /* ======================================================
    🔑 Helper: Get active courier config (steadfast)
 ====================================================== */

@@ -13,8 +13,6 @@ export default function EditOrderModal({
 }) {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // ✅ initial snapshot to detect changes
   const [initialForm, setInitialForm] = useState(null);
 
   const [touched, setTouched] = useState({
@@ -22,35 +20,28 @@ export default function EditOrderModal({
     phone: false,
     address: false,
     cancelReason: false,
-    discount: false,
   });
 
   const [submitted, setSubmitted] = useState(false);
 
-  // ✅ When modal opens, take snapshot once
   useEffect(() => {
     if (open) {
       setInitialForm(form ? JSON.stringify(form) : null);
-
-      // reset validation UI on open
       setSubmitted(false);
       setTouched({
         name: false,
         phone: false,
         address: false,
         cancelReason: false,
-        discount: false,
       });
     }
-  }, [open]); // ✅ only when open changes
+  }, [open]);
 
-  // ✅ detect change
   const isDirty = useMemo(() => {
     if (!initialForm) return false;
     return JSON.stringify(form) !== initialForm;
   }, [form, initialForm]);
 
-  // ✅ IMPORTANT: return null AFTER hooks (prevents hooks mismatch error)
   if (!open) return null;
 
   const showToast = (message, type = "error", ms = 2000) => {
@@ -68,7 +59,6 @@ export default function EditOrderModal({
     }));
   };
 
-  // ✅ discount change handler (force number)
   const handleDiscountChange = (value) => {
     let num = Number(value);
     if (isNaN(num) || num < 0) num = 0;
@@ -107,7 +97,6 @@ export default function EditOrderModal({
       return;
     }
 
-    // ✅ no changes = no save
     if (!isDirty) {
       showToast("ℹ️ কোনো পরিবর্তন হয়নি!", "error", 1800);
       return;
@@ -182,65 +171,21 @@ export default function EditOrderModal({
             />
           </div>
 
-          {/* ✅ Discount */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Discount (৳)
-            </label>
-
-            <input
-              type="number"
-              min="0"
-              className="border rounded px-3 py-2 w-full"
-              value={Number(form.discount || 0)}
-              onBlur={() =>
-                setTouched((t) => ({
-                  ...t,
-                  discount: true,
-                }))
-              }
-              onChange={(e) => handleDiscountChange(e.target.value)}
-            />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
-            <select
-              className="border rounded px-3 py-2 w-full"
-              value={form.status}
-              onChange={(e) => {
-                const nextStatus = e.target.value;
-                setForm((prev) => ({
-                  ...prev,
-                  status: nextStatus,
-                  cancelReason:
-                    nextStatus === "cancelled" ? prev.cancelReason : "",
-                }));
-              }}
-            >
-              <option value="pending">Pending</option>
-              <option value="ready_to_delivery">Ready to delivery</option>
-              <option value="send_to_courier">Send to courier</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          {/* Cancel Reason */}
+          {/* Cancel Reason (only if already cancelled) */}
           {isCancelled && (
             <div>
               <label
                 className={labelClass(
-                  (submitted || touched.cancelReason) && errors.cancelReason
+                  (submitted || touched.cancelReason) && errors.cancelReason,
                 )}
               >
                 Cancel Reason *
               </label>
-              <input
-                className={fieldClass(
-                  (submitted || touched.cancelReason) && errors.cancelReason
-                )}
+              <textarea
+                rows={2}
+                className={`${fieldClass(
+                  (submitted || touched.cancelReason) && errors.cancelReason,
+                )} resize-y`}
                 value={form.cancelReason || ""}
                 onBlur={() =>
                   setTouched((t) => ({
@@ -255,11 +200,6 @@ export default function EditOrderModal({
                   }))
                 }
               />
-              {(submitted || touched.cancelReason) && errors.cancelReason && (
-                <p className="text-xs text-red-600 mt-1">
-                  Cancel reason আবশ্যক
-                </p>
-              )}
             </div>
           )}
 
@@ -267,18 +207,17 @@ export default function EditOrderModal({
           <div className="border rounded p-3">
             <p className="font-semibold text-sm mb-2">Customer</p>
 
-            {/* Name */}
             <div className="mb-2">
               <label
                 className={labelClass(
-                  (submitted || touched.name) && errors.name
+                  (submitted || touched.name) && errors.name,
                 )}
               >
                 Name *
               </label>
               <input
                 className={fieldClass(
-                  (submitted || touched.name) && errors.name
+                  (submitted || touched.name) && errors.name,
                 )}
                 value={form.billing.name}
                 onBlur={() => setTouched((t) => ({ ...t, name: true }))}
@@ -286,18 +225,17 @@ export default function EditOrderModal({
               />
             </div>
 
-            {/* Phone */}
             <div className="mb-2">
               <label
                 className={labelClass(
-                  (submitted || touched.phone) && errors.phone
+                  (submitted || touched.phone) && errors.phone,
                 )}
               >
                 Phone *
               </label>
               <input
                 className={fieldClass(
-                  (submitted || touched.phone) && errors.phone
+                  (submitted || touched.phone) && errors.phone,
                 )}
                 value={form.billing.phone}
                 onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
@@ -310,19 +248,19 @@ export default function EditOrderModal({
               )}
             </div>
 
-            {/* Address */}
             <div>
               <label
                 className={labelClass(
-                  (submitted || touched.address) && errors.address
+                  (submitted || touched.address) && errors.address,
                 )}
               >
                 Address *
               </label>
-              <input
-                className={fieldClass(
-                  (submitted || touched.address) && errors.address
-                )}
+              <textarea
+                rows={3}
+                className={`${fieldClass(
+                  (submitted || touched.address) && errors.address,
+                )} resize-y`}
                 value={form.billing.address}
                 onBlur={() =>
                   setTouched((t) => ({
@@ -347,7 +285,7 @@ export default function EditOrderModal({
 
           <button
             onClick={handleSave}
-            disabled={loading || !isDirty} // ✅ disabled until change
+            disabled={loading || !isDirty}
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "Saving..." : "Save"}
