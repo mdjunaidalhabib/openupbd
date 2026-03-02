@@ -112,100 +112,113 @@ export default function ProductForm({
     fetchCategories();
   }, []);
 
-  /* ---------------- Initialize Form ---------------- */
-  useEffect(() => {
-    setInitDone(false);
+  /* ---------------- Initialize Form (UPDATED) ---------------- */
+useEffect(() => {
+  setInitDone(false);
 
-    if (!product) {
-      setForm((p) => ({ ...p, order: productsLength + 1 }));
+  const safeLen = Number(productsLength ?? 0);
 
-      setBaseDraft({ ...EMPTY_DEFAULT_VARIANT });
-      setVariantDrafts([]);
-      setVariantMode("default");
+  if (!product) {
+    const last = safeLen + 1;
 
-      setFilesReady(true);
-      setInitDone(true);
-      return;
-    }
+    setVariantMode("default");
+    setErrors({});
+    setFilesReady(true);
 
-    const rawVariants = product.colors || [];
+    setBaseDraft({ ...EMPTY_DEFAULT_VARIANT });
+    setVariantDrafts([]);
 
-    // ✅ has variants
-    if (rawVariants.length > 0) {
-      setVariantMode("variant");
+    setForm({
+      name: "",
+      category: "",
+      description: "",
+      additionalInfo: "",
+      order: last,
+      isActive: true,
+      variants: [{ ...EMPTY_DEFAULT_VARIANT }],
+      reviews: [],
+    });
 
-      const mappedVariants = rawVariants.map((v) => ({
-        ...v,
-        price: v.price ?? product.price ?? "",
-        oldPrice: v.oldPrice ?? product.oldPrice ?? "",
-        stock: v.stock ?? product.stock ?? 0,
-        sold: v.sold ?? product.sold ?? 0,
+    setInitDone(true);
+    return;
+  }
 
-        // ✅ IMPORTANT: keep as string urls initially,
-        // VariantSection will normalize to {id, src}
-        files: v.images || [],
-        isBase: false,
-      }));
+  const rawVariants = product.colors || [];
+  const orderValue = Number(product?.order ?? safeLen) || 1;
 
-      setVariantDrafts(mappedVariants);
+  if (rawVariants.length > 0) {
+    setVariantMode("variant");
 
-      const base = {
-        ...EMPTY_DEFAULT_VARIANT,
-        price: product.price || "",
-        oldPrice: product.oldPrice || "",
-        stock: product.stock || 0,
-        sold: product.sold || 0,
-        files: product.images || [],
-        isBase: true,
-      };
-      setBaseDraft(base);
+    const mappedVariants = rawVariants.map((v) => ({
+      ...v,
+      price: v.price ?? product.price ?? "",
+      oldPrice: v.oldPrice ?? product.oldPrice ?? "",
+      stock: v.stock ?? product.stock ?? 0,
+      sold: v.sold ?? product.sold ?? 0,
+      files: v.images || [],
+      isBase: false,
+    }));
 
-      setForm({
-        name: product.name || "",
-        category: product.category?._id || product.category || "",
-        description: product.description || "",
-        additionalInfo: product.additionalInfo || "",
-        order: product.order || productsLength,
-        isActive: product.isActive ?? true,
-        variants: mappedVariants,
-        reviews: product.reviews || [],
-      });
+    setVariantDrafts(mappedVariants);
 
-      setFilesReady(true);
-      setInitDone(true);
-    }
-    // ✅ default mode
-    else {
-      setVariantMode("default");
+    const base = {
+      ...EMPTY_DEFAULT_VARIANT,
+      price: product.price || "",
+      oldPrice: product.oldPrice || "",
+      stock: product.stock || 0,
+      sold: product.sold || 0,
+      files: product.images || [],
+      isBase: true,
+    };
 
-      const base = {
-        ...EMPTY_DEFAULT_VARIANT,
-        price: product.price || "",
-        oldPrice: product.oldPrice || "",
-        stock: product.stock || 0,
-        sold: product.sold || 0,
-        files: product.images || [],
-        isBase: true,
-      };
+    setBaseDraft(base);
 
-      setBaseDraft(base);
-      setVariantDrafts([]);
+    setForm({
+      name: product.name || "",
+      category: product.category?._id || product.category || "",
+      description: product.description || "",
+      additionalInfo: product.additionalInfo || "",
+      order: orderValue,
+      isActive: product.isActive ?? true,
+      variants: mappedVariants,
+      reviews: product.reviews || [],
+    });
 
-      setForm({
-        name: product.name || "",
-        category: product.category?._id || product.category || "",
-        description: product.description || "",
-        additionalInfo: product.additionalInfo || "",
-        order: product.order || productsLength,
-        isActive: product.isActive ?? true,
-        variants: [base],
-        reviews: product.reviews || [],
-      });
+    setFilesReady(true);
+    setInitDone(true);
+    return;
+  }
 
-      setFilesReady(true);
-      setInitDone(true);
-    }
-  }, [product, productsLength]);
+  // default mode
+  setVariantMode("default");
+
+  const base = {
+    ...EMPTY_DEFAULT_VARIANT,
+    price: product.price || "",
+    oldPrice: product.oldPrice || "",
+    stock: product.stock || 0,
+    sold: product.sold || 0,
+    files: product.images || [],
+    isBase: true,
+  };
+
+  setBaseDraft(base);
+  setVariantDrafts([]);
+
+  setForm({
+    name: product.name || "",
+    category: product.category?._id || product.category || "",
+    description: product.description || "",
+    additionalInfo: product.additionalInfo || "",
+    order: orderValue,
+    isActive: product.isActive ?? true,
+    variants: [base],
+    reviews: product.reviews || [],
+  });
+
+  setFilesReady(true);
+  setInitDone(true);
+}, [product, productsLength]);
 
   // snapshot once per init
   useEffect(() => {
@@ -324,7 +337,7 @@ export default function ProductForm({
       formData.append("description", form.description || "");
       formData.append("additionalInfo", form.additionalInfo || "");
       formData.append("order", String(form.order));
-      formData.append("isActive", String(form.isActive));
+      formData.append("isActive", form.isActive ? "true" : "false");
       formData.append("rating", String(averageRating));
       formData.append("reviews", JSON.stringify(form.reviews || []));
 

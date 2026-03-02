@@ -24,18 +24,18 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/products`
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/products`,
       );
       const data = await res.json();
 
       const arr = Array.isArray(data) ? data : [];
 
-      // ✅ ✅ ✅ NEW PRODUCT FIRST (createdAt DESC)
-      // ✅ same time হলে serial/order অনুযায়ী
+      // ✅ SERIAL (order) FIRST (ASC), tie -> newer first
       arr.sort((a, b) => {
-        const dateDiff = new Date(b.createdAt) - new Date(a.createdAt);
-        if (dateDiff !== 0) return dateDiff;
-        return (a.order || 0) - (b.order || 0);
+        const ao = Number(a?.order ?? 0);
+        const bo = Number(b?.order ?? 0);
+        if (ao !== bo) return ao - bo;
+        return new Date(b?.createdAt) - new Date(a?.createdAt);
       });
 
       setProducts(arr);
@@ -56,13 +56,13 @@ export default function ProductsPage() {
     filter === "active"
       ? products.filter((p) => p.isActive)
       : filter === "hidden"
-      ? products.filter((p) => !p.isActive)
-      : products;
+        ? products.filter((p) => !p.isActive)
+        : products;
 
   // check if ANY product is active → then bulk button = Hide All
   const hasAnyActive = useMemo(
     () => products.some((p) => p.isActive),
-    [products]
+    [products],
   );
 
   // ================== DELETE PRODUCT ==================
@@ -75,7 +75,7 @@ export default function ProductsPage() {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/products/${deleteModal._id}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
 
       if (res.ok) {
@@ -105,12 +105,12 @@ export default function ProductsPage() {
             method: "PUT",
             body: (() => {
               const d = new FormData();
-              d.append("isActive", newStatus);
-              d.append("order", p.order); // keep serial same
+              d.append("isActive", newStatus ? "true" : "false");
+              d.append("order", String(p?.order ?? 0)); // keep serial same
               return d;
             })(),
-          })
-        )
+          }),
+        ),
       );
 
       setToast({
@@ -127,6 +127,7 @@ export default function ProductsPage() {
       setLoading(false);
     }
   };
+
   return (
     <div className="p-4 sm:p-6">
       {/* ===================== HEADER ===================== */}
@@ -135,10 +136,10 @@ export default function ProductsPage() {
 
         {/* Right side controls */}
         <div className="flex flex-col items-end gap-2 lg:flex-row lg:items-center lg:gap-2 lg:ml-auto">
-          {/* ✅ ADD PRODUCT (mobile first, desktop last/right) */}
+          {/* ✅ ADD PRODUCT (FIXED) */}
           <button
             onClick={() => {
-              setEditProduct(null);
+              setEditProduct(null); // ✅ IMPORTANT: must be null for Add mode
               setShowForm(true);
             }}
             className="order-1 lg:order-last bg-blue-600 text-white shadow font-semibold px-3 py-1.5 rounded-md text-sm hover:bg-blue-700 active:scale-[0.98] lg:px-4 lg:py-2 lg:text-base lg:rounded-lg"
@@ -146,7 +147,7 @@ export default function ProductsPage() {
             + Add Product
           </button>
 
-          {/* FILTER BUTTONS (same style as categories, bigger on mobile+desktop) */}
+          {/* FILTER BUTTONS */}
           <div className="order-2 lg:order-first flex flex-wrap justify-end gap-1.5 lg:gap-2">
             <button
               className={`px-2.5 py-1.5 rounded-md border text-xs leading-none lg:px-4 lg:py-2.5 lg:text-base lg:rounded-lg ${
@@ -225,12 +226,16 @@ export default function ProductsPage() {
               <ProductForm
                 product={editProduct}
                 productsLength={products.length}
-                onClose={() => setShowForm(false)}
+                onClose={() => {
+                  setShowForm(false);
+                  setEditProduct(null); // ✅ reset
+                }}
                 onSaved={() => {
                   setShowForm(false);
+                  setEditProduct(null); // ✅ reset
                   loadProducts();
                   setToast({
-                    message: editProduct
+                    message: editProduct?._id
                       ? "✅ Product updated!"
                       : "✅ Product added!",
                     type: "success",

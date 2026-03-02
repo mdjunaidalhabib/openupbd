@@ -1,12 +1,32 @@
+"use client";
+
+import { useEffect } from "react";
+
 export default function HeaderSerialStatus({
   product,
   form,
   setForm,
-  maxSerial, // এটি সাধারণত বর্তমান প্রোডাক্ট সংখ্যা (productsLength)
+  maxSerial, // সাধারণত productsLength
 }) {
-  // নতুন প্রোডাক্টের জন্য ড্রপডাউন লিস্ট ১ থেকে (maxSerial + 1) পর্যন্ত হওয়া উচিত
-  // এডিট মোডে বর্তমান সংখ্যা পর্যন্ত থাকলেই হবে
-  const totalOptions = product ? maxSerial : maxSerial + 1;
+  const safeMax = Number(maxSerial ?? 0);
+
+  // ✅ new product -> default serial = last (max+1)
+  // ✅ edit product -> keep existing serial
+  useEffect(() => {
+    if (!product) {
+      const last = safeMax + 1;
+
+      // শুধু তখনই সেট করবে যখন order নেই/invalid বা last থেকে বড়/ছোট mismatch
+      setForm((p) => {
+        const current = Number(p?.order ?? 0);
+        if (current >= 1 && current <= last) return p; // already valid
+        return { ...p, order: last };
+      });
+    }
+  }, [product, safeMax, setForm]);
+
+  // ✅ options: edit -> max পর্যন্ত, add -> max+1 পর্যন্ত
+  const totalOptions = product ? safeMax : safeMax + 1;
 
   return (
     <>
@@ -19,8 +39,9 @@ export default function HeaderSerialStatus({
       <div className="bg-gray-50 rounded p-4 grid grid-cols-2 gap-3 mt-4">
         <div>
           <label className="text-sm font-semibold block mb-1">Serial</label>
+
           <select
-            value={form.order}
+            value={Number(form.order ?? safeMax + 1)}
             onChange={(e) =>
               setForm((p) => ({ ...p, order: Number(e.target.value) }))
             }
@@ -32,6 +53,7 @@ export default function HeaderSerialStatus({
               </option>
             ))}
           </select>
+
           <p className="text-[10px] text-gray-500 mt-1">
             {product ? "Current position" : "Automatically set to last"}
           </p>
@@ -39,6 +61,7 @@ export default function HeaderSerialStatus({
 
         <div>
           <label className="text-sm font-semibold block mb-1">Status</label>
+
           <select
             value={form.isActive ? "active" : "hidden"}
             onChange={(e) =>

@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import OfferBadges from "./OfferBadges";
 
-
 export default function CategoryTabsSection() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -38,8 +37,18 @@ export default function CategoryTabsSection() {
       let pArr = Array.isArray(pRes) ? pRes : [];
       let cArr = Array.isArray(cRes) ? cRes : [];
 
+      // ✅ only active categories + serial sort
       cArr = cArr.filter((c) => c.isActive !== false);
-      cArr.sort((a, b) => (a.order || 0) - (b.order || 0));
+      cArr.sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0));
+
+      // ✅ ✅ ✅ PRODUCT SERIAL SORT (order ASC)
+      // tie হলে newer first
+      pArr.sort((a, b) => {
+        const ao = Number(a.order ?? 0);
+        const bo = Number(b.order ?? 0);
+        if (ao !== bo) return ao - bo;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
 
       setProducts(pArr);
       setCategories(cArr);
@@ -60,11 +69,19 @@ export default function CategoryTabsSection() {
     fetchData();
   }, []);
 
+  // ✅ filter + keep serial order stable
   const filtered = useMemo(() => {
-    if (!activeCat) return products;
-    return products.filter(
-      (p) => String(p.category?._id) === String(activeCat)
-    );
+    const base = !activeCat
+      ? products
+      : products.filter((p) => String(p.category?._id) === String(activeCat));
+
+    // ensure sorted (in case API order changes later)
+    return [...base].sort((a, b) => {
+      const ao = Number(a.order ?? 0);
+      const bo = Number(b.order ?? 0);
+      if (ao !== bo) return ao - bo;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
   }, [activeCat, products]);
 
   const shouldShowSkeleton =
@@ -150,13 +167,6 @@ export default function CategoryTabsSection() {
       transition={{ duration: 0.6 }}
       className="container mx-auto px-4 py-4 sm:px-6 lg:px-8 lg:py-8 "
     >
-      {/*
-      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
-        <span className="bg-gradient-to-r from-blue-600 via-purple-500 to-pink-500 text-transparent bg-clip-text">
-          🛍️ Categories
-        </span>
-      </h2> */}
-
       {/* ================= CATEGORY TABS ================= */}
       <div
         ref={scrollRef}
@@ -198,7 +208,6 @@ export default function CategoryTabsSection() {
           : "bg-pink-100 hover:bg-pink-200 border-pink-300"
       }`}
             >
-              {/* ✅ Square & bigger image */}
               <div className="relative w-10 h-10 overflow-hidden rounded-lg border border-gray-300 m bg-white">
                 <Image
                   src={cat.image || "/no-image.png"}
@@ -210,7 +219,6 @@ export default function CategoryTabsSection() {
                 />
               </div>
 
-              {/* ✅ Added truncate span */}
               <span className="text-sm text-[11px] font-medium text-center truncate w-full max-w-[150px]">
                 {cat.name}
               </span>
@@ -218,22 +226,14 @@ export default function CategoryTabsSection() {
           ))}
         </div>
       </div>
+
       <div className="p-4">
         <OfferBadges />
       </div>
 
-      {/*
-      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-6">
-        <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-600 text-transparent bg-clip-text">
-          {activeCat ? "📦 Selected Category Products" : "📦 All Products"}
-        </span>
-      </h2>
-       */}
-
       {filtered.length ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
           {filtered.map((prod, i) => (
-            // ✅ FIX: first row (above fold) cards get priority to avoid LCP warning
             <ProductCard key={prod._id} product={prod} priority={i < 5} />
           ))}
         </div>
