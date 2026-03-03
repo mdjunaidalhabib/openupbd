@@ -173,7 +173,7 @@ export default function CourierStatus({
 
       <button
         onClick={openModal}
-        className="text-[12px] px-2 py-0 rounded-md border bg-white hover:bg-gray-100 transition"
+        className="text-[11px] px-1 py-0 rounded-md border bg-white hover:bg-gray-100 transition"
       >
         Live Tracking
       </button>
@@ -198,16 +198,32 @@ export default function CourierStatus({
               return (
                 <div key={idx} className="relative">
                   {/* Dot */}
-                  <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px] shadow">
+                  <div
+                    className="absolute -left-[9px] top-1 w-4 h-4 md:w-5 md:h-5 
+                  rounded-full bg-green-500 
+                  flex items-center justify-center 
+                  text-white text-[9px] md:text-[10px] shadow"
+                  >
                     ✓
                   </div>
 
                   {/* Card */}
-                  <div className="bg-gray-50 border rounded-lg px-5 py-3 shadow-sm">
-                    <div className="text-xs text-gray-500 mb-1">{date}</div>
+                  <div
+                    className="bg-gray-50 border rounded-lg 
+                  px-3 py-2 md:px-5 md:py-3 shadow-sm"
+                  >
+                    <div className="text-[10px] md:text-xs text-gray-400 md:text-gray-500 mb-1">
+                      {date}
+                    </div>
 
-                    {/* IMPORTANT: Wrap long text */}
-                    <div className="text-sm font-medium text-gray-800 leading-snug break-words whitespace-pre-wrap">
+                    {/* ✅ Mobile slim text */}
+                    <div
+                      className="text-[12px] md:text-sm 
+                    font-normal md:font-medium 
+                    text-gray-700 md:text-gray-800 
+                    leading-tight md:leading-snug 
+                    break-words whitespace-pre-wrap"
+                    >
                       {message}
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 
-import { READY_STATUS } from "../shared/constants"; // ✅ VERY IMPORTANT
+import { READY_STATUS, LOCKED_STATUSES } from "../shared/constants"; // ✅ add LOCKED_STATUSES
 
 import useOrdersManager from "../hooks/useOrdersManager";
 import StatusSummary from "./StatusSummary";
@@ -27,6 +27,10 @@ export default function OrdersGrid({
     tabStatus,
   });
 
+  /* ===============================
+     SINGLE ORDER STATUS CHANGE
+     READY → SEND_TO_COURIER হলে auto courier create
+  =============================== */
   const handleChange = async (id, payload, order) => {
     setUpdatingId(id);
     try {
@@ -39,7 +43,6 @@ export default function OrdersGrid({
 
         // success হলে selection clear
         manager.setSelected([]);
-
         return; // ⛔ status update এখানেই থামবে
       }
 
@@ -47,6 +50,43 @@ export default function OrdersGrid({
       await onStatusChange(id, payload);
 
       manager.setSelected([]);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  /* ===============================
+     COURIER FINAL STATUS SYNC (MOBILE)
+     CourierStatus যদি DELIVERED/CANCELLED হয়
+     তাহলে backend sync + UI status update হবে
+  =============================== */
+  const handleCourierFinalStatus = async (orderId, finalStatus) => {
+    if (!orderId || !finalStatus) return;
+    if (updatingId === orderId) return;
+
+    // locked check (safe)
+    const order = (orders || []).find((x) => x._id === orderId);
+    if (order && LOCKED_STATUSES?.includes(order.status)) return;
+    if (order && order.status === finalStatus) return;
+
+    setUpdatingId(orderId);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      // ✅ backend sync endpoint call
+      await fetch(`${apiUrl}/admin/api/sync-courier-final`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, finalStatus }),
+      });
+
+      // ✅ UI instant update (parent handler)
+      await onStatusChange(orderId, { status: finalStatus });
+
+      manager.setSelected([]);
+    } catch (err) {
+      console.error("Courier final sync failed:", err);
     } finally {
       setUpdatingId(null);
     }
@@ -81,7 +121,7 @@ export default function OrdersGrid({
         tabStatus={tabStatus}
         setTabStatus={(s) => {
           setTabStatus(s);
-          manager.setSelected([]); 
+          manager.setSelected([]);
         }}
         statusCount={statusCount}
       />
@@ -139,6 +179,7 @@ export default function OrdersGrid({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onSendCourier={onSendCourier}
+                onFinalStatusSync={handleCourierFinalStatus} // ✅ ADD
               />
             ))}
           </div>

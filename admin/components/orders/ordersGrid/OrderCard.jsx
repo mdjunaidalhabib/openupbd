@@ -2,6 +2,7 @@
 
 import { Edit3, Trash2, Send, ChevronDown, ChevronUp } from "lucide-react";
 import Badge from "../../Badge";
+import CourierStatus from "../../CourierStatus"; // ✅ ADD
 
 import {
   STATUS_LABEL,
@@ -23,6 +24,9 @@ export default function OrderCard({
   onEdit,
   onDelete,
   onSendCourier,
+
+  // ✅ NEW: parent থেকে courier final sync handler পাঠাবেন
+  onFinalStatusSync,
 }) {
   const locked = LOCKED_STATUSES.includes(o.status);
   const itemCount = o.items?.reduce((s, it) => s + (it.qty || 0), 0) || 0;
@@ -33,10 +37,12 @@ export default function OrderCard({
 
   const handleStatusUpdate = async (id, newStatus, order) => {
     try {
+      // ✅ READY → send_to_courier হলে auto courier create
       if (order?.status === READY_STATUS && newStatus === "send_to_courier") {
         await onSendCourier(order);
         return;
       }
+
       await onStatusChange(id, { status: newStatus });
     } catch (error) {
       console.error("Status update failed", error);
@@ -56,6 +62,7 @@ export default function OrderCard({
           className="h-3.5 w-3.5 rounded border-gray-300"
           checked={selected.includes(o._id)}
           onChange={() => toggleOne(o._id)}
+          disabled={locked}
         />
 
         <button
@@ -70,22 +77,20 @@ export default function OrderCard({
                 {o.billing?.name || "Unknown"}
               </span>
 
-              {/* ✅ Badge is keeping compact */}
               <div className="leading-none">
                 <Badge type={o.status}>{STATUS_LABEL[o.status]}</Badge>
               </div>
             </div>
 
-            {/* ✅ Cancel Reason */}
+            {/* Cancel Reason */}
             {o.status === "cancelled" && o.cancelReason && (
               <div className="text-[11px] text-red-600 leading-none mt-0.5">
                 <span className="font-semibold">Reason:</span> {o.cancelReason}
               </div>
             )}
 
-            {/* ✅ META ROW (Created by এখানে বসানো হয়েছে) */}
+            {/* META ROW */}
             <div className="flex items-center flex-wrap gap-x-2 gap-y-0 text-[10px] text-gray-400 leading-none mt-0.5">
-              {/* ✅ Created by (NO EXTRA LINE / GAP) */}
               {isAdminCreated && (
                 <span className="text-blue-700 font-semibold">
                   Created by : {o?.createdByName || "Admin"}
@@ -156,6 +161,7 @@ export default function OrderCard({
                     </div>
                   </div>
                 ))}
+
                 {moreCount > 0 && (
                   <p className="text-[9px] text-blue-500 font-medium">
                     + {moreCount} more items
@@ -186,6 +192,7 @@ export default function OrderCard({
             </div>
           </div>
 
+          {/* ✅ STATUS + ACTIONS */}
           <div className="flex gap-2">
             <select
               className="h-10 flex-1 rounded-lg border border-gray-200 px-3 text-[11px] font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
@@ -196,6 +203,7 @@ export default function OrderCard({
               <option value={o.status} disabled>
                 {STATUS_LABEL[o.status]} (Current)
               </option>
+
               {STATUS_OPTIONS.filter(
                 (s) =>
                   (STATUS_FLOW[o.status] || []).includes(s) && s !== o.status,
@@ -213,13 +221,15 @@ export default function OrderCard({
               >
                 <Edit3 size={16} />
               </IconBtn>
+
               <IconBtn
                 onClick={() => onDelete?.(o)}
                 className="bg-red-500 text-white"
               >
                 <Trash2 size={16} />
               </IconBtn>
-              {o.status === READY_STATUS && !o.trackingId && (
+
+              {o.status === READY_STATUS && !o.courier?.trackingId && (
                 <IconBtn
                   onClick={() =>
                     handleStatusUpdate(o._id, "send_to_courier", o)
@@ -232,6 +242,28 @@ export default function OrderCard({
               )}
             </div>
           </div>
+
+          {/* ✅ COURIER STATUS + LIVE TRACKING (MOBILE) */}
+          <CourierStatus
+            trackingId={o.courier?.trackingId}
+            courier={o.courier}
+            orderId={o._id}
+            orderStatus={o.status}
+            onFinalStatus={(orderId, finalStatus) => {
+              if (LOCKED_STATUSES.includes(o.status)) return;
+              if (o.status === finalStatus) return;
+
+              // ✅ Desktop এর মতো parent এ sync করাবে
+              onFinalStatusSync?.(orderId, finalStatus);
+            }}
+          />
+
+          {/* ✅ Cancel reason (Expanded section-এও চাইলে দেখাতে পারেন) */}
+          {o.status === "cancelled" && o.cancelReason && (
+            <div className="text-[11px] text-red-600">
+              <span className="font-semibold">Reason:</span> {o.cancelReason}
+            </div>
+          )}
         </div>
       )}
     </div>

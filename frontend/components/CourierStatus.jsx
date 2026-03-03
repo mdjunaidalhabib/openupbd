@@ -108,7 +108,7 @@ export default function CourierStatus({ trackingId, courier }) {
 
         <button
           onClick={openModal}
-          className="text-xs px-3 py-1 rounded border bg-white hover:bg-gray-100 transition"
+          className="text-xs px-1 py-0 rounded border bg-white hover:bg-gray-100 transition"
         >
           Live Tracking
         </button>
@@ -127,17 +127,23 @@ export default function CourierStatus({ trackingId, courier }) {
 
               return (
                 <div key={idx} className="relative">
-                  {/* Dot (same) */}
-                  <div className="absolute -left-[11px] top-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] shadow">
+                  {/* Dot */}
+                  <div
+                    className="absolute -left-[9px] top-1 w-4 h-4 bg-green-500 rounded-full 
+                  flex items-center justify-center text-white text-[9px] shadow"
+                  >
                     ✓
                   </div>
 
-                  {/* Card (same) */}
-                  <div className="bg-gray-50 border rounded-lg px-4 py-2 shadow-sm">
-                    <div className="text-xs text-gray-500 mb-1">{date}</div>
+                  {/* Card */}
+                  <div className="bg-gray-50 border rounded-lg px-3 py-2 shadow-sm">
+                    <div className="text-[10px] text-gray-400 mb-1">{date}</div>
 
-                    {/* ✅ wrap long text */}
-                    <div className="text-sm font-medium text-gray-800 leading-snug break-words whitespace-pre-wrap">
+                    {/* ✅ Slim mobile text */}
+                    <div
+                      className="text-[12px] font-normal text-gray-700 
+                    leading-tight break-words whitespace-pre-wrap"
+                    >
                       {message}
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Send } from "lucide-react";
 import Badge from "../../Badge";
 import CourierStatus from "../../CourierStatus";
 
@@ -39,8 +40,6 @@ export default function OrdersTable({
 
   /* ===============================
      SINGLE ORDER STATUS CHANGE
-     READY → SEND_TO_COURIER হলে
-     auto courier create হবে
   =============================== */
   const handleChange = async (id, payload, order) => {
     setUpdatingId(id);
@@ -63,8 +62,6 @@ export default function OrdersTable({
 
   /* ===============================
      COURIER FINAL STATUS SYNC
-     CourierStatus যদি DELIVERED/CANCELLED হয়
-     তাহলে Order status auto update হবে
   =============================== */
   const handleCourierFinalStatus = async (orderId, finalStatus) => {
     if (!orderId || !finalStatus) return;
@@ -75,21 +72,13 @@ export default function OrdersTable({
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
-      // ✅ backend sync endpoint call
       await fetch(`${apiUrl}/admin/api/sync-courier-final`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId,
-          finalStatus,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, finalStatus }),
       });
 
-      // ✅ parent handler call (UI instant update)
       await onStatusChange(orderId, { status: finalStatus });
-
       manager.setSelected([]);
     } catch (err) {
       console.error("Courier final sync failed:", err);
@@ -164,7 +153,8 @@ export default function OrdersTable({
                 <th className="p-3 text-left">Items</th>
                 <th className="p-3 text-left">Totals</th>
                 <th className="p-3 text-left">Payment</th>
-                <th className="p-3 text-left">Status</th>
+                <th className="p-3 text-left">Status Info</th>
+                <th className="p-3 text-left">Control</th>
                 <th className="p-3 text-left">Actions</th>
               </tr>
             </thead>
@@ -283,18 +273,38 @@ export default function OrdersTable({
                       <Badge>{o.paymentMethod?.toUpperCase()}</Badge>
                     </td>
 
-                    {/* STATUS + COURIER */}
-                    <td className="p-2">
+                    {/* STATUS INFO */}
+                    <td className="p-2 space-y-2">
                       <span
-                        className={`text-[11px] px-1 py-0.5 rounded-full border ${
-                          STATUS_BADGE_COLOR[o.status]
-                        }`}
+                        className={`text-[11px] px-2 py-0 rounded-full border ${STATUS_BADGE_COLOR[o.status]}`}
                       >
                         {STATUS_LABEL[o.status]}
                       </span>
 
+                      <CourierStatus
+                        trackingId={o.courier?.trackingId}
+                        courier={o.courier}
+                        orderId={o._id}
+                        orderStatus={o.status}
+                        onFinalStatus={(orderId, finalStatus) => {
+                          if (LOCKED_STATUSES.includes(o.status)) return;
+                          if (o.status === finalStatus) return;
+                          handleCourierFinalStatus(orderId, finalStatus);
+                        }}
+                      />
+
+                      {o.status === "cancelled" && o.cancelReason && (
+                        <div className="text-[11px] text-red-600">
+                          <span className="font-semibold">Reason:</span>{" "}
+                          {o.cancelReason}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* CONTROL COLUMN */}
+                    <td className="p-3">
                       <select
-                        className="mt-1 border rounded px-2 py-1 text-sm w-full"
+                        className="border rounded px-2 py-1 text-sm w-full"
                         value={o.status}
                         disabled={locked || updatingId === o._id}
                         onChange={(e) =>
@@ -313,25 +323,6 @@ export default function OrdersTable({
                           </option>
                         ))}
                       </select>
-
-                      <CourierStatus
-                        trackingId={o.courier?.trackingId}
-                        courier={o.courier}
-                        orderId={o._id}
-                        orderStatus={o.status}
-                        onFinalStatus={(orderId, finalStatus) => {
-                          if (LOCKED_STATUSES.includes(o.status)) return;
-                          if (o.status === finalStatus) return;
-                          handleCourierFinalStatus(orderId, finalStatus);
-                        }}
-                      />
-
-                      {o.status === "cancelled" && o.cancelReason && (
-                        <div className="mt-1 text-[11px] text-red-600">
-                          <span className="font-semibold">Reason:</span>{" "}
-                          {o.cancelReason}
-                        </div>
-                      )}
                     </td>
 
                     {/* ACTIONS */}
@@ -349,6 +340,23 @@ export default function OrdersTable({
                       >
                         Delete
                       </button>
+
+                      {o.status === READY_STATUS && !o.courier?.trackingId && (
+                        <button
+                          onClick={() =>
+                            handleChange(
+                              o._id,
+                              { status: "send_to_courier" },
+                              o,
+                            )
+                          }
+                          disabled={updatingId === o._id}
+                          className="bg-indigo-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                        >
+                          <Send size={14} />
+                          Send
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
