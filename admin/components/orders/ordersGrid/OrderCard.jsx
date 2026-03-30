@@ -1,8 +1,15 @@
 "use client";
 
-import { Edit3, Trash2, Send, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Edit3,
+  Trash2,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+} from "lucide-react";
 import Badge from "../../Badge";
-import CourierStatus from "../../CourierStatus"; // ✅ ADD
+import CourierStatus from "../../CourierStatus";
 
 import {
   STATUS_LABEL,
@@ -192,10 +199,10 @@ export default function OrderCard({
             </div>
           </div>
 
-          {/* ✅ STATUS + ACTIONS */}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 w-full overflow-x-auto">
+            {/* STATUS */}
             <select
-              className="h-10 flex-1 rounded-lg border border-gray-200 px-3 text-[11px] font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+              className="h-10 min-w-[140px] rounded-lg border border-gray-200 px-3 text-[11px] font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
               value={o.status}
               disabled={locked || updatingId === o._id}
               onChange={(e) => handleStatusUpdate(o._id, e.target.value, o)}
@@ -214,17 +221,18 @@ export default function OrderCard({
               ))}
             </select>
 
-            <div className="flex gap-1.5">
+            {/* ACTIONS */}
+            <div className="flex items-center gap-1.5 shrink-0">
               <IconBtn
                 onClick={() => onEdit(o)}
-                className="bg-amber-400 text-white"
+                className="bg-amber-400 hover:bg-amber-500 text-white transition"
               >
                 <Edit3 size={16} />
               </IconBtn>
 
               <IconBtn
                 onClick={() => onDelete?.(o)}
-                className="bg-red-500 text-white"
+                className="bg-red-500 hover:bg-red-600 text-white transition"
               >
                 <Trash2 size={16} />
               </IconBtn>
@@ -235,11 +243,20 @@ export default function OrderCard({
                     handleStatusUpdate(o._id, "send_to_courier", o)
                   }
                   disabled={updatingId === o._id}
-                  className="bg-indigo-600 text-white"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white transition disabled:opacity-50"
                 >
                   <Send size={16} />
                 </IconBtn>
               )}
+
+              <a
+                href={`${process.env.NEXT_PUBLIC_API_URL}/api/invoice/${o._id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-blue-600 hover:bg-blue-700 text-white p-3  rounded-lg transition flex items-center justify-center"
+              >
+                <FileText size={16} />
+              </a>
             </div>
           </div>
 

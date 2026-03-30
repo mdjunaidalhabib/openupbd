@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Send } from "lucide-react";
+import { Send, FileText, Edit2, Trash2 } from "lucide-react";
+
 import Badge from "../../Badge";
 import CourierStatus from "../../CourierStatus";
 
@@ -181,7 +182,6 @@ export default function OrdersTable({
                         disabled={locked}
                       />
                     </td>
-
                     {/* ORDER INFO */}
                     <td className="p-2">
                       <div className="font-mono text-xs text-gray-500">
@@ -203,14 +203,12 @@ export default function OrdersTable({
                         {formatOrderTime(o)}
                       </div>
                     </td>
-
                     {/* CUSTOMER */}
                     <td className="p-2">
                       <div className="font-semibold">{o.billing?.name}</div>
                       <div>{o.billing?.phone}</div>
                       <div>{o.billing?.address}</div>
                     </td>
-
                     {/* ITEMS */}
                     <td className="p-2">
                       <div className="space-y-2 max-w-[200px]">
@@ -242,7 +240,6 @@ export default function OrdersTable({
                         )}
                       </div>
                     </td>
-
                     {/* TOTALS */}
                     <td className="p-1 text-xs space-y-1 min-w-[90px]">
                       <div className="flex justify-between">
@@ -267,12 +264,10 @@ export default function OrdersTable({
                         <span>৳{o.total}</span>
                       </div>
                     </td>
-
                     {/* PAYMENT */}
                     <td className="p-3">
                       <Badge>{o.paymentMethod?.toUpperCase()}</Badge>
                     </td>
-
                     {/* STATUS INFO */}
                     <td className="p-2 space-y-2">
                       <span
@@ -300,7 +295,6 @@ export default function OrdersTable({
                         </div>
                       )}
                     </td>
-
                     {/* CONTROL COLUMN */}
                     <td className="p-3">
                       <select
@@ -326,37 +320,57 @@ export default function OrdersTable({
                     </td>
 
                     {/* ACTIONS */}
-                    <td className="p-3 flex gap-2">
-                      <button
-                        onClick={() => onEdit(o)}
-                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Edit
-                      </button>
 
-                      <button
-                        onClick={() => onDelete?.(o)}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                      >
-                        Delete
-                      </button>
-
-                      {o.status === READY_STATUS && !o.courier?.trackingId && (
+                    <td className="p-3 ">
+                      <div className="flex items-center gap-2">
+                        {/* Edit */}
                         <button
-                          onClick={() =>
-                            handleChange(
-                              o._id,
-                              { status: "send_to_courier" },
-                              o,
-                            )
-                          }
-                          disabled={updatingId === o._id}
-                          className="bg-indigo-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1"
+                          onClick={() => onEdit(o)}
+                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition"
                         >
-                          <Send size={14} />
-                          Send
+                          <Edit2 size={14} />
+                          Edit
                         </button>
-                      )}
+
+                        {/* Delete */}
+                        <button
+                          onClick={() => onDelete?.(o)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </button>
+
+                        {/* Send */}
+                        {o.status === READY_STATUS &&
+                          !o.courier?.trackingId && (
+                            <button
+                              onClick={() =>
+                                handleChange(
+                                  o._id,
+                                  { status: "send_to_courier" },
+                                  o,
+                                )
+                              }
+                              disabled={updatingId === o._id}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition disabled:opacity-50"
+                            >
+                              <Send size={14} />
+                              Send
+                            </button>
+                          )}
+
+                        {/* Invoice */}
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_API_URL}/api/invoice/${o._id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition"
+                        >
+                          <FileText size={14} />
+                          Invoice
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 );
