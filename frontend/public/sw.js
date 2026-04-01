@@ -1,19 +1,25 @@
-const CACHE_NAME = "habibs-main-v2";
+const CACHE_NAME = "openup-v1";
 
-self.addEventListener("install", (event) => self.skipWaiting());
-self.addEventListener("activate", (event) => self.clients.claim());
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  self.clients.claim();
+});
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // ✅ only same-origin GET
+  // শুধু same-origin GET request handle করবে
   if (req.method !== "GET" || url.origin !== location.origin) return;
 
-  // ✅ cache Next static files (css/js/images/fonts)
+  // Static assets cache
   if (
     url.pathname.startsWith("/_next/static/") ||
-    url.pathname.startsWith("/images/")
+    url.pathname.startsWith("/images/") ||
+    url.pathname.startsWith("/icons/")
   ) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
@@ -23,12 +29,12 @@ self.addEventListener("fetch", (event) => {
         const res = await fetch(req);
         cache.put(req, res.clone());
         return res;
-      })
+      }),
     );
     return;
   }
 
-  // ✅ network first for pages, fallback to cache
+  // Network first
   event.respondWith(
     fetch(req)
       .then((res) => {
@@ -36,6 +42,6 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
         return res;
       })
-      .catch(() => caches.match(req))
+      .catch(() => caches.match(req)),
   );
 });

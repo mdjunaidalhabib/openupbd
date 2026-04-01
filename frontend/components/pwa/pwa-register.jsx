@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect } from "react";
 
 export default function PWARegister() {
@@ -7,7 +6,10 @@ export default function PWARegister() {
     if (process.env.NODE_ENV !== "production") return;
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js");
+      navigator.serviceWorker
+        .register("/sw.js") // ✅ updated
+        .then(() => console.log("✅ SW registered"))
+        .catch((err) => console.log("❌ SW failed", err));
     }
   }, []);
 

@@ -9,8 +9,12 @@ body {
   padding: 0;
   font-family: "Hind Siliguri", Arial, sans-serif;
   background-image: url("{{backgroundImage}}");
-  background-repeat: repeat-y;
-  background-size: 100% 297mm;
+
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+
+  height: 100vh;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -24,15 +28,15 @@ body {
 
 .order-info {
   position: absolute;
-  top: 353px;
-  right: 100px;
+  top: 370px;
+  right: 110px;
   line-height: 1.8;
 }
 
 .billing {
   position: absolute;
-  top: 348px;
-  left: 150px;
+  top: 365px;
+  left: 155px;
   line-height: 1.7;
 }
 
@@ -47,8 +51,8 @@ body {
 
 /* ================= ITEMS ================= */
 .items {
-  margin-top: 185px;
-  margin-left: 5px;
+  margin-top: 210px;
+  margin-left: 10px;
   padding: 0 90px;
 }
 
@@ -62,7 +66,7 @@ body {
 
 /* ================= SUMMARY & TOTAL ================= */
 .summary {
-  margin-top: 175px;
+  margin-top: 185px;
   margin-right: -35px;
   margin-left: auto;
   width: 200px;

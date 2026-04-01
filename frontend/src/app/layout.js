@@ -6,24 +6,25 @@ import { UserProvider } from "../../context/UserContext";
 import PWARegister from "../../components/pwa/pwa-register";
 import FloatingActionButton from "../../components/home/FloatingActionButton";
 
-// তোমার থিম কালার
-const themeColor = "#f472b6";
-
-// ✅ এখানে তুমি চাইলে নিজের metadata সরাসরি লিখতে পারো
+// ✅ Metadata (UPDATED)
 export const metadata = {
-  title: "OpenUpBD | Trusted Online Shopping Platform in Bangladesh",
+  title: "openup | Trusted Best Online Shopping Platform in Bangladesh",
   description:
-    "OpenUpBD is a reliable e-commerce platform in Bangladesh offering quality products at competitive prices. Shop online with secure payment, fast delivery, and excellent customer support.",
+    "openup is a reliable e-commerce platform in Bangladesh offering quality products at competitive prices.",
+
+  manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 
-export function generateViewportMetadata() {
-  return {
-    themeColor,
-  };
-}
+
+// ✅ Correct viewport সেটআপ
+export const viewport = {
+  themeColor: "#f472b6",
+};
 
 export default function RootLayout({ children }) {
   return (
@@ -34,9 +35,7 @@ export default function RootLayout({ children }) {
           <CartProvider>
             <Navbar />
             <main className="flex-grow bg-pink-50">
-              <div className="mx-auto w-full ">
-                {children}
-              </div>
+              <div className="mx-auto w-full">{children}</div>
             </main>
             <Footer />
             <FloatingActionButton />
