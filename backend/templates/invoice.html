@@ -9,36 +9,75 @@
       rel="stylesheet"
     />
   </head>
+
   <body>
-    <div class="header">
-      <div class="order-info">
-        <div class="order-id">{{orderId}}</div>
-        <div class="order-date">{{date}} ;  {{time}}</div>
-        <div class="order-payment">{{payment}}</div>
+    <div class="page">
+
+      <!-- HEADER -->
+      <div class="header">
+
+        <div class="order-info">
+          <div><strong>Order ID:</strong> {{orderId}}</div>
+          <div><strong>Date:</strong> {{date}} ; {{time}}</div>
+          <div><strong>Payment:</strong> {{payment}}</div>
+        </div>
+
+        <!-- 🔥 BILLING CARD -->
+        <div class="billing-card">
+          <div class="billing-title">Billing Details</div>
+
+          <div class="row-bill">
+            <span class="label">Name</span>
+            <span class="value">{{name}}</span>
+          </div>
+
+          <div class="row-bill">
+            <span class="label">Phone</span>
+            <span class="value">{{phone}}</span>
+          </div>
+
+          <div class="row-bill">
+            <span class="label">Address</span>
+            <span class="value">{{address}}</span>
+          </div>
+
+          <div class="row-bill">
+            <span class="label">Note</span>
+            <span class="value">{{note}}</span>
+          </div>
+        </div>
+
       </div>
 
-      <div class="billing">
-        <div class="billing-name">{{name}}</div>
-        <div class="billing-address">{{address}}</div>
-        <div class="billing-phone">{{phone}}</div>
-        <div class="billing-note">{{note}}</div>
+      <!-- 🔥 ITEMS TABLE -->
+      <div class="items">
+
+        <div class="table-header">
+          <span>Item</span>
+          <span>Price</span>
+          <span>Qty</span>
+          <span>Total</span>
+        </div>
+
+        {{items}}
+
       </div>
+
+      <!-- SUMMARY -->
+      <div class="summary">
+        <div class="summary-row">
+          <span>Subtotal</span><span>{{subtotal}} tk</span>
+        </div>
+        <div class="summary-row">
+          <span>Delivery</span><span>{{delivery}} tk</span>
+        </div>
+        <div class="summary-row">
+          <span>Discount</span><span>{{discount}} tk</span>
+        </div>
+      </div>
+
+      <div class="total">Total: {{total}} tk</div>
+
     </div>
-
-    <div class="items">{{items}}</div>
-
-    <div class="summary">
-      <div class="summary-row summary-subtotal">
-       <span>{{subtotal}} tk</span>
-      </div>
-      <div class="summary-row summary-delivery">
-        <span>{{delivery}} tk</span>
-      </div>
-      <div class="summary-row summary-discount">
-        <span>{{discount}} tk</span>
-      </div>
-    </div>
-
-    <div class="total">{{total}} tk</div>
   </body>
 </html>

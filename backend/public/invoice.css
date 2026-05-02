@@ -1,4 +1,3 @@
-/* ================= PAGE SETUP ================= */
 @page {
   size: A4;
   margin: 0;
@@ -8,85 +7,196 @@ body {
   margin: 0;
   padding: 0;
   font-family: "Hind Siliguri", Arial, sans-serif;
-  background-image: url("{{backgroundImage}}");
 
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-
-  height: 100vh;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
 
-/* ================= HEADER ================= */
+/* PAGE */
+.page {
+  width: 210mm;
+  height: 297mm;
+  position: relative;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* HEADER */
 .header {
   height: 330px;
   position: relative;
-  page-break-after: avoid;
 }
 
+/* ORDER INFO */
 .order-info {
   position: absolute;
-  top: 370px;
-  right: 110px;
+  top: 350px;
+  right: 60px;
+  font-size: 14px;
   line-height: 1.8;
 }
 
-.billing {
+/* 🔥 BILLING CARD */
+.billing-card {
   position: absolute;
-  top: 365px;
-  left: 155px;
-  line-height: 1.7;
+  top: 310px;
+  left: 40px;
+  width: 420px;
+  padding: 12px 15px;
+  border-radius: 8px;
 }
 
-.billing-name {
-  font-size: 20px;
+.billing-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+.row-bill {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  margin-bottom: 4px;
+}
+
+.label {
   font-weight: bold;
 }
-.billing-address {
-  font-size: 18px;
-  max-width: 350px;
+
+.label::after {
+  content: ":";
 }
 
-/* ================= ITEMS ================= */
+.value {
+  word-break: break-word;
+}
+
+/* ITEMS SECTION WRAPPER */
 .items {
-  margin-top: 210px;
-  margin-left: 10px;
-  padding: 0 90px;
+  margin-top: 180px;
+  padding: 0 50px;
+  font-size: 14px;
 }
 
+/* TABLE HEADER */
+.table-header {
+  display: grid;
+  grid-template-columns: 6fr 1.5fr 1fr 1fr;
+  font-weight: 700;
+  padding: 12px 10px;
+
+  border-bottom: 2px solid #111827;
+  background: #f9fafb;
+
+  color: #111827;
+  letter-spacing: 0.3px;
+}
+
+/* SINGLE ROW */
 .row {
   display: grid;
-  grid-template-columns: 6fr 1.4fr 0.9fr 0.9fr;
-  font-size: 16px;
-  padding: 10px 0;
-  page-break-inside: avoid;
+  grid-template-columns: 6fr 1.5fr 1fr 1fr;
+  padding: 12px 10px;
+
+  border-bottom: 1px solid #e5e7eb;
+  min-height: 38px;
+
+  align-items: center;
 }
 
-/* ================= SUMMARY & TOTAL ================= */
+/* ZEBRA EFFECT */
+.row:nth-child(even) {
+  background: #fcfcfd;
+}
+
+/* ITEM NAME */
+.row span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #111827;
+}
+
+/* RIGHT ALIGN NUMBERS */
+.row span:not(:first-child),
+.table-header span:not(:first-child) {
+  text-align: right;
+  color: #374151;
+  font-weight: 500;
+}
+
+
+/* keep space visible but blank */
+.row.empty span {
+  color: transparent;
+}
+/* SUMMARY CARD */
 .summary {
-  margin-top: 185px;
-  margin-right: -35px;
+  margin-top: 130px;
+  margin-right: 80px;
   margin-left: auto;
-  width: 200px;
-  font-size: 16px;
-  page-break-inside: avoid;
+  width: 300px;
+
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 18px;
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 
+/* TITLE (optional add) */
+.summary::before {
+  content: "Order Summary";
+  display: block;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #111827;
+  border-bottom: 1px dashed #e5e7eb;
+  padding-bottom: 8px;
+}
+
+/* ROW STYLE */
 .summary-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
-  color: #b91c1c;
+  align-items: center;
+
+  font-size: 14px;
+  padding: 6px 0;
+  color: #374151;
 }
 
+/* LABEL */
+.summary-row span:first-child {
+  color: #6b7280;
+}
+
+/* VALUE */
+.summary-row span:last-child {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* DIVIDER EFFECT */
+.summary-row:not(:last-child) {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* TOTAL BOX (IMPORTANT) */
 .total {
-  margin-top: -5px;
-  margin-right: 110px;
+  margin-top: 12px;
+  margin-right: 80px;
   text-align: right;
+
   font-size: 20px;
-  font-weight: bold;
-  color: hsl(266, 100%, 52%);
-  page-break-inside: avoid;
+  font-weight: 800;
+
+  color: #ffffff;
+  background: linear-gradient(135deg, #6d28d9, #4f46e5);
+
+  padding: 12px 16px;
+  border-radius: 10px;
+
+  box-shadow: 0 6px 18px rgba(109, 40, 217, 0.25);
 }
